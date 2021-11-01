@@ -1,0 +1,9 @@
+.SUFFIXES: .ogg .fla
+
+#%.ogg	: %.fla
+.fla.ogg:
+	ffmpeg  -i $< -acodec libopus -ab 192k -ac 2 -y $@
+
+/locker/opus/Australian_Crawl__James_Reyne/The_Definitive_Collection_CD_1/18_Two_Can_Play.ogg : /locker/flac/Australian_Crawl__James_Reyne/The_Definitive_Collection_CD_1/18_Two_Can_Play.fla
+
+

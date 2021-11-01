@@ -1,0 +1,7 @@
+For opus
+
+./reflac.pl --format=opus --source=/locker/flac --target=/locker/opus
+
+For vorbis
+
+./reflac.pl --format=vorbis --source=/locker/flac --target=/locker/ogg
