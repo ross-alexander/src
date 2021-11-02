@@ -168,6 +168,12 @@ sub m3u_check {
     $e->{files} = $res;
 }
 
+# ----------------------------------------------------------------------
+#
+# M A I N
+#
+# ----------------------------------------------------------------------
+
 # --------------------
 # Using unicode internally so need to "decode" back to utf-8 on output
 # --------------------
@@ -178,10 +184,15 @@ binmode(STDOUT, ":utf8");
 # Find all m3u files
 # --------------------
 
-my $res = m3u_find("/locker/opus");
-map {
-    m3u_check(entry => $_);
-} @$res;
+my $res = [];
+
+for my $dir ('/locker/opus')
+{
+    push(@$res, {
+	dir => $dir,
+	m3u => [map { m3u_check(entry => $_); } @{m3u_find($dir)}]
+	 });
+}
 
 # --------------------
 # Write out as JSON.  This will be in utf8 format
