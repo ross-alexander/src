@@ -1,0 +1,490 @@
+#!/usr/bin/perl
+
+# ----------------------------------------------------------------------
+#
+# qemu-run
+
+# 2021-09-07: Ross Alexander
+#   Add cpu to riscv to enable setting extentions such as rv64,x-v=true,x-k=true,vlen=256,elen=64,vext_spec=v1.0
+
+# 2021-02-18: Ross Alexander
+#  Add support for aarch64
+
+# 2020-06-19: Ross Alexander
+#  Rename --base to --basedir
+#  Add support for additional drives
+#  Convert riscv from virtio-blk to virtio-scsi
+
+# 2020-03-23: Ross Alexnader
+#   Make the VM name a specific parameter (--vmname)
+
+# 2020-01-19: Ross Alexander
+#   Add model to support riscv
+
+# 2019-05-04: Ross Alexander
+#    Add support for systemd-run
+
+# 2019-04-20: Ross Alexander
+#    Rewrite shell script into perl
+#
+# ----------------------------------------------------------------------
+
+use 5.28.0;
+use Getopt::Long;
+use File::Spec::Functions qw(rel2abs catfile);
+use Carp;
+use YAML qw(LoadFile);
+use JSON;
+use JSON::Path;
+use GDBM_File;
+
+# ----------------------------------------------------------------------
+#
+# model_aarch64
+#
+# ----------------------------------------------------------------------
+
+sub model_aarch64 {
+    my ($run) = @_;
+    my @cmd;
+    
+    my $vm = $run->{vm};
+    my $smp = $vm->{smp} // 1;
+    my $mem = $vm->{mem} // 1024;
+
+    push(@cmd, 'qemu-system-aarch64', '-name', $vm->{name}, '-machine', 'virt', '-m', $mem, '-smp', $smp);
+    push(@cmd, '-cpu', $run->{vm}->{cpu}) if ($run->{vm}->{cpu});
+    push(@cmd, '-kernel', $run->{vm}->{kernel}) if ($run->{vm}->{kernel});
+    push(@cmd, '-initrd', $run->{vm}->{initrd}) if ($run->{vm}->{initrd});
+    return [@cmd];
+};
+
+# ----------------------------------------------------------------------
+#
+# model_riscv64
+#
+# ----------------------------------------------------------------------
+
+sub model_riscv64 {
+    my ($run) = @_;
+    my @cmd;
+    
+    my $vm = $run->{vm};
+    my $smp = $vm->{smp} // 1;
+    my $mem = $vm->{mem} // 1024;
+
+    push(@cmd, 'qemu-system-riscv64', '-name', $vm->{name}, '-machine', 'virt', '-m', $mem, '-smp', $smp);
+    push(@cmd, '-cpu', $run->{vm}->{cpu}) if ($run->{vm}->{cpu});
+    push(@cmd, '-bios', $run->{vm}->{bios}) if ($run->{vm}->{bios});
+    push(@cmd, '-kernel', $run->{vm}->{kernel}) if ($run->{vm}->{kernel});
+    push(@cmd, '-object', 'rng-random,filename=/dev/urandom,id=rng0', '-device', 'virtio-rng-device,rng=rng0');
+    return [@cmd];
+};
+
+# ----------------------------------------------------------------------
+#
+# model_x86_64
+#
+# ----------------------------------------------------------------------
+
+
+sub model_x86_64 {
+    my ($run) = @_;
+    my @cmd;
+
+    my $confdir = $run->{confdir};
+    my $basedir = $run->{basedir};
+    my $vm = $run->{vm};
+    my $smp = $vm->{smp} // 1;
+    my $mem = $vm->{mem} // 1024;
+    
+    push(@cmd, 'qemu-system-x86_64', '-name', $vm->{name}, '-enable-kvm', '-machine', 'q35', '-m', $mem, '-cpu', 'host', '-smp', $smp);
+
+    # --------------------
+    # Check for UEFI
+    # --------------------
+    
+    if ($vm->{firmware} eq 'uefi')
+    {
+	my $ovmf_code = catfile($confdir, "uefi", "OVMF_CODE.fd");
+	croak sprintf("$0: OVMF code file %s missing", $ovmf_code) if (! -f $ovmf_code);
+	my $ovmf_vars = catfile($basedir, "OVMF_VARS.fd");
+	croak "$0: OVMF vars file $ovmf_vars missing" if (! -f $ovmf_vars);
+	$run->{ovmf_code} = $ovmf_code;
+	$run->{ovmf_vars} = $ovmf_vars;
+	push(@cmd, "-drive", sprintf("unit=0,if=pflash,format=raw,readonly,file=%s", $run->{ovmf_code}));
+	push(@cmd, "-drive", sprintf("unit=1,if=pflash,format=raw,file=%s", $run->{ovmf_vars}));
+
+	# --------------------
+	# Unset kernel to stop append for root=
+	# --------------------
+
+	delete $vm->{kernel} if (exists($vm->{kernel}));
+    }
+    else
+    {
+	push(@cmd, '-bios', $run->{vm}->{bios}) if ($run->{vm}->{bios});
+	push(@cmd, '-kernel', $run->{vm}->{kernel}) if ($run->{vm}->{kernel});
+    }
+    my @append = ("console=ttyS0");
+    return ([@cmd], [@append]);
+}
+
+# ----------------------------------------------------------------------
+#
+# yaml_file_read
+#
+# ----------------------------------------------------------------------
+
+sub yaml_file_read {
+    my ($path) = @_;
+
+    my ($yaml) = LoadFile($path);
+    if (!$yaml)
+    {
+	croak "$0: Could not load YAML file %s\n", $path;
+    }
+    
+    if (!(ref($yaml) eq "HASH"))
+    {
+	croak "YAML file %s need to be an hash.\n", $path;
+    }
+    
+    if (!exists($yaml->{vm}))
+    {
+	croak "Cannot find key 'vm'.\n";
+    }
+    
+    if (!((ref($yaml->{vm}) eq "HASH") || (ref($yaml->{vm}) eq "ARRAY")))
+    {
+	croak "Value of 'vm' must be hash or array.\n";
+    }
+
+    my $vm_map;
+
+    if (ref($yaml->{vm}) eq "HASH")
+    {
+	if (!exists($yaml->{vm}->{name}))
+	{
+	    croak "Key 'name' missing from vm definition.\n";
+	}
+	$vm_map->{$yaml->{vm}->{name}} = $yaml->{vm};
+    }
+    else
+    {
+	$vm_map = +{
+	    map { ($_->{name}, $_); } @{$yaml->{vm}}
+	};
+    }
+    return $vm_map;
+}
+
+# ----------------------------------------------------------------------
+#
+# qemu_run
+#
+# ----------------------------------------------------------------------
+
+sub qemu_run {
+    my ($run) = @_;
+    my $vm = $run->{vm};
+
+    my @cmd;
+
+    push(@cmd, "systemd-run", "--unit", sprintf("qemu.%s", $vm->{name})) if ($run->{systemd});
+
+    my $model = $run->{model};
+    my @append;
+
+    my $model_map = {
+	aarch64 => \&model_aarch64,
+	riscv64 => \&model_riscv64,
+	x86_64 => \&model_x86_64,
+    };
+    $run->{drive_index} = 0;
+
+    if (!(exists($model_map->{$model})))
+    {
+	printf STDERR "$0: model %s not supported.\n", $model;
+	exit(1);
+    }
+
+    my ($cmd, $append) = $model_map->{$model}->($run);
+    
+    push(@cmd, @$cmd);
+    push(@append, @$append) if ($append);
+
+    # --------------------
+    # Add root disk
+    # --------------------
+
+    my $root_dev;
+    
+    if ($run->{device} eq "virtio-blk-device")
+    {
+	my $drive = sprintf("hd%d", $run->{drive_index}++);
+	push(@cmd, '-drive', sprintf('if=none,file=%s,format=%s,id=%s', $run->{image}, $run->{format}, $drive));
+	push(@cmd, '-device', "virtio-blk-pci,drive=$drive");
+	$root_dev = "vda";
+    }
+    else
+    {
+	my $index = $run->{drive_index}++;
+	my $drive = sprintf("hd%d", $index);
+	push(@cmd, "-device", "virtio-scsi-pci,id=scsi");
+	push(@cmd, "-device", "scsi-hd,drive=$drive");
+	push(@cmd, "-drive", sprintf("index=%d,if=none,id=%s,file=%s,format=%s", $index, $drive, $run->{image}, $run->{format}));
+	$root_dev = "sda";
+    }
+
+    if ($run->{partition})
+    {
+	push(@append, sprintf("root=/dev/%s%d", $root_dev, $run->{partition}));
+    }
+    else
+    {
+	push(@append, sprintf("root=/dev/%s", $root_dev));
+    }
+    
+    # --------------------
+    # Add extra disks
+    # --------------------
+
+    if (exists($vm->{disks}) && (ref($vm->{disks}) eq "ARRAY"))
+    {
+	my $index = $run->{drive_index}++;
+	my $drive = sprintf("hd%d", $index);
+	for my $disk (@{$vm->{disks}})
+	{
+	    if ($run->{device} eq "virtio-blk-device")
+	    {
+		push(@cmd, '-device', "virtio-blk-pci,drive=$drive");
+	    }
+	    else
+	    {
+		push(@cmd, "-device", sprintf("scsi-hd,drive=%s", $drive));
+	    }
+	    push(@cmd, "-drive", sprintf("index=%d,if=none,id=%s,file=%s,format=%s", $index, $drive, catfile($run->{basedir}, $disk->{name}), $disk->{format}));
+	}
+    }
+
+    # --------------------
+    # Add networking
+    # --------------------
+    
+    my $netdb = {};
+    tie(%$netdb, 'GDBM_File', $run->{netdb}, &GDBM_WRCREAT, 0640);
+    my $index = 0;
+    for my $n (@{$vm->{nic}})
+    {
+	my $ifname = sprintf("%s_%02d", $run->{name}, $index);
+	push(@cmd, "-netdev", sprintf("type=tap,id=net%d,ifname=%s,script=/locker/vm/ovs-up,downscript=/locker/vm/ovs-down",
+				      $index, $ifname));
+	push(@cmd, "-device", sprintf("virtio-net-pci,netdev=net%d,mac=%s", $index, $n->{mac}));
+	$index++;
+	$netdb->{$ifname} = to_json($n);
+    }
+    untie(%$netdb);
+
+    if ($vm->{monitor})
+    {
+	push(@cmd, "-monitor", sprintf("tcp:localhost:%d,server,nowait,telnet", $vm->{monitor}));
+    }
+    if ($vm->{serial})
+    {
+	push(@cmd, "-serial", sprintf("tcp:localhost:%d,server,nowait,telnet", $vm->{serial}));
+    }
+    else
+    {
+	push(@cmd, "-serial", "stdio");
+    }
+
+    # --------------------
+    # Add extra append lines from defintion file
+    # --------------------
+    
+    push(@append, $vm->{append}) if ($vm->{append});
+
+    # --------------------
+    # Add append
+    # --------------------
+    
+    push(@cmd, "-append", join(" ", @append)) if (scalar(@append));
+
+    if ($run->{vga})
+    {
+	push(@cmd, "-display", "gtk", "-vga", "vmware");
+    }
+    else
+    {
+	push(@cmd, "-display", "none");
+    }
+    push(@cmd, "-daemonize") if ($run->{daemon});
+    say join(" ", @cmd), "\n";
+    exec(@cmd) || croak;
+}
+
+# ----------------------------------------------------------------------
+#
+# M A I N
+#
+# ----------------------------------------------------------------------
+
+sub main()
+{
+    # --------------------
+    # Set some defaults
+    # --------------------
+    
+    my $opts = {
+	confdir => '/locker/vm',
+	yamlfile => undef,
+	demon => 0,
+	systemd => 0,
+    };
+
+    # --------------------
+    # Get command line parameters
+    # --------------------
+
+    GetOptions(
+	'confdir=s' => \$opts->{confdir},
+	'yaml=s' => \$opts->{yamlfile},
+	'daemon' => \$opts->{daemon},
+	'systemd' => \$opts->{systemd},
+	'basedir=s' => \$opts->{basedir},
+	'vmname=s' => \$opts->{vmname},
+	'vga' => \$opts->{vga}
+	);
+
+    if (scalar(@ARGV) < 0)
+    {
+	croak "$0: vmname missing";
+	exit 1;
+    }
+
+    # --------------------
+    # confdir is important as it has the networking callbacks
+    # --------------------
+    
+    my $confdir = rel2abs($opts->{confdir});
+    if (! -d $confdir)
+    {
+	croak "$0: Configuration direction $confdir missing";
+    }
+
+    # --------------------
+    # Get YAML file
+    # --------------------
+    
+    my $name = $opts->{vmname};
+    if (! $opts->{yamlfile})
+    {
+	$opts->{yamlfile} = catfile($confdir, sprintf("%s.yaml", $name));
+    }
+    
+    if (! -f $opts->{yamlfile})
+    {
+	croak sprintf("$0: YAML file %s missing", $opts->{yamlfile});
+    }
+
+    my $vm_map = yaml_file_read($opts->{yamlfile});
+    
+    if (!exists($vm_map->{$name}))
+    {
+	croak "$0: Configuration for VM $name missing.";
+    }
+
+    # --------------------
+    # Start collecting details
+    # --------------------
+    
+    my $run = {
+	vm => $vm_map->{$name},
+	name => $name,
+    };
+
+    # --------------------
+    # Set the model
+    # --------------------
+    
+    my $model = $run->{model} = $run->{vm}->{model} // "x86_64";
+
+    # --------------------
+    # Check base directory (which holds the image subdirectory
+    # --------------------
+
+    if (!exists($run->{vm}->{image}))
+    {
+	printf STDERR "$0: image key missing.\n";
+	exit(1);
+    }
+
+    my $image_key = $run->{vm}->{image};
+	
+    my $basedir;
+
+    if ($opts->{basedir})
+    {
+	$basedir = catfile(rel2abs($opts->{basedir}), $name);
+    }
+    elsif ($run->{vm}->{image}->{directory})
+    {
+	$basedir = $run->{vm}->{image}->{directory};
+    }
+    else
+    {
+	$basedir = catfile(rel2abs("."), $name);
+    }
+    croak "$0: image base directory $basedir missing" if (!-d $basedir);
+
+    # --------------------
+    # Check image exists
+    # --------------------
+    
+    my $format => $run->{format} = $run->{vm}->{image}->{format};
+    my $image = catfile($basedir, $image_key->{file} // sprintf("%s.%s", $name, $run->{format}));
+    croak "$0: image file $image missing" if (! -f $image);
+
+    # --------------------
+    # Fill in more variables, needs clean up
+    # --------------------
+
+    $run->{confdir} = $confdir;
+    $run->{basedir} = $basedir;
+    $run->{device} = $run->{vm}->{image}->{device} if (exists($run->{vm}->{image}->{device}));
+
+    # --------------------
+    # Check if need to set partition number
+    # --------------------
+
+    if (my $part = $run->{vm}->{image}->{partition})
+    {
+	if ($part->{root} && $part->{root}->{id})
+	{
+	    $run->{partition} = $part->{root}->{id};
+	}
+    }
+    
+    $run->{image} = $image;
+    $run->{netdb} = catfile($opts->{confdir}, "net.db");
+    $run->{daemon} = $opts->{daemon};
+    $run->{systemd} = $opts->{systemd};
+    $run->{vga} = $opts->{vga} if ($opts->{vga});
+    
+    # --------------------
+    # Dump details
+    # --------------------
+    
+    printf(STDOUT "--------------------\n");
+    printf(STDOUT "basedir: %s\n", $run->{basedir});
+    printf(STDOUT "confdir: %s\n", $run->{confdir});
+    printf(STDOUT "yaml: %s\n", $opts->{yamlfile});
+    printf(STDOUT "image: %s\n", $run->{image});
+    printf(STDOUT "netdb: %s\n", $run->{netdb});
+    printf(STDOUT "--------------------\n\n");
+    
+    &qemu_run($run);
+}
+
+&main();
