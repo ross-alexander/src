@@ -31,14 +31,14 @@ ifeq ($(MACH), riscv64)
 endif
 
 
-all: jit1 jit2 jit3 jit4 jit5-$(SUFFIX)
+all: jit1 jit2-$(SUFFIX) jit3 jit4 jit5-$(SUFFIX)
 
 jit1: jit1.c
 
-jit2: dynasm-driver.c jit2.h dynasm/dasm_riscv64.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o jit2 dynasm-driver.c -DJIT=\"jit2.h\"
-jit2.h: jit2.dasc
-	$(LUA) dynasm/dynasm.lua $(DYNASM_DEFS) jit2.dasc > jit2.h
+jit2-$(SUFFIX): dynasm-driver.c jit2-$(SUFFIX).h dynasm/dasm_riscv64.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ dynasm-driver.c -DJIT=\"jit2-$(SUFFIX).h\"
+jit2-$(SUFFIX).h: jit2.dasc
+	$(LUA) dynasm/dynasm.lua $(DYNASM_DEFS) $< > $@
 
 jit3: dynasm-driver.c jit3.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o jit3 dynasm-driver.c -DJIT=\"jit3.h\"
@@ -50,7 +50,7 @@ jit4: dynasm-driver.c jit4.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ dynasm-driver.c -DJIT=\"jit4.h\"
 
 jit4.h: jit4.dasc
-	$(LUA) dynasm/dynasm.lua $< > $@
+	$(LUA) dynasm/dynasm.lua $(DYNASM_DEFS) $< > $@
 
 
 jit5-$(SUFFIX): dynasm-driver.c jit5-$(SUFFIX).h $(JIT_HEADER)
