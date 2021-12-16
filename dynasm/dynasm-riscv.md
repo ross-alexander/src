@@ -256,13 +256,162 @@ needed to be modified.  This emits an IMM_I dynasm opcode.
 The load/store instructions (LOAD/STORE) are designed to be as simple
 as possible to implement in hardware, so LOAD uses rs1 + immediate as
 the source address and stores the result in rd, while the SAVE uses
-the same rs1 + immediate but uses rs2 as the source value.
+the same rs1 + immediate but uses rs2 as the source value.  Because of
+this the immediate bits are swirled around and split between [31:25]
+and [11:7].
 
 In both cases the immediate value is a 12-bit signed value and the
 format of the instruction is n(rx) where n is the immediate and rx is
 the indexing register.  All LOAD/STORE instructions have a 3-bit field
 for length, giving LB, LH, LW and LD for 8,16,32 and 64 bits
-respectively.  All values are sign extended upon load.
+respectively.  All values are sign extended upon load.  There are
+corresponding unsigned load instructions, which do not do the sign
+extension.
 
 The machinary for implementing LD is straight forward, just using the
 D for destination and changing the immediate to be [31:20].
+
+Below is a decode from the generated output.
+
+~~~
+   0:   fe010113                addi    sp,sp,-32
+   4:   01313823                sd      s3,16(sp)
+   8:   01213423                sd      s2,8(sp)
+   c:   00113023                sd      ra,0(sp)
+  10:   00050913                mv      s2,a0
+  14:   00093983                ld      s3,0(s2)
+  18:   01013983                ld      s3,16(sp)
+  1c:   00813903                ld      s2,8(sp)
+  20:   00013083                ld      ra,0(sp)
+  24:   02010113                addi    sp,sp,32
+  28:   00008067                ret
+~~~
+
+## Get and put characters
+
+The next two bf commands implemented were , and ., which reads and
+writes a character (8-bit only) from and to stdin and stdout
+respectively.
+
+In ARM64 these are
+
+    | ldrb cArg2w, [aPtr]
+    | mov cArg1, aState
+    | ldr TMP, state->put_ch
+    | blr TMP
+
+and
+
+    | mov cArg1, aState
+    | ldr TMP, state->get_ch
+    | blr TMP
+    | strb cRetw, [aPtr]
+
+for put_ch and get_ch respectively.  In RV64I an unconditional jump to
+an address in a register is Jump And Link Register [JALR].  This jumps
+to the address in rs1 + IMM12 while putting the return address (PC+4)
+into the register specified in rd, normally ra (x1).  Only jalr_1 was
+implemented, where the immediate value is set to 0 and rd is defaulted
+to x1.
+
+    |  lb cArg2, (aPtr)
+    |  mv cArg1, aState
+    |  ld TMP, state->put_ch
+    |  jalr TMP
+
+    | mv cArg1, aState
+    | ld TMP, state->get_ch
+    | jalr TMP
+    | sb cRet, (aPtr)
+
+For the test program the + command is also implemented to confirm the
+cell is being written to, updated and then re-read.
+
+    | ld TMP, (aPtr)
+    | addi TMP, TMP, #1
+    | sb TMP, (aPtr)
+
+With the following test program
+
+~~~
+echo 'X' | ./jit5-r64 ',+.' ; echo
+Y
+~~~
+
+the following code (with prologue and epilogue removed) as generated.
+
+~~~
+  1c:   01093303                ld      t1,16(s2)
+  20:   000300e7                jalr    t1
+  24:   00a98023                sb      a0,0(s3)
+  28:   0009b303                ld      t1,0(s3)
+  2c:   00130313                addi    t1,t1,1
+  30:   00698023                sb      t1,0(s3)
+  34:   00098583                lb      a1,0(s3)
+  38:   00090513                mv      a0,s2
+  3c:   00893303                ld      t1,8(s2)
+  40:   000300e7                jalr    t1
+  44:   01013983                ld      s3,16(sp)
+~~~
+
+The <, > and - commands straight forward and didn't require any
+additional instructions, just leaving just [ and ].  The jit3.dasc
+implementation using dynamic labels and array as stack very clean.
+The ARM64 implementation was simple.
+
+Branching in RV64I is paradoxically both simpler and more complex.
+The RV32I/RV64I ISA does not have condition codes, instead it has
+fused check and branch instructions, where rs1 and rs2 and the check
+are encoded into the branch, along with a 12-bit immediate.  The
+immediate is a left shifted offset to the PC, allowing a branch with
++/- 4K of the instruction.
+
+This lead to an issue where small bf programs ran successfully but
+larger programs, such as mandelbrot, failed.  To work around this
+limitation there is a Jump and Link [JAL] instruction, which has a
+20-bit immediate.  This immediate is again left shifted one to allow
+jumps to addresses +1/- 1MB from PC.  The branch is then reversed to
+skip over the unconditional branch.  Fortunately the placement of the
+dynamic labels meant no additional labels were required.
+
+
+    | lb TMP, (aPtr)
+    // | beq TMP, zero, =>(maxpc-2)
+    | bne TMP, zero, =>(maxpc-1)
+    | jal zero, =>(maxpc-2)
+    |=>(maxpc-1):
+
+and
+
+    | lb TMP, (aPtr)
+    // | bne TMP, zero, =>(*top-1)
+    | beq TMP, zero, =>(*top-2)
+    | jal zero, =>(*top-1)
+    |=>(*top-2):
+
+This BNE and JAL instructions required two additional dynasm
+instruction, PC_REL_B and PC_REL_J.  Each of these finds the relative
+instruction offset (in bytes) then encodes them in the B and J
+immediate format.  These formats have an number of bits swirled to
+reduce the number of multiplexors required in the data path.
+
+# Testing on HiFive Unmatched from SiFive
+
+The test platform was a HiFive Unmatched board from SiFive, which has
+a U74-MC core, with four U74 cores running @ 1.2 GHz, 32KB I-cache and
+2MB L2-cache.  A second test platform was running QEMU 6.1 on an AMD
+Ryzen 5 2600X @ 3.6 GHz.
+
+Because luajit cannot run natively instead lua 5.1.5 + luabitop 1.0.2
+was manually compiled and installed.
+
+| System              | Time      | Code Size |
+| ---                 | ---       | ---       |
+| Ryzen 5 2600X (X64) | 0m2.533s  | 42528     |
+| QEMU (RV64I)        | 0m5.939s  | 67140     | 
+| Unmatched           | 3m10.040s | 67140     |
+| QEMU (AARCH64)      | 0m6.664s  | 67140     |
+
+I'm not sure why the unmatched is so much slower than it running under
+emulation.  It might be an I-cache issue given the Ryzen has 32KB
+I-cache (per core), 3MB L2 cache and 32MB of L3 cache.
