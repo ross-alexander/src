@@ -207,11 +207,11 @@ int main(int argc, char *argv[])
   | ld aPtr, state->tape
 |.endif
 
-//  printf("here 2\n");
-       
   for (const char *p = program; *p; p++)
     {
+#ifdef JIT_DEBUG
       putchar(*p);
+#endif
       switch (*p) {
 // ----------------------------------------------------------------------
       case '>':
@@ -353,6 +353,7 @@ int main(int argc, char *argv[])
     | cmp TMPw, #0
     | bne =>(*top-1)
     |=>(*top-2):
+
 |.endif
 |.if RISCV64
     | lb TMP, (aPtr)
@@ -389,8 +390,10 @@ int main(int argc, char *argv[])
   |  addi sp, sp, #32
   |  ret
 |.endif
-       
+
+#ifdef JIT_DEBUG
   printf("\n");
+#endif
 
   bf_state_t st;
   st.tape = calloc(30000, 1);
