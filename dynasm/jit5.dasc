@@ -1,0 +1,410 @@
+/* ----------------------------------------------------------------------
+--
+-- copied from jit3 but passing state rather than just tape
+--
+-- The state and call code is from the dynasm example.  Trying to
+-- do calls to functions directly is problematic on RISCV and ARM
+-- so passing it as a pointer in a structure makes it easy.
+--
+-- 2021-12-16: Ross Alexander
+--   Add ability to read program from NSX.
+--   Add RISCV64 code and use branch/jal to avoid limit of +/4K
+--   by using J/JA/JAL, which uses a +-20 bit offset.
+
+-- 2021-12-13: Ross Alexander
+--   Add ARM64 (aka AARCH64).  This has been tested with Debian 9.23
+--   running on qemu (machine virt, cpu cortex a-53). 
+--
+---------------------------------------------------------------------- */
+
+// JIT for Brainf*ck.
+
+#include <stdio.h>
+#include <stdint.h>
+#include <unistd.h>
+
+|.if X64
+|.arch x64
+|.endif
+
+|.if AARCH64
+|.arch arm64
+|.endif
+
+|.if RISCV64
+|.arch riscv64
+|.endif
+
+|.actionlist actions
+
+
+|// Use rbx as our cell pointer.
+|// Since rbx is a callee-save register, it will be preserved
+|// across our calls to getchar and putchar.
+
+|.if X64
+|.define aPtr, r12
+|.define aState, rbx
+|.define cArg1, rdi
+|.define cArg2, rsi
+|.endif
+
+|.if AARCH64
+|.define aPtr, x19
+|.define aState, x20
+|.define TMP, x23
+|.define TMPw, w24
+|.define cArg1, x0
+|.define cArg2, x1
+|.define cArg1w, w0
+|.define cArg2w, w1
+|.define rRet, x0
+|.define cRetw, w0
+|.endif
+
+|.if RISCV64
+|.define aState, s2
+|.define aPtr, s3
+|.define TMP, t1
+|.define cArg1, a0
+|.define cArg2, a1
+|.define cRet, a0
+|.endif
+
+|// Macro for calling a function.
+|// In cases where our target is <=2**32 away we can use
+|//   | call &addr
+|// But since we don't know if it will be, we use this safe
+|// sequence instead.
+
+|.macro prepcall1, arg1
+| mov cArg1, arg1
+|.endmacro
+|.macro prepcall2, arg1, arg2
+| mov cArg1, arg1
+| mov cArg2, arg2
+|.endmacro
+|.define postcall, .nop
+
+|.if X64
+|.macro callp, addr
+|  mov64  rax, (uintptr_t)addr
+|  call   rax
+|.endmacro
+|.endif
+
+#define Dst &state
+#define MAX_NESTING 256
+
+void err(const char *msg) {
+  fprintf(stderr, "%s\n", msg);
+  exit(1);
+}
+
+/* ----------------------------------------------------------------------
+--
+-- define structure with putchar and getchar function pointers
+--
+---------------------------------------------------------------------- */
+
+typedef struct bf_state {
+  char *tape;
+  void (*put_ch)(struct bf_state*, unsigned char);
+  unsigned char (*get_ch)(struct bf_state*);
+} bf_state_t;
+
+static unsigned char bf_getchar(bf_state_t* s)
+{
+  return (unsigned char)getchar();
+}
+
+static void bf_putchar(bf_state_t* s, unsigned char c)
+{
+  putchar((int)c);
+}
+
+/* ----------------------------------------------------------------------
+--
+-- main
+--
+---------------------------------------------------------------------- */
+
+int main(int argc, char *argv[])
+{
+  int ch;
+  const char *path = 0;
+  char *program;
+
+  /* --------------------
+     Add getopt to allow program to be passed as
+     a file using the -f <path>
+     -------------------- */
+  
+  while ((ch = getopt(argc, argv, "f:")) != EOF)
+    switch(ch)
+      {
+      case 'f':
+	path = optarg;
+	break;
+      }
+
+  /* --------------------
+     If path passed then try to load file into memory
+     -------------------- */
+  
+  if (path)
+    {
+      long sz;
+      FILE* f = fopen(path, "r");
+      if(!f) {
+	fprintf(stderr, "Cannot open %s\n", path);
+	return 1;
+      }
+      fseek(f, 0, SEEK_END);
+      sz = ftell(f);
+      program = (char*)malloc(sz + 1);
+      fseek(f, 0, SEEK_SET);
+      program[fread(program, 1, sz, f)] = 0;
+      fclose(f);
+    }
+  else
+    {
+      if ((argc - optind) < 1) err("Usage: jit3 <bf program>");
+      program = (char*)argv[1];
+    }
+
+  dasm_State *state;
+  initjit(&state, actions);
+
+  |.type state, bf_state_t, aState
+
+  unsigned int maxpc = 0;
+  int pcstack[MAX_NESTING];
+  int *top = pcstack, *limit = pcstack + MAX_NESTING;
+
+
+  // Function prologue.
+|.if X64
+  |  push aPtr
+  |  push aState
+  |  mov  aState, cArg1
+  |  mov  aPtr, state->tape
+|.endif
+|.if AARCH64
+  |  sub sp, sp, #32
+  |  str aPtr, [sp, #16]
+  |  str aState, [sp, #8]
+  |  str lr, [sp, #0]
+  |  mov aState, cArg1
+  |  ldr aPtr, state->tape
+|.endif
+|.if RISCV64
+  | addi sp, sp, #-32
+  | sd aPtr, 16(sp)
+  | sd aState, 8(sp)
+  | sd ra, 0(sp)
+  | mv aState, cArg1
+  | ld aPtr, state->tape
+|.endif
+
+//  printf("here 2\n");
+       
+  for (const char *p = program; *p; p++)
+    {
+      putchar(*p);
+      switch (*p) {
+// ----------------------------------------------------------------------
+      case '>':
+|.if X64
+|  inc  aPtr
+|.endif
+|.if AARCH64
+|  add  aPtr,aPtr, #1
+|.endif
+|.if RISCV64
+|  addi  aPtr, aPtr, #1
+|.endif
+        break;
+// ----------------------------------------------------------------------
+      case '<':
+|.if X64
+|  dec  aPtr
+|.endif
+|.if AARCH64
+|  sub  aPtr,aPtr, #1
+|.endif
+|.if RISCV64
+|  addi  aPtr, aPtr, #-1
+|.endif
+        break;
+// ----------------------------------------------------------------------
+      case '+':
+|.if X64
+    |  inc  byte [aPtr]
+|.endif
+|.if AARCH64
+    | ldrb TMPw, [aPtr]
+    | add TMPw, TMPw, #1
+    | strb TMPw, [aPtr]
+|.endif   
+|.if RISCV64
+    | ld TMP, (aPtr)
+    | addi TMP, TMP, #1
+    | sb TMP, (aPtr)
+|.endif   
+        break;
+// ----------------------------------------------------------------------
+      case '-':
+|.if X64
+    |  dec  byte [aPtr]
+|.endif
+|.if AARCH64
+    | ldrb TMPw, [aPtr]
+    | sub TMPw, TMPw, #1
+    | strb TMPw, [aPtr]
+|.endif   
+|.if RISCV64
+    | ld TMP, (aPtr)
+    | addi TMP, TMP, #-1
+    | sb TMP, (aPtr)
+|.endif   
+        break;
+// ----------------------------------------------------------------------
+      case '.':
+|.if X64
+    | movzx r0, byte [aPtr]
+    | prepcall2 aState, r0
+    | call aword state->put_ch
+    | postcall 2
+|.endif
+|.if AARCH64
+    | ldrb cArg2w, [aPtr]
+    | mov cArg1, aState
+    | ldr TMP, state->put_ch
+    | blr TMP
+|.endif
+|.if RISCV64
+    |  lb cArg2, (aPtr)
+    |  mv cArg1, aState
+    |  ld TMP, state->put_ch
+    |  jalr TMP
+|.endif
+        break;
+// ----------------------------------------------------------------------
+      case ',':
+|.if X64
+    | prepcall1 aState
+    | call aword state->get_ch
+    | postcall 1
+    | mov byte [aPtr], al
+|.endif
+|.if AARCH64
+    | mov cArg1, aState
+    | ldr TMP, state->get_ch
+    | blr TMP
+    | strb cRetw, [aPtr]
+|.endif
+|.if RISCV64
+    | mv cArg1, aState
+    | ld TMP, state->get_ch
+    | jalr TMP
+    | sb cRet, (aPtr)
+|.endif
+        break;
+// ----------------------------------------------------------------------
+      case '[':
+        if (top == limit) err("Nesting too deep.");
+        // Each loop gets two pclabels: at the beginning and end.
+        // We store pclabel offsets in a stack to link the loop
+        // begin and end together.
+        maxpc += 2;
+        *top++ = maxpc;
+        dasm_growpc(&state, maxpc);
+|.if X64
+    | cmp  byte [aPtr], 0
+    | je   =>(maxpc-2)
+    |=>(maxpc-1):
+|.endif
+|.if AARCH64
+    | ldrb TMPw, [aPtr]
+    | cmp TMPw, #0
+    | beq =>(maxpc-2)
+    |=>(maxpc-1):
+|.endif
+|.if RISCV64
+    | lb TMP, (aPtr)
+//    | beq TMP, zero, =>(maxpc-2)
+    | bne TMP, zero, =>(maxpc-1)
+    | jal zero, =>(maxpc-2)
+|=>(maxpc-1):
+|.endif
+        break;
+// ----------------------------------------------------------------------
+      case ']':
+        if (top == pcstack) err("Unmatched ']'");
+        top--;
+|.if X64
+    |  cmp  byte [aPtr], 0
+    |  jne  =>(*top-1)
+    |=>(*top-2):
+|.endif
+|.if AARCH64
+    | ldrb TMPw, [aPtr]
+    | cmp TMPw, #0
+    | bne =>(*top-1)
+    |=>(*top-2):
+|.endif
+|.if RISCV64
+    | lb TMP, (aPtr)
+//    | bne TMP, zero, =>(*top-1)
+    | beq TMP, zero, =>(*top-2)
+    | jal zero, =>(*top-1)
+    |=>(*top-2):
+|.endif
+    break;
+    }
+  }
+
+
+  /* --------------------
+     Function epilogue.
+     -------------------- */
+
+|.if X64
+  |  pop  aState
+  |  pop  aPtr
+  |  ret
+|.endif
+|.if AARCH64
+  |  ldr aPtr, [sp, #16]
+  |  ldr aState, [sp, #8]
+  |  ldr lr, [sp, #0]
+  |  add sp, sp, #32
+  |  ret
+|.endif
+|.if RISCV64
+  |  ld aPtr, 16(sp)
+  |  ld aState, 8(sp)
+  |  ld ra, 0(sp)
+  |  addi sp, sp, #32
+  |  ret
+|.endif
+       
+  printf("\n");
+
+  bf_state_t st;
+  st.tape = calloc(30000, 1);
+  st.put_ch = bf_putchar;
+  st.get_ch = bf_getchar;
+
+  void (*fptr)(bf_state_t*) = jitcode(&state);
+
+  fptr(&st);
+
+  free(st.tape);
+  if (path)
+    free(program);
+
+  free_jitcode(fptr);
+  return 0;
+}
