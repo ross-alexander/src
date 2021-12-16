@@ -133,21 +133,61 @@ One of the specific design criteria of the RISCV ISA was that the
 registers are always in the same place in the instruction and that any
 immediates are swirled around them as necessary.
 
-Code  Description
-----  -------------------
-D     rd (bits [11:7])
-N     rs1 (bits [19:15])
-M     rs2 (bits [24:20])
-I     12-bit immediate (I-type instruction)
+| Code | Description |
+| ---- | ------------------- |
+| D    | rd (bits [11:7]) |
+| N    | rs1 (bits [19:15]) |
+| M    | rs2 (bits [24:20]) |
+| I    | 12-bit immediate (I-type instruction) |
 
 Additionally the dynasm instruction IMM_I and STOP needed to be implemented
 in dasm_put, dasm_link and dasm_encode.
 
-# BF
+# Brainf*ck
+
+Brainf*ck, reference as BF here after, is an esoteric language.  It is
+based on an string of commands and a "tape", normally of 8-bit cells,
+and a current cell.
+
+
+| Char | Description |
+| ---- | --- |
+| >    | Move to next cell on the right |
+| <    | Move to next cell of the left |
+| +    | Increase value of current cell by 1 |
+| -    | Decrease value of current cell by 1 |
+| .    | Output value of current cell as a character |
+| ,    | Accept character from input and put in current cell |
+| [    | If cell is zero then jump past matching ] |
+| ]    | If cell is non-zero, jump back to after matching [ |
+
+
+The original dynasm example took a BF interpreter and converted it to
+X86 dynasm.  The dasm-a64 took that example and converted it to ARM64.
+The jit3.dasc example also has an X86 BF implementation but is simpler
+in design.  A new example was created combining various features of
+both programs.
+
+1. A state structure was created with tape pointer, put_ch and get_ch
+   function pointers.  Trying to call a function directly from dynasm
+   in ARM64 or RV64I is problematic but calling a function pointer
+   which is a member of structure pointed at by a register is straight
+   forward.
+
+2. X86 and ARM64 code was split out into .if and .endif blocks.  The
+   Makefile was modified to create machine specific .h files an
+   executables (jit5-x86 and jit5-a64 respectively).
+
+3. Additional code was added to support both passing the bf program as
+   a string on the command line and passing a file path.  The original
+   jit3 example uses argv[1] as the program code but this caused
+   problems with the mandelbrot.bf program.
+
 
 Taken from the dasm-a64 example code.  These are the ARMv8 register
 allocation.  In ARMv8 the size of the operation (32-bit vs 64-bit) is
-based on register name.
+based on register name.  Some of the registers, such as aTapeBegin,
+aTapeEnd, TMP1, cRet and cRetw, ended up not being used.
 
 ~~~
      |.define aPtr, x19
@@ -166,63 +206,57 @@ based on register name.
      |.define cRet, x0
 ~~~
 
-Registers x19-28 are callee saved registers, s2-11 are the closest
-approximation.  Argument registers are a0-a7, with a0 the return
-register.  The stack pointer is sp (x2).
+The ARM64 registers x19-28 are callee saved registers, the RV64 s2-11
+are the closest approximation.  In RV64 the argument registers are
+a0-a7, with a0 the return register.  The stack pointer is sp (x2).  It
+should be noted that in the ISA the registers are x0-x31 but in GNU as
+the ABI names should be used.
 
 ~~~
-     |.define aPtr, s2
-     |.define aState, s3
-     |.define aTapeBegin, s4
-     |.define aTapeEnd, s5
-     |.define TMP, s6
-     |.define TMP1, s7
-     |.define TMPw, s6
-     |.define TMP1w, s6
-     |.define cArg1w, a0
-     |.define cArg2w, a1
-     |.define cRetw, a0
+     |.define aState, s2
+     |.define aPtr, s3
+     |.define TMP, t1
      |.define cArg1, a0
      |.define cArg2, a1
      |.define cRet,  a0
 ~~~
 
 The original function prologue from the Arm-v8 stores various callee
-saved register onto the stack.  This uses the ARMv8 store pair, which
-doesn't exist in RV32I or RV64I.
+saved register onto the stack.  The original used the ARMv8 store
+pair, which doesn't exist in RV32I or RV64I, so str and ldr are used
+instead, to keep the code as similar as possible.
 
 ~~~
     |.macro prologue
-     | sub sp, sp, #0x40
-     | stp aPtr, aState, [sp]
-     | stp aTapeBegin, aTapeEnd, [sp, #0x10]
-     | stp TMP, TMP1, [sp, #0x20]
-     | str lr, [sp, #0x30]
+     | sub sp, sp, #32
+     | str aPtr, [sp, #16]
+     | str aState,[sp, #8]
+     | str lr, [sp, #0]
      | mov aState, cArg1
+     | ldr aPtr, state->tape
     |.endmacro
 ~~~
 
 The subi operation does not exist as all immediate values are signed,
-so the immediate is negated and added instead.
+so the immediate is negated and added instead.  The mv opcode is a
+pseudo-instruction for addi rd, rs1, #0.  Code for the state->tape
+needed to be modified.  This emits an IMM_I dynasm opcode.
 
 ~~~
     |.macro prologue
-     | addi sp, sp, #-0x40
-     | sd aPtr, 0(sp)
+     | addi sp, sp, #-32
+     | sd aPtr, 16(sp)
      | sd aState 8(sp)
-     | sd aTapeBegin, 16(sp)
-     | sd aTapeEnd, 24(sp)
-     | sd TMP, 32(sp)
-     | sd TMP1, 40(sp)
-     | sd ra, 48(sp)
-     | addi aState, cArg1, #0
+     | sd ra, 0(sp)
+     | mv aState, cArg1
+	 | ld aPtr, state->tape
     |.endmacro
 ~~~
 
 The load/store instructions (LOAD/STORE) are designed to be as simple
-as possible to implement in hardware as possible, so LOAD uses rs1 +
-immediate as the source address and stores the result in rd, while the
-SAVE uses the same rs1 + immediate but uses rs2 as the source value.
+as possible to implement in hardware, so LOAD uses rs1 + immediate as
+the source address and stores the result in rd, while the SAVE uses
+the same rs1 + immediate but uses rs2 as the source value.
 
 In both cases the immediate value is a 12-bit signed value and the
 format of the instruction is n(rx) where n is the immediate and rx is
