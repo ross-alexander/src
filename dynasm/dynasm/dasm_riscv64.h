@@ -247,12 +247,16 @@ void dasm_put(Dst_DECL, int start, ...)
 	}
       else
 	{
+#ifdef DASM_DEBUG
 	  printf("dasm_put %02x %d\n", opcode, action);
+#endif
 	  int *pl, n = action >= DASM_REL_PC_B ? va_arg(ap, int) : 0;
 	  switch (action)
 	    {
 	    case DASM_STOP:
+#ifdef DASM_DEBUG
 	      printf("STOP\n");
+#endif
 	      goto stop;
 	    case DASM_SECTION:
 	      n = (ins & 255); CK(n < D->maxsection, RANGE_SEC);
@@ -297,7 +301,9 @@ void dasm_put(Dst_DECL, int start, ...)
 	    case DASM_IMM_I:
 	      CK((n & ((1<<((ins>>10)&31))-1)) == 0, RANGE_I);
 	      //	      n >>= ((ins>>10)&31);
+#ifdef DASM_DEBUG
 	      printf("dasm_put DASM_IMM_I %d\n", n);
+#endif
 #ifdef DASM_CHECKS
 	      if ((ins & 0x8000))
 		CK(((n + (1<<(((ins>>5)&31)-1)))>>((ins>>5)&31)) == 0, RANGE_I);
@@ -373,9 +379,9 @@ int dasm_link(Dst_DECL, size_t *szp)
     int *b = sec->rbuf;
     int pos = DASM_SEC2POS(secnum);
     int lastpos = sec->pos;
-
+#ifdef DASM_DEBUG
     printf("dasm_link %d %d\n", pos, lastpos);
-    
+#endif   
     while (pos != lastpos)
       {
 	dasm_ActList p = D->actionlist + b[pos++];
@@ -401,7 +407,11 @@ int dasm_link(Dst_DECL, size_t *szp)
       }
     ofs += sec->ofs;  /* Next section starts right after current section. */
   }
+  
+#ifdef DASM_DEBUG
   printf("codesize %d\n", ofs);
+#endif
+
   D->codesize = ofs;  /* Total size of all code sections */
   *szp = ofs;
   return DASM_S_OK;
@@ -428,12 +438,16 @@ int dasm_encode(Dst_DECL, void *buffer)
     int *b = sec->buf;
     int *endb = sec->rbuf + sec->pos;
 
+#ifdef DASM_DEBUG
     printf("dasm_encode %p %p %d\n", b, endb, sec->pos);
-    
+#endif
+
     while (b != endb)
       {
 	dasm_ActList p = D->actionlist + *b++;
+#ifdef DASM_DEBUG
 	printf("dasm_encode %p %p %d\n", b, endb, sec->pos);
+#endif
 	while (1)
 	  {
 	    unsigned int ins = *p++;
@@ -441,12 +455,18 @@ int dasm_encode(Dst_DECL, void *buffer)
 	    unsigned int action = (ins >> 7);
 	    if (ops != 0x0b) action = DASM__MAX;
 	    int n = (action >= DASM_ALIGN && action < DASM__MAX) ? *b++ : 0;
-	    printf("encode ins %02x action %d n %d -- %p %p\n", ins, action, n, b, endb);
+
+#ifdef DASM_DEBUG
+	    printf("dasm_encode ins %02x action %d n %d -- %p %p\n", ins, action, n, b, endb);
+#endif
+	    
 	    switch (action)
 	      {
 	      case DASM_STOP:
 	      case DASM_SECTION:
+#ifdef DASM_DEBUG
 		printf("dasm_encode: STOP\n");
+#endif
 		goto stop;
 	      case DASM_ESC: *cp++ = *p++; break;
 	      case DASM_REL_EXT:
@@ -467,7 +487,9 @@ int dasm_encode(Dst_DECL, void *buffer)
 		{
 		  CK(n >= 0, UNDEF_PC);
 		  n = *DASM_POS2PTR(D, n) - (int)((char *)cp - base) + 4;
+#ifdef DASM_DEBUG
 		  printf("encode REL_PC_B %d %08x\n", n, n);
+#endif
 		patchrel:
 		  int offset = n;
 		  /* All branches are PC_REL and uses a swirled immediate encoding (B-type). */
@@ -476,17 +498,23 @@ int dasm_encode(Dst_DECL, void *buffer)
 		  imm |= (offset & 0x07e0) << 20; // 10:5 -> 30:25
 		  imm |= (offset & 0x001e) << 7; // 4:1 -> 11:8
 		  imm |= (offset & 0x0800) >> 4; // 11 -> 7
+#ifdef DASM_DEBUG
 		  printf("encode REL_PC_B %08x\n", imm);
+#endif
 		  cp[-1] |= imm;
 		}
 		break;
 	      case DASM_REL_PC_J:
 		{
 		  n = *DASM_POS2PTR(D, n) - (int)((char *)cp - base) + 4;
+#ifdef DASM_DEBUG
 		  printf("encode REL_PC_J %d %08x\n", n, n);
+#endif
 		  int offset = n;
 		  int imm = ((offset & 0x100000) << 11) | ((offset & 0x0007fe) << 20) | ((offset & 0x000800) << 9) |((offset & 0x0ff000) << 0);
+#ifdef DASM_DEBUG
 		  printf("encode REL_PC_J %08x\n", imm);
+#endif
 		  cp[-1] |= imm;
 		}
 		break;
@@ -495,15 +523,17 @@ int dasm_encode(Dst_DECL, void *buffer)
 		break;
 	      case DASM_LABEL_PC: break;
 	      case DASM_IMM_I:
-		printf("encode DASM_IMM_I\n");
+#ifdef DASM_DEBUG
+		printf("dasm_encode DASM_IMM_I\n");
+#endif
 		cp[-1] |= (n << 20);
 		break;
 	      case DASM_IMM_S:
-		printf("encode DASM_IMM_S\n");
+		printf("dasn_encode DASM_IMM_S\n");
 		cp[-1] |= ((n&31) << 19) | ((n&32) << 26);
 		break;
 	      case DASM_IMM_B:
-		printf("encode DASM_IMM_B %d\n", n);
+		printf("dasm_encode DASM_IMM_B %d\n", n);
 		exit(1);
 		cp[-1] |= (dasm_imm12((unsigned int)n) << 10);
 		break;
