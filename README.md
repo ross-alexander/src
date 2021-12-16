@@ -1,1 +1,1 @@
-This can be found as (github)[https://github.com/ross-alexander/src].
+This can be found on [GitHub](https://github.com/ross-alexander/src).
