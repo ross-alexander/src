@@ -1,7 +1,7 @@
 ---
 title: Porting the luajit dynasm code to RV64I
 author: Ross Alexander
-date: December 5, 2021
+date: December 16, 2021
 ---
 
 # Precis
@@ -10,31 +10,34 @@ The RISC-V ISA is now 10 years old and while I majority of C code runs
 on Linux on the RV64I instruction set there currently is no support
 for luajit.
 
-The first thing to migrate luajit is to add RV64I support to dynasm.  As
-the RV64I ISA is a classic RISC ISA either MIPS64 or AARCH64 (aka ARM64)
-should be a good base to work from.
+The first thing to migrate luajit is to add RV64I support to dynasm.
+As the RV64I ISA is a classic RISC ISA either MIPS64 or AARCH64 (aka
+ARM64) is a good base to work from.
 
 ## MIPS64 vs ARM64 base
 
 The MIPS64 was chosen by the porters of the Javascript V8 engine.
-There is a large amount of documentation around the MIPS64 ISA.
-However the availability and long term support for MIPS64 hardware is
-much less than ARM64.  As AARCH64 is almost a completely new ISA
-rather than an extension of the existing ARMv7 ISA, with many of its
-quirks removed, it is a good enough starting pointing.
+There is a large amount of documentation around the MIPS64 ISA as it
+was the primary RISC architecture for teaching.  However the
+availability and long term support for MIPS64 hardware is much less
+than ARM64.  As AARCH64 was almost a new ISA rather than an extension
+of the existing ARMv7 ISA, with many of its quirks removed, was is a
+good starting point.
 
 # Getting started
 
-The starting point was [jitdemo](https://github.com/haberman/jitdemo).
-This is based around x86_64 but has an basic C example, a trivial
-dynadm example and BF interpreter.
+The original starting point
+was [jitdemo](https://github.com/haberman/jitdemo).  This is based
+around x86_64 but has an basic C example, a trivial dynasm example and
+Brainf*ck interpreter.  This was a good introduction to dynasm but it
+was solely for X86.
 
-Another source is [dasm-a64](https://github.com/zenkj/dasm-a64), an
-early port of dynasm to AARCH64 ISA.  This isn't completely identical
-to the ARM64 dynasm now in luajit but it close enough that the BF
-example was trivial to fix.
+A critical source was [dasm-a64](https://github.com/zenkj/dasm-a64),
+an early port of dynasm to AARCH64 ISA.  This isn't completely
+identical to the current ARM64 dynasm now in luajit but was close
+enough that the Brainf*ck example was trivial to fix.
 
-# RV32I/RV64I assembly
+# RV64I assembly
 
 The Assembly Programmer's Manual is in some of the unprivileged spec
 documents but otherwise can be found
@@ -43,51 +46,65 @@ in
 This contains the register names, assembly forms and pseudo
 instruction details.
 
-# RV64I opcodes
+## RV64I opcodes
+
+The RV64I ISA contains the base RV32I instruction set with 15
+additional instructions.  The majority of RISCV implementations that
+support Linux are based on the RV64IMAFD.
 
 The RV64I ISA only uses word aligned 32-bit instructions, stored
 little endian in memory.  This means the first byte read are the lower
 8 bits [7:0].  This contains the opcode prefix [1:0].  For RV64I this
 is always 0x3.  The next five bits [6:2] contain the instruction
 format.  Depending on the format additional bits may be required for
-the final instruction.
+the final instruction.  All the unprivileged instructions in RV64IMAFD
+are use the base [6:0] opcodes.
 
 The encoding used ARM64 for special dynasm instructions does not fit
-well with the RV64I encoding.  Instead the custom-0 opcode is used.
-This is the opcode 0x0b.  The dynasm instructions are thus (ins >> 7).
-Given the relatively small number od dynasm instructions it would not
-be unreasonable to assign 5 bits to them, leaving 20 bits of space
-available for additional fields.
+well with the RV64I encoding.  Instead the custom-0 opcode [0x0b] is
+used.  Given the relatively small number od dynasm instructions 5 bits
+have been assigned to them, given dynasm special instructions are (ins >> 7) && 0x1f.
+This leaves 20 bits of space available for additional fields.
 
-# Trivial example
+# Examples
+
+## JIT1
 
 Based on the example in jitdemo jit1.c, which involves loading the
 return value register with an immediate value, then returning from
 the caller.
 
 Due to all instructions being 32-bits long it not possible to load a
-full immediate into a register.  With the RV32I and RV64I immediates
+full immediate into a register.  With the RV64I arithmetric immediates
 are signed 12-bit values.  To load a 32-bit value the LUI [Load Upper
 Immediate] instruction takes a 20-bit value and loads it into the
 [31:12] bits of the target register, and clears the lower bits.  The
 RV64I LUI sign extends the 32-bit result to 64-bits.
 
-RV32I/RV64I doesn't have a load immediate instruction, instead it
-relies on ADDI and register zero (x0).  All 12-bit immediate values
-are sign extended before being added.  Below is an example of loading
-the return value register (a0) with the immedate value 6, then
-returning.  Note that ret is a pseudo-instruction for jalr x0, 0(x1).
+RV64I doesn't have a load immediate instruction, instead it relies on
+ADDI and register zero (x0).  All 12-bit immediate values are sign
+extended before being added.  Below is an example of loading the
+return value register (a0) with the immedate value 6, then returning.
+Note that ret is a pseudo-instruction for jalr x0, 0(x1).
 
-    addi a0, zero, #7
+Because the immediate in the addi instruction is sign extended before
+the additional if it is "negative" then the upper immediate value
+needs +4096 added to it.  In RV64I assembly the pseudo-instruction
+LI takes care of this.
+
+## JIT2
+
+    addi a0, zero, #num
     ret
 
 The resulting action list is
 
-    static const unsigned int actions[3] = {
-	0x00700513,
-	0x00008067,
-	0x0000000b
-	};
+    static const unsigned int actions[4] = {
+    0x00000513,
+    0x0000050b,
+    0x00008067,
+    0x0000000b
+    };
 
 The final code is below.  The LI instruction is Load Immediate, which
 is a pseudo instruction.  Because RV has two varients it is necessary
@@ -95,7 +112,7 @@ to specify riscv:rv64 for objdump to recognise RV64I specific
 instructions, such as LD or SW (load double word, store double word).
 
 ~~~
-root@unmatched:~# objdump -D -b binary -mriscv:rv64 /tmp/jitcode
+objdump -D -b binary -mriscv:rv64 /tmp/jitcode
 
 /tmp/jitcode:     file format binary
 
@@ -109,6 +126,13 @@ Disassembly of section .data:
 
 ## Template codes
 
+The above code requires two instruction templates, the first with rs1,
+rd and I-type immediate, the second without any operands.
+
+One of the specific design criteria of the RISCV ISA was that the
+registers are always in the same place in the instruction and that any
+immediates are swirled around them as necessary.
+
 Code  Description
 ----  -------------------
 D     rd (bits [11:7])
@@ -116,7 +140,8 @@ N     rs1 (bits [19:15])
 M     rs2 (bits [24:20])
 I     12-bit immediate (I-type instruction)
 
-
+Additionally the dynasm instruction IMM_I and STOP needed to be implemented
+in dasm_put, dasm_link and dasm_encode.
 
 # BF
 
