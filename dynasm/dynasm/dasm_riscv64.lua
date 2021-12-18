@@ -47,7 +47,7 @@ local wline, werror, wfatal, wwarn
 local action_names = {
   "STOP", "SECTION", "ESC", "REL_EXT",
   "ALIGN", "REL_LG", "LABEL_LG",
-  "REL_PC_B", "LABEL_PC", "REL_PC_J",
+  "LABEL_PC", "REL_PC_B", "REL_PC_J",
   "IMM_I", "IMM_S", "IMM_B", "IMM_U", "IMM_J", "IMML", "IMMV",
   "VREG",
 }
@@ -228,8 +228,12 @@ end
 -- Arch-specific maps.
 
 -- Ext. register sname -> int. name.
-local map_archdef = { zero = "x0", ra = "x1", sp = "x2", a0 = "x10", a1 = "x11",
-		      s2 = "x18", s3 = "x19", s4 = "x20", t0 = "x5", t1 = "x6", t2 = "x7"}
+local map_archdef = { zero = "x0", ra = "x1", sp = "x2",
+		      t0 = "x5", t1 = "x6", t2 = "x7",
+		      a0 = "x10", a1 = "x11", a2 = "x12", a3 = "x13",
+		      a4 = "x14", a5 = "x15", a6 = "x16", a7 = "x17",
+		      s2 = "x18", s3 = "x19", s4 = "x20",
+		      }
 
 -- Int. register name -> ext. name.
 local map_reg_rev = { x0 = "zero", x1 = "ra", x2 = "sp", x5 = "t0", x6 = "t1", x7 = "t2",
@@ -480,125 +484,6 @@ local function parse_imm(imm, bits, shift, scale, signed)
   end
 end
 
-local function parse_imm13(imm)
-  imm = match(imm, "^#(.*)$")
-  if not imm then werror("expected immediate operand") end
-  local n = parse_number(imm)
-  local r64 = parse_reg_type == "x"
-  if n and n % 1 == 0 and n >= 0 and n <= 0xffffffff then
-    local inv = false
-    if band(n, 1) == 1 then n = bit.bnot(n); inv = true end
-    local t = {}
-    for i=1,32 do t[i] = band(n, 1); n = shr(n, 1) end
-    local b = table.concat(t)
-    b = b..(r64 and (inv and "1" or "0"):rep(32) or b)
-    local p0, p1, p0a, p1a = b:match("^(0+)(1+)(0*)(1*)")
-    if p0 then
-      local w = p1a == "" and (r64 and 64 or 32) or #p1+#p0a
-      if band(w, w-1) == 0 and b == b:sub(1, w):rep(64/w) then
-	local s = band(-2*w, 0x3f) - 1
-	if w == 64 then s = s + 0x1000 end
-	if inv then
-	  return shl(w-#p1-#p0, 16) + shl(s+w-#p1, 10)
-	else
-	  return shl(w-#p0, 16) + shl(s+#p1, 10)
-	end
-      end
-    end
-    werror("out of range immediate `"..imm.."'")
-  elseif r64 then
-    waction("IMM13X", 0, format("(unsigned int)(%s)", imm))
-    actargs[#actargs+1] = format("(unsigned int)((unsigned long long)(%s)>>32)", imm)
-    return 0
-  else
-    waction("IMM13W", 0, imm)
-    return 0
-  end
-end
-
-local function parse_imm6(imm)
-  imm = match(imm, "^#(.*)$")
-  if not imm then werror("expected immediate operand") end
-  local n = parse_number(imm)
-  if n then
-    if n >= 0 and n <= 63 then
-      return shl(band(n, 0x1f), 19) + (n >= 32 and 0x80000000 or 0)
-    end
-    werror("out of range immediate `"..imm.."'")
-  else
-    waction("IMM6", 0, imm)
-    return 0
-  end
-end
-
-local function parse_imm_load(imm, scale)
-  local n = parse_number(imm)
-  if n then
-    local m = sar(n, scale)
-    if shl(m, scale) == n and m >= 0 and m < 0x1000 then
-      return shl(m, 10) + 0x01000000 -- Scaled, unsigned 12 bit offset.
-    elseif n >= -256 and n < 256 then
-      return shl(band(n, 511), 12) -- Unscaled, signed 9 bit offset.
-    end
-    werror("out of range immediate `"..imm.."'")
-  else
-    waction("IMML", scale, imm)
-    return 0
-  end
-end
-
-local function parse_fpimm(imm)
-  imm = match(imm, "^#(.*)$")
-  if not imm then werror("expected immediate operand") end
-  local n = parse_number(imm)
-  if n then
-    local m, e = math.frexp(n)
-    local s, e2 = 0, band(e-2, 7)
-    if m < 0 then m = -m; s = 0x00100000 end
-    m = m*32-16
-    if m % 1 == 0 and m >= 0 and m <= 15 and sar(shl(e2, 29), 29)+2 == e then
-      return s + shl(e2, 17) + shl(m, 13)
-    end
-    werror("out of range immediate `"..imm.."'")
-  else
-    werror("NYI fpimm action")
-  end
-end
-
-local function parse_shift(expr)
-  local s, s2 = match(expr, "^(%S+)%s*(.*)$")
-  s = map_shift[s]
-  if not s then werror("expected shift operand") end
-  return parse_imm(s2, 6, 10, 0, false) + shl(s, 22)
-end
-
-local function parse_lslx16(expr)
-  local n = match(expr, "^lsl%s*#(%d+)$")
-  n = tonumber(n)
-  if not n then werror("expected shift operand") end
-  if band(n, parse_reg_type == "x" and 0xffffffcf or 0xffffffef) ~= 0 then
-    werror("bad shift amount")
-  end
-  return shl(n, 17)
-end
-
-local function parse_extend(expr)
-  local s, s2 = match(expr, "^(%S+)%s*(.*)$")
-  if s == "lsl" then
-    s = parse_reg_type == "x" and 3 or 2
-  else
-    s = map_extend[s]
-  end
-  if not s then werror("expected extend operand") end
-  return (s2 == "" and 0 or parse_imm(s2, 3, 10, 0, false)) + shl(s, 13)
-end
-
-local function parse_cond(expr, inv)
-  local c = map_cond[expr]
-  if not c then werror("expected condition operand") end
-  return shl(bit.bxor(c, inv), 12)
-end
-
 local function parse_load(params, nparams, n, op)
 --   if (nparams and n and op) then
 --      print(string.format("parse_load %d %d %08x", nparams, n, op))
@@ -623,99 +508,20 @@ local function parse_load(params, nparams, n, op)
     end
     werror("expected address operand")
   end
-  if p2 then
-    if wb == "!" then werror("bad use of '!'") end
-    op = op + parse_reg_base(p1) + parse_imm(p2, 9, 12, 0, true) + 0x400
-  elseif wb == "!" then
-    local p1a, p2a = match(p1, "^([^,%s]*)%s*,%s*(.*)$")
-    if not p1a then werror("bad use of '!'") end
-    op = op + parse_reg_base(p1a) + parse_imm(p2a, 9, 12, 0, true) + 0xc00
-  else
-    local p1a, p2a = match(p1, "^([^,%s]*)%s*(.*)$")
-    op = op + parse_reg_base(p1a)
-    if p2a ~= "" then
-      local imm = match(p2a, "^,%s*#(.*)$")
-      if imm then
-	op = op + parse_imm_load(imm, scale)
-      else
-	local p2b, p3b, p3s = match(p2a, "^,%s*([^,%s]*)%s*,?%s*(%S*)%s*(.*)$")
-	op = op + parse_reg(p2b, 16) + 0x00200800
-	if parse_reg_type ~= "x" and parse_reg_type ~= "w" then
-	  werror("bad index register type")
-	end
-	if p3b == "" then
-	  if parse_reg_type ~= "x" then werror("bad index register type") end
-	  op = op + 0x6000
-	else
-	  if p3s == "" or p3s == "#0" then
-	  elseif p3s == "#"..scale then
-	    op = op + 0x1000
-	  else
-	    werror("bad scale")
-	  end
-	  if parse_reg_type == "x" then
-	    if p3b == "lsl" and p3s ~= "" then op = op + 0x6000
-	    elseif p3b == "sxtx" then op = op + 0xe000
-	    else
-	      werror("bad extend/shift specifier")
-	    end
-	  else
-	    if p3b == "uxtw" then op = op + 0x4000
-	    elseif p3b == "sxtw" then op = op + 0xc000
-	    else
-	      werror("bad extend/shift specifier")
-	    end
-	  end
-	end
-      end
-    else
-      if wb == "!" then werror("bad use of '!'") end
-      op = op + 0x01000000
-    end
-  end
-  return op
 end
 
-local function parse_load_pair(params, nparams, n, op)
-  if params[n+2] then werror("too many operands") end
-  local pn, p2 = params[n], params[n+1]
-  local scale = shr(op, 30) == 0 and 2 or 3
-  local p1, wb = match(pn, "^%[%s*(.-)%s*%](!?)$")
-  if not p1 then
-    if not p2 then
-      local reg, tailr = match(pn, "^([%w_:]+)%s*(.*)$")
-      if reg and tailr ~= "" then
-	local base, tp = parse_reg_base(reg)
-	if tp then
-	  waction("IMM", 32768+7*32+15+scale*1024, format(tp.ctypefmt, tailr))
-	  return op + base + 0x01000000
-	end
-      end
-    end
-    werror("expected address operand")
-  end
-  if p2 then
-    if wb == "!" then werror("bad use of '!'") end
-    op = op + 0x00800000
-  else
-    local p1a, p2a = match(p1, "^([^,%s]*)%s*,%s*(.*)$")
-    if p1a then p1, p2 = p1a, p2a else p2 = "#0" end
-    op = op + (wb == "!" and 0x01800000 or 0x01000000)
-  end
-  return op + parse_reg_base(p1) + parse_imm(p2, 7, 15, scale, true)
-end
+-- ----------------------------------------------------------------------
+--
+-- parse_label
+--
+-- ----------------------------------------------------------------------
 
 local function parse_label(label, def)
-
---   print("parse_label", label)
-   
-  local prefix = label:sub(1, 2)
-  -- =>label (pc label reference)
+  local prefix = label:sub(1, 2)  -- =>label (pc label reference)
   if prefix == "=>" then
     return "PC", 0, label:sub(3)
   end
-  -- ->name (global label reference)
-  if prefix == "->" then
+  if prefix == "->" then   -- ->name (global label reference)
     return "LG", map_global[label:sub(3)]
   end
   if def then
@@ -808,234 +614,6 @@ map_op = {
    jal_2  = "0000006fDJ",
    beq_3  = "00000063NMB",
    bne_3  = "00001063NMB",
-
-  -- Basic data processing instructions.
-  -- add_3  = "0b000000DNMg|11000000pDpNIg|8b206000pDpNMx",
-  -- add_4  = "0b000000DNMSg|0b200000DNMXg|8b200000pDpNMXx|8b200000pDpNxMwX",
-  -- adds_3 = "2b000000DNMg|31000000DpNIg|ab206000DpNMx",
-  -- adds_4 = "2b000000DNMSg|2b200000DNMXg|ab200000DpNMXx|ab200000DpNxMwX",
-  -- cmn_2  = "2b00001fNMg|3100001fpNIg|ab20601fpNMx",
-  -- cmn_3  = "2b00001fNMSg|2b20001fNMXg|ab20001fpNMXx|ab20001fpNxMwX",
-
-  -- sub_3  = "4b000000DNMg|51000000pDpNIg|cb206000pDpNMx",
-  -- sub_4  = "4b000000DNMSg|4b200000DNMXg|cb200000pDpNMXx|cb200000pDpNxMwX",
-  -- subs_3 = "6b000000DNMg|71000000DpNIg|eb206000DpNMx",
-  -- subs_4 = "6b000000DNMSg|6b200000DNMXg|eb200000DpNMXx|eb200000DpNxMwX",
-  -- cmp_2  = "6b00001fNMg|7100001fpNIg|eb20601fpNMx",
-  -- cmp_3  = "6b00001fNMSg|6b20001fNMXg|eb20001fpNMXx|eb20001fpNxMwX",
-
-  -- neg_2  = "4b0003e0DMg",
-  -- neg_3  = "4b0003e0DMSg",
-  -- negs_2 = "6b0003e0DMg",
-  -- negs_3 = "6b0003e0DMSg",
-
-  -- adc_3  = "1a000000DNMg",
-  -- adcs_3 = "3a000000DNMg",
-  -- sbc_3  = "5a000000DNMg",
-  -- sbcs_3 = "7a000000DNMg",
-  -- ngc_2  = "5a0003e0DMg",
-  -- ngcs_2 = "7a0003e0DMg",
-
-  -- and_3  = "0a000000DNMg|12000000pDNig",
-  -- and_4  = "0a000000DNMSg",
-  -- orr_3  = "2a000000DNMg|32000000pDNig",
-  -- orr_4  = "2a000000DNMSg",
-  -- eor_3  = "4a000000DNMg|52000000pDNig",
-  -- eor_4  = "4a000000DNMSg",
-  -- ands_3 = "6a000000DNMg|72000000DNig",
-  -- ands_4 = "6a000000DNMSg",
-  -- tst_2  = "6a00001fNMg|7200001fNig",
-  -- tst_3  = "6a00001fNMSg",
-
-  -- bic_3  = "0a200000DNMg",
-  -- bic_4  = "0a200000DNMSg",
-  -- orn_3  = "2a200000DNMg",
-  -- orn_4  = "2a200000DNMSg",
-  -- eon_3  = "4a200000DNMg",
-  -- eon_4  = "4a200000DNMSg",
-  -- bics_3 = "6a200000DNMg",
-  -- bics_4 = "6a200000DNMSg",
-
-  -- movn_2 = "12800000DWg",
-  -- movn_3 = "12800000DWRg",
-  -- movz_2 = "52800000DWg",
-  -- movz_3 = "52800000DWRg",
-  -- movk_2 = "72800000DWg",
-  -- movk_3 = "72800000DWRg",
-
-  -- -- TODO: this doesn't cover all valid immediates for mov reg, #imm.
-  -- mov_2  = "2a0003e0DMg|52800000DW|320003e0pDig|11000000pDpNg",
-  -- mov_3  = "2a0003e0DMSg",
-  -- mvn_2  = "2a2003e0DMg",
-  -- mvn_3  = "2a2003e0DMSg",
-
-  -- adr_2  = "10000000DBx",
-  -- adrp_2 = "90000000DBx",
-
-  -- csel_4  = "1a800000DNMCg",
-  -- csinc_4 = "1a800400DNMCg",
-  -- csinv_4 = "5a800000DNMCg",
-  -- csneg_4 = "5a800400DNMCg",
-  -- cset_2  = "1a9f07e0Dcg",
-  -- csetm_2 = "5a9f03e0Dcg",
-  -- cinc_3  = "1a800400DNmcg",
-  -- cinv_3  = "5a800000DNmcg",
-  -- cneg_3  = "5a800400DNmcg",
-
-  -- ccmn_4 = "3a400000NMVCg|3a400800N5VCg",
-  -- ccmp_4 = "7a400000NMVCg|7a400800N5VCg",
-
-  -- madd_4 = "1b000000DNMAg",
-  -- msub_4 = "1b008000DNMAg",
-  -- mul_3  = "1b007c00DNMg",
-  -- mneg_3 = "1b00fc00DNMg",
-
-  -- smaddl_4 = "9b200000DxNMwAx",
-  -- smsubl_4 = "9b208000DxNMwAx",
-  -- smull_3  = "9b207c00DxNMw",
-  -- smnegl_3 = "9b20fc00DxNMw",
-  -- smulh_3  = "9b407c00DNMx",
-  -- umaddl_4 = "9ba00000DxNMwAx",
-  -- umsubl_4 = "9ba08000DxNMwAx",
-  -- umull_3  = "9ba07c00DxNMw",
-  -- umnegl_3 = "9ba0fc00DxNMw",
-  -- umulh_3  = "9bc07c00DNMx",
-
-  -- udiv_3 = "1ac00800DNMg",
-  -- sdiv_3 = "1ac00c00DNMg",
-
-  -- -- Bit operations.
-  -- sbfm_4 = "13000000DN12w|93400000DN12x",
-  -- bfm_4  = "33000000DN12w|b3400000DN12x",
-  -- ubfm_4 = "53000000DN12w|d3400000DN12x",
-  -- extr_4 = "13800000DNM2w|93c00000DNM2x",
-
-  -- sxtb_2 = "13001c00DNw|93401c00DNx",
-  -- sxth_2 = "13003c00DNw|93403c00DNx",
-  -- sxtw_2 = "93407c00DxNw",
-  -- uxtb_2 = "53001c00DNw",
-  -- uxth_2 = "53003c00DNw",
-
-  -- sbfx_4  = op_alias("sbfm_4", alias_bfx),
-  -- bfxil_4 = op_alias("bfm_4", alias_bfx),
-  -- ubfx_4  = op_alias("ubfm_4", alias_bfx),
-  -- sbfiz_4 = op_alias("sbfm_4", alias_bfiz),
-  -- bfi_4   = op_alias("bfm_4", alias_bfiz),
-  -- ubfiz_4 = op_alias("ubfm_4", alias_bfiz),
-
-  -- lsl_3  = function(params, nparams)
-  --   if params and params[3]:byte() == 35 then
-  --     return alias_lslimm(params, nparams)
-  --   else
-  --     return op_template(params, "1ac02000DNMg", nparams)
-  --   end
-  -- end,
-  -- lsr_3  = "1ac02400DNMg|53007c00DN1w|d340fc00DN1x",
-  -- asr_3  = "1ac02800DNMg|13007c00DN1w|9340fc00DN1x",
-  -- ror_3  = "1ac02c00DNMg|13800000DNm2w|93c00000DNm2x",
-
-  -- clz_2   = "5ac01000DNg",
-  -- cls_2   = "5ac01400DNg",
-  -- rbit_2  = "5ac00000DNg",
-  -- rev_2   = "5ac00800DNw|dac00c00DNx",
-  -- rev16_2 = "5ac00400DNg",
-  -- rev32_2 = "dac00800DNx",
-
-  -- -- Loads and stores.
-  -- ["strb_*"]  = "38000000DwL",
-  -- ["ldrb_*"]  = "38400000DwL",
-  -- ["ldrsb_*"] = "38c00000DwL|38800000DxL",
-  -- ["strh_*"]  = "78000000DwL",
-  -- ["ldrh_*"]  = "78400000DwL",
-  -- ["ldrsh_*"] = "78c00000DwL|78800000DxL",
-  -- ["str_*"]   = "b8000000DwL|f8000000DxL|bc000000DsL|fc000000DdL",
-  -- ["ldr_*"]   = "18000000DwB|58000000DxB|1c000000DsB|5c000000DdB|b8400000DwL|f8400000DxL|bc400000DsL|fc400000DdL",
-  -- ["ldrsw_*"] = "98000000DxB|b8800000DxL",
-  -- -- NOTE: ldur etc. are handled by ldr et al.
-
-  -- ["stp_*"]   = "28000000DAwP|a8000000DAxP|2c000000DAsP|6c000000DAdP",
-  -- ["ldp_*"]   = "28400000DAwP|a8400000DAxP|2c400000DAsP|6c400000DAdP",
-  -- ["ldpsw_*"] = "68400000DAxP",
-
-  -- -- Branches.
-  -- b_1    = "14000000B",
-  -- bl_1   = "94000000B",
-  -- blr_1  = "d63f0000Nx",
-  -- br_1   = "d61f0000Nx",
-  -- ret_0  = "d65f03c0",
-  -- ret_1  = "d65f0000Nx",
-  -- -- b.cond is added below.
-  -- cbz_2  = "34000000DBg",
-  -- cbnz_2 = "35000000DBg",
-  -- tbz_3  = "36000000DTBw|36000000DTBx",
-  -- tbnz_3 = "37000000DTBw|37000000DTBx",
-
-  -- -- Miscellaneous instructions.
-  -- -- TODO: hlt, hvc, smc, svc, eret, dcps[123], drps, mrs, msr
-  -- -- TODO: sys, sysl, ic, dc, at, tlbi
-  -- -- TODO: hint, yield, wfe, wfi, sev, sevl
-  -- -- TODO: clrex, dsb, dmb, isb
-  -- nop_0  = "d503201f",
-  -- brk_0  = "d4200000",
-  -- brk_1  = "d4200000W",
-
-  -- -- Floating point instructions.
-  -- fmov_2  = "1e204000DNf|1e260000DwNs|1e270000DsNw|9e660000DxNd|9e670000DdNx|1e201000DFf",
-  -- fabs_2  = "1e20c000DNf",
-  -- fneg_2  = "1e214000DNf",
-  -- fsqrt_2 = "1e21c000DNf",
-
-  -- fcvt_2  = "1e22c000DdNs|1e624000DsNd",
-
-  -- -- TODO: half-precision and fixed-point conversions.
-  -- fcvtas_2 = "1e240000DwNs|9e240000DxNs|1e640000DwNd|9e640000DxNd",
-  -- fcvtau_2 = "1e250000DwNs|9e250000DxNs|1e650000DwNd|9e650000DxNd",
-  -- fcvtms_2 = "1e300000DwNs|9e300000DxNs|1e700000DwNd|9e700000DxNd",
-  -- fcvtmu_2 = "1e310000DwNs|9e310000DxNs|1e710000DwNd|9e710000DxNd",
-  -- fcvtns_2 = "1e200000DwNs|9e200000DxNs|1e600000DwNd|9e600000DxNd",
-  -- fcvtnu_2 = "1e210000DwNs|9e210000DxNs|1e610000DwNd|9e610000DxNd",
-  -- fcvtps_2 = "1e280000DwNs|9e280000DxNs|1e680000DwNd|9e680000DxNd",
-  -- fcvtpu_2 = "1e290000DwNs|9e290000DxNs|1e690000DwNd|9e690000DxNd",
-  -- fcvtzs_2 = "1e380000DwNs|9e380000DxNs|1e780000DwNd|9e780000DxNd",
-  -- fcvtzu_2 = "1e390000DwNs|9e390000DxNs|1e790000DwNd|9e790000DxNd",
-
-  -- scvtf_2  = "1e220000DsNw|9e220000DsNx|1e620000DdNw|9e620000DdNx",
-  -- ucvtf_2  = "1e230000DsNw|9e230000DsNx|1e630000DdNw|9e630000DdNx",
-
-  -- frintn_2 = "1e244000DNf",
-  -- frintp_2 = "1e24c000DNf",
-  -- frintm_2 = "1e254000DNf",
-  -- frintz_2 = "1e25c000DNf",
-  -- frinta_2 = "1e264000DNf",
-  -- frintx_2 = "1e274000DNf",
-  -- frinti_2 = "1e27c000DNf",
-
-  -- fadd_3   = "1e202800DNMf",
-  -- fsub_3   = "1e203800DNMf",
-  -- fmul_3   = "1e200800DNMf",
-  -- fnmul_3  = "1e208800DNMf",
-  -- fdiv_3   = "1e201800DNMf",
-
-  -- fmadd_4  = "1f000000DNMAf",
-  -- fmsub_4  = "1f008000DNMAf",
-  -- fnmadd_4 = "1f200000DNMAf",
-  -- fnmsub_4 = "1f208000DNMAf",
-
-  -- fmax_3   = "1e204800DNMf",
-  -- fmaxnm_3 = "1e206800DNMf",
-  -- fmin_3   = "1e205800DNMf",
-  -- fminnm_3 = "1e207800DNMf",
-
-  -- fcmp_2   = "1e202000NMf|1e202008NZf",
-  -- fcmpe_2  = "1e202010NMf|1e202018NZf",
-
-  -- fccmp_4  = "1e200400NMVCf",
-  -- fccmpe_4 = "1e200410NMVCf",
-
-  -- fcsel_4  = "1e200c00DNMCf",
-
-  -- TODO: crc32*, aes*, sha*, pmull
-  -- TODO: SIMD instructions.
 }
 
 for cond,c in pairs(map_cond) do
@@ -1079,85 +657,17 @@ local function parse_template(params, template, nparams, pos)
     elseif p == "L" then -- For loads from structures
       op = parse_load(params, nparams, n, op)
     elseif p == "B" then
---       print("B", q)
        local mode, v, s = parse_label(q, false); n = n + 1
        if not mode then werror("bad label `"..q.."'") end
---       print("++++ B", mode, v, s)
        waction("REL_PC_B", 0, s)
---       local m = branch_type(op)
---       if mode == "A" then
---	  waction("REL_"..mode, v+m, format("(unsigned int)(%s)", s))
---	  actargs[#actargs+1] = format("(unsigned int)((%s)>>32)", s)
---       else
---	  waction("REL_"..mode, v+m, s, 1)
---       end
     elseif p == "J" then
---       print("J", q)
        local mode, v, s = parse_label(q, false); n = n + 1
        if not mode then werror("bad label `"..q.."'") end
---       print("++++ J", mode, v, s)
        waction("REL_PC_J", 0, s)
-
-    elseif p == "p" then
-      if q == "sp" then params[n] = "@x31" end
-    elseif p == "g" then
-      if parse_reg_type == "x" then
-	op = op + 0x80000000
-      elseif parse_reg_type ~= "w" then
-	werror("bad register type")
-      end
-      parse_reg_type = false
-    elseif p == "f" then
-      if parse_reg_type == "d" then
-	op = op + 0x00400000
-      elseif parse_reg_type ~= "s" then
-	werror("bad register type")
-      end
-      parse_reg_type = false
-    elseif p == "x" or p == "w" or p == "d" or p == "s" then
-      if parse_reg_type ~= p then
-	werror("register size mismatch")
-      end
-      parse_reg_type = false
-
-    elseif p == "P" then
-      op = parse_load_pair(params, nparams, n, op)
-
-
-    elseif p == "i" then
-      op = op + parse_imm13(q); n = n + 1
-    elseif p == "W" then
-      op = op + parse_imm(q, 12, 20, 0, true); n = n + 1
-    elseif p == "T" then
-      op = op + parse_imm6(q); n = n + 1
-    elseif p == "1" then
-      op = op + parse_imm(q, 6, 16, 0, false); n = n + 1
-    elseif p == "2" then
-      op = op + parse_imm(q, 6, 10, 0, false); n = n + 1
-    elseif p == "5" then
-      op = op + parse_imm(q, 5, 16, 0, false); n = n + 1
-    elseif p == "V" then
-      op = op + parse_imm(q, 4, 0, 0, false); n = n + 1
-    elseif p == "F" then
-      op = op + parse_fpimm(q); n = n + 1
-    elseif p == "Z" then
-      if q ~= "#0" and q ~= "#0.0" then werror("expected zero immediate") end
-      n = n + 1
-
-    elseif p == "X" then
-      op = op + parse_extend(q); n = n + 1
-    elseif p == "R" then
-      op = op + parse_lslx16(q); n = n + 1
-    elseif p == "C" then
-      op = op + parse_cond(q, 0); n = n + 1
-    elseif p == "c" then
-      op = op + parse_cond(q, 1); n = n + 1
-
     else
       assert(false)
     end
   end
-  -- print(string.format("%d %08x", pos, op)) -- xyzzy
   wputpos(pos, op)
 end
 
@@ -1224,8 +734,6 @@ end
 -- Label pseudo-opcode (converted from trailing colon form).
 map_op[".label_1"] = function(params)
   if not params then return "[1-9] | ->global | =>pcexpr" end
-
---  print("*****", params)
 
   if secpos+1 > maxsecpos then wflush() end
   local mode, n, s = parse_label(params[1], true)
