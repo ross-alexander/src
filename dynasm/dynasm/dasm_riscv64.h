@@ -21,9 +21,9 @@ enum {
   /* The following actions need a buffer position. */
   DASM_ALIGN, DASM_REL_LG, DASM_LABEL_LG,
   /* The following actions also have an argument. */
-  DASM_REL_PC_B, DASM_LABEL_PC, DASM_REL_PC_J,
-  DASM_IMM_I, DASM_IMM_S, DASM_IMM_B, DASM_IMM_U, DASM_IMM_J, DASM_IMML,
-  DASM_IMMV, DASM_VREG,
+  DASM_LABEL_PC, DASM_REL_PC_B, DASM_REL_PC_J,
+  DASM_IMM_I, DASM_IMM_S, DASM_IMM_B, DASM_IMM_U, DASM_IMM_J,
+  DASM_IMML, DASM_IMMV, DASM_VREG,
   DASM__MAX
 };
 
@@ -184,37 +184,6 @@ static int dasm_ffs(unsigned long long x)
   return n;
 }
 
-static int dasm_imm13(int lo, int hi)
-{
-  int inv = 0, w = 64, s = 0xfff, xa, xb;
-  unsigned long long n = (((unsigned long long)hi) << 32) | (unsigned int)lo;
-  unsigned long long m = 1ULL, a, b, c;
-  if (n & 1) { n = ~n; inv = 1; }
-  a = n & -n; b = (n+a)&-(n+a); c = (n+a-b)&-(n+a-b);
-  xa = dasm_ffs(a); xb = dasm_ffs(b);
-  if (c) {
-    w = dasm_ffs(c) - xa;
-    if (w == 32) m = 0x0000000100000001UL;
-    else if (w == 16) m = 0x0001000100010001UL;
-    else if (w == 8) m = 0x0101010101010101UL;
-    else if (w == 4) m = 0x1111111111111111UL;
-    else if (w == 2) m = 0x5555555555555555UL;
-    else return -1;
-    s = (-2*w & 0x3f) - 1;
-  } else if (!a) {
-    return -1;
-  } else if (xb == -1) {
-    xb = 64;
-  }
-  if ((b-a) * m != n) return -1;
-  if (inv) {
-    return ((w - xb) << 6) | (s+w+xa-xb);
-  } else {
-    return ((w - xa) << 6) | (s+xb-xa);
-  }
-  return -1;
-}
-
 /* Pass 1: Store actions and args, link branches/labels, estimate offsets. */
 void dasm_put(Dst_DECL, int start, ...)
 {
@@ -250,7 +219,7 @@ void dasm_put(Dst_DECL, int start, ...)
 #ifdef DASM_DEBUG
 	  printf("dasm_put %02x %d\n", opcode, action);
 #endif
-	  int *pl, n = action >= DASM_REL_PC_B ? va_arg(ap, int) : 0;
+	  int *pl, n = action >= DASM_LABEL_PC ? va_arg(ap, int) : 0;
 	  switch (action)
 	    {
 	    case DASM_STOP:
@@ -529,19 +498,19 @@ int dasm_encode(Dst_DECL, void *buffer)
 		cp[-1] |= (n << 20);
 		break;
 	      case DASM_IMM_S:
-		printf("dasn_encode DASM_IMM_S\n");
+		printf("dasm_encode DASM_IMM_S\n");
 		cp[-1] |= ((n&31) << 19) | ((n&32) << 26);
 		break;
 	      case DASM_IMM_B:
 		printf("dasm_encode DASM_IMM_B %d\n", n);
 		exit(1);
-		cp[-1] |= (dasm_imm12((unsigned int)n) << 10);
 		break;
 	      case DASM_IMM_U:
-		cp[-1] |= (dasm_imm13(n, n) << 10);
+		cp[-1] |= (n << 12);
 		break;
 	      case DASM_IMM_J:
-		cp[-1] |= (dasm_imm13(n, *b++) << 10);
+		printf("dasm_encode DASM_IMM_J %d\n", n);
+		exit(1);
 		break;
 	      case DASM_IMML: {
 		int scale = (ins & 3);
