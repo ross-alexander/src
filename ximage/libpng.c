@@ -118,66 +118,13 @@ int mandel_write_cm(mandel_image *image, char *filename)
 
 /* ----------------------------------------------------------------------
 --
--- MandelColor
---
----------------------------------------------------------------------- */
-
-int MandelColor(int maxColor, int iters, double a, double b)
-{	
-  register int count;
-  double t, tx, ty, tx2, ty2;
-
-  count = 0;
-  tx = a;
-  ty = b;
-  
-  /* general Mandelbrot algorithm ... */
-  while ((((tx2 = tx*tx) + (ty2 = ty*ty)) < 4.0) && (count <= iters))
-    {
-      t = tx2 - ty2 + a;
-      ty = 2*tx*ty + b;
-      tx = t;
-      count++;
-    }
-  return count > iters ? 0 : (count % (maxColor - 1) + 1);
-}
-
-guint8* Mandel(int maxColor, int iters, double xmin, double xmax, double ymin, double ymax, int width, int height)
-{
-  guint8* map = (guint8*)malloc(width * height * sizeof(guint8));
-  int c, xplot, yplot;
-  double x, y;
-  double xscale = (xmax - xmin) / width;
-  double yscale = (ymax - ymin) / height;
-
-  y = ymin;
-  yplot = 0;
-  while (y <= ymax)
-    {
-      x = xmin;
-      xplot = 0;
-      while (x <= xmax)
-	{
-	  c = MandelColor(maxColor, iters, x,y);
-	  map[yplot * width + xplot] = c;
-	  x += xscale;
-	  xplot++;
-	}
-      y += yscale;
-      yplot++;
-    }
-  return map;
-}
-
-/* ----------------------------------------------------------------------
---
 -- main
 --
 ---------------------------------------------------------------------- */
 
 int main(int argc, char *argv[])
 {
-  int width = 1500;
+  int width = 2000;
   int height = 1000;
   FILE *stream;
   int colors = 256;
@@ -202,7 +149,7 @@ int main(int argc, char *argv[])
 	}
     }
   
-  mandel_image* image = mandel_image_create(256, -1.5, 1.0, -1.0, 1.0, width, height);
+  mandel_image* image = mandel_image_create(256, -2.0, 1.0, -1.0, 1.0, width, height);
   mandel_image_create_hsv_palette(image);
   
   if (write_cm)
@@ -218,6 +165,10 @@ int main(int argc, char *argv[])
   typedef guint8 rgb[3];
   typedef guint8 rgba[4];
 
+  /* --------------------
+     Use cairo to save PNG
+     -------------------- */
+  
   if (write_cairo)
     {
       cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, width, height);
@@ -235,6 +186,10 @@ int main(int argc, char *argv[])
       cairo_surface_destroy(surface);
     }
 
+  /* --------------------
+     Use babl to create cairo surface
+     -------------------- */
+  
   if (write_babl)
     {
       cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, width, height);
