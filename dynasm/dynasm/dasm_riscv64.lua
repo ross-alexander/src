@@ -461,29 +461,6 @@ local function parse_imm_K(s)
    return op
 end
 
-
-local function parse_imm(imm, bits, shift, scale, signed)
-  imm = match(imm, "^#(.*)$")
-  if not imm then werror("expected immediate operand") end
-  local n = parse_number(imm)
-  if n then
-    local m = sar(n, scale)
-    if shl(m, scale) == n then
-      if signed then
-	local s = sar(m, bits-1)
-	if s == 0 then return shl(m, shift)
-	elseif s == -1 then return shl(m + shl(1, bits), shift) end
-      else
-	if sar(m, bits) == 0 then return shl(m, shift) end
-      end
-    end
-    werror("out of range immediate `"..imm.."'")
-  else
-    waction("IMM", (signed and 32768 or 0)+scale*1024+bits*32+shift, imm)
-    return 0
-  end
-end
-
 local function parse_load(params, nparams, n, op)
 --   if (nparams and n and op) then
 --      print(string.format("parse_load %d %d %08x", nparams, n, op))
@@ -547,19 +524,6 @@ local function parse_label(label, def)
   end
 end
 
-local function branch_type(op)
-  if band(op, 0x7c000000) == 0x14000000 then return 0 -- B, BL
-  elseif shr(op, 24) == 0x54 or band(op, 0x7e000000) == 0x34000000 or
-	 band(op, 0x3b000000) == 0x18000000 then
-    return 0x800 -- B.cond, CBZ, CBNZ, LDR* literal
-  elseif band(op, 0x7e000000) == 0x36000000 then return 0x1000 -- TBZ, TBNZ
-  elseif band(op, 0x9f000000) == 0x10000000 then return 0x2000 -- ADR
-  elseif band(op, 0x9f000000) == band(0x90000000) then return 0x3000 -- ADRP
-  else
-    assert(false, "unknown branch type")
-  end
-end
-
 ------------------------------------------------------------------------------
 
 local map_op, op_template
@@ -572,48 +536,42 @@ local function op_alias(opname, f)
   end
 end
 
-local function alias_bfx(p)
-  p[4] = "#("..p[3]:sub(2)..")+("..p[4]:sub(2)..")-1"
-end
+-- ----------------------------------------------------------------------
+--
+-- Templates for RV64I instructions
+--
+-- There are five instruction formats, R, I, S, B & J.  The immediate in
+-- I is divided into arithmetric and shift operations.
+--
+-- All registers are always in the same place in the instructions, with
+-- the immediate swirled around them.
 
-local function alias_bfiz(p)
-  parse_reg(p[1], 0)
-  if parse_reg_type == "w" then
-    p[3] = "#(32-("..p[3]:sub(2).."))%32"
-    p[4] = "#("..p[4]:sub(2)..")-1"
-  else
-    p[3] = "#(64-("..p[3]:sub(2).."))%64"
-    p[4] = "#("..p[4]:sub(2)..")-1"
-  end
-end
+-- RV32I registers are rs2, rs1 and rd and are always in the same
+-- positions in the instruction as bits [24:20], [19:15] and [11:7].
 
-local alias_lslimm = op_alias("ubfm_4", function(p)
-  parse_reg(p[1], 0)
-  local sh = p[3]:sub(2)
-  if parse_reg_type == "w" then
-    p[3] = "#(32-("..sh.."))%32"
-    p[4] = "#31-("..sh..")"
-  else
-    p[3] = "#(64-("..sh.."))%64"
-    p[4] = "#63-("..sh..")"
-  end
-end)
+-- In some cases the instruction format is the same but the syntax is
+-- different.  For example ADDI is rd, rs1, imm packed into the I
+-- format, where as load is rd, imm(rs1).  The instruction format is
+-- the same but the assembly syntax is not.
+--
+-- R format is rd, rs1, rs2 and uses D, 1 & 2.  For load it is D, L
+-- (RS1 + IMM) while store is RS2, S (RS1 + IMM)
+--
+-- ----------------------------------------------------------------------
 
--- Template strings for ARM instructions.
 map_op = {
-   mv_2 = "00000013DN",
-   addi_3 = "00000013DNI",
-   mov_2  = "2a0003e0DMg|52800000DW|320003e0pDig|11000000pDpNg",
+   mv_2 = "00000013D1",
+   addi_3 = "00000013D1I",
    ret_0  = "00008067",
-   sb_2   = "00000023MS",
-   sd_2   = "00003023MS",
+   sb_2   = "000000232S",
+   sd_2   = "000030232S",
    lb_2   = "00000003DK|00000003DL",
    ld_2   = "00003003DK|00003003DL",
-   jalr_1 = "000000e7N",
+   jalr_1 = "000000e71",
    jalr_2 = "00000067DI",
    jal_2  = "0000006fDJ",
-   beq_3  = "00000063NMB",
-   bne_3  = "00001063NMB",
+   beq_3  = "0000006312B",
+   bne_3  = "0000106312B",
 }
 
 for cond,c in pairs(map_cond) do
@@ -637,18 +595,14 @@ local function parse_template(params, template, nparams, pos)
      local q = params[n]
 
 --     print("++", p, q) -- xyzzy
-
-     -- RV32I registers are rs1, rs2 and rd and are always in the same
-     -- positions in the instruction as bits [24:20], [19:15] and
-     -- [11:7].
      
     if p == "D" then
       op = op + parse_reg(q, 7); n = n + 1 -- rd [11:7]
-    elseif p == "N" then
+    elseif (p == "N") or (p == "1") then
       op = op + parse_reg(q, 15); n = n + 1 -- rs1 [19:15]
-    elseif p == "M" then
+    elseif (p == "M") or (p == "2") then
       op = op + parse_reg(q, 20); n = n + 1 -- rs2 [24:20]
-    elseif p == "I" then
+    elseif p == "I" then -- 12 bit immediate
       op = op + parse_imm_I(q); n = n + 1
     elseif p == "S" then
       op = op + parse_imm_S(q); n = n + 1
