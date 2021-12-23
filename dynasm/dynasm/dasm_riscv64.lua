@@ -260,42 +260,46 @@ local map_cond = {
   hs = 2, lo = 3,
 }
 
-------------------------------------------------------------------------------
-
-local parse_reg_type
-
 -- ----------------------------------------------------------------------
 --
 -- parse_reg
 --
-----------------------------------------------------------------------
+-- Only in Load and Store instructions are these complex register
+-- forms, otherwise only the base register is allowed.  This is
+-- ultimately either x for integer or f for floats.  Both integer and
+-- floats have 32 registers 0-31.
+--
+-- Code for VREG currently in here but could not see example in luajit.
+--
+-- ----------------------------------------------------------------------
+
+local parse_reg_type
 
 local function parse_reg(expr, shift)
   if not expr then werror("expected register name") end
-  local tname, ovreg = match(expr, "^([%w_]+):(@?%l%d+)$")
+  local tname, ovreg = match(expr, "^([%w_]+):(@?%l%d+)$") -- for type:REG
   if not tname then
-    tname, ovreg = match(expr, "^([%w_]+):(R[xwqdshb]%b())$")
+    tname, ovreg = match(expr, "^([%w_]+):(R[xwqdshb]%b())$")  -- for VREG
   end
   local tp = map_type[tname or expr]
-  if tp then
+  if tp then -- if type return override or type default register
     local reg = ovreg or tp.reg
---  print("parse_reg", expr, tp, reg)
     if not reg then
       werror("type `"..(tname or expr).."' needs a register override")
     end
     expr = reg
   end
-  local rt, r = match(expr, "^([xwqdshb])([123]?[0-9])$")
+  local rt, r = match(expr, "^([xf])([123]?[0-9])$") -- match xn or fn where 0 <= n < 32
   if r then
     r = tonumber(r)
-    if (r <= 31) then
+    if ((r >= 0) and (r <= 31)) then
        if not parse_reg_type then
 	  parse_reg_type = rt
        elseif parse_reg_type ~= rt then
 	  werror("register size mismatch")
        end
---       print("parse_reg", r, shift)
-       return shl(r, shift), tp
+--       print("parse_reg", r, shift, expr)
+       return shl(r, shift), tp, rt
     end
   end
   local vrt, vreg = match(expr, "^R([xwqdshb])(%b())$")
@@ -315,14 +319,16 @@ end
 --
 -- parse_reg_base
 --
+-- Returns unshifted register and checks it can hold an address.
+--
 -- ---------------------------------------------------------------------- 
 
 local function parse_reg_base(expr)
 --   print("parse_reg_base", expr)
-   local base, tp = parse_reg(expr, 0)
+   local base, tp, reg_type = parse_reg(expr, 0)
    if parse_reg_type ~= "x" then werror("bad register type") end
    parse_reg_type = false
-   return base, tp
+   return base, tp, reg_type
 end
 
 local parse_ctx = {}
@@ -372,120 +378,50 @@ local function parse_imm_I(imm)
      return 0
   end
 end
-
+   
 -- ----------------------------------------------------------------------
 --
--- parse_reg_imm
---
--- This is n(rx) or (rx)
+-- parse_load_save
 --
 -- ----------------------------------------------------------------------
-local function parse_reg_imm(s)
-
-   -- Match (reg) first
-
-   local r = string.match(s, "(%(%a%d+%))$")
-   if (r == nil) then
-      werror("parse_reg_imm " .. s .. " could not match (rx)")
+local function parse_load_save(param, load_save, op)
+   local reg_num
+   local reg_type
+   local immediate
+   local tp
+--   print("parse_load_save", param)
+   local r = string.match(param, "(%([%w_:]+%))$") -- is of the form (r) or n(r)
+   if (r ~= nil) then
+      local reg = string.match(r, "%(([%w_:]+)%)")
+      reg_num, tp, reg_type = parse_reg(reg, 0)
+      immediate = string.gsub(param, "(%([%w_:]+%))$", "") -- Remove (REG) from string to get immediate
+   else
+--      print("parse_load_save", param)
+      local reg, tailr = match(param, "^([%w_:]+)%s*(.*)$")
+      if reg and (tailr ~= "") then
+--	 print("parse_load_save", reg, tailr)
+	 reg_num, tp, reg_type = parse_reg_base(reg)
+	 if tp then
+	    immediate = string.format(tp.ctypefmt, tailr)
+	 else
+	    werror("expected address operand")
+	 end
+      end
    end
-   local reg_type, reg_num = string.match(r, "%((%a)(%d+)%)")
-
-   -- Remove (x[0-9]+) from string to get immediate
-   
-   s = string.gsub(s, "(%(%a%d+%))$", "")
-
-   -- Convert string to number
-   reg_num = tonumber(reg_num)
-
-   -- Handle immediate
-   local imm = tonumber(s)
-   if (imm == nil) then imm = 0 end
-   return reg_type, reg_num, imm
-end
-   
-local function parse_imm_S(s)
-   local reg_type, reg_num, imm = parse_reg_imm(s)
-   if (not(reg_type == "x")) then
-      werror("parse_imm_S register type not x")
+   if (immediate == nil) or (immediate == "") then
+      immediate = 0
    end
-   if (not((reg_num >= 0) and (reg_num < 32))) then
-      werror("parse_imm_S register out of range")
+--   print("parse_load_save", reg_type, reg_num, immediate, tp)
+--   print(string.format("Type %s, num %s, imm %s", reg_type, reg_num, immediate))
+   if (load_save == "L") then
+      waction("IMM_I", 0, immediate);
    end
-
-   -- Set rs1
-   local op = shl(reg_num, 15)
-
-   if (not (imm >= -2048) and (n < 2048)) then
-      werror("parse_imm_S immediate out of range")
+   if (load_save == "S") then
+      waction("IMM_S", 0, immediate);
    end
-
-   -- Not sure this is necessary
-   
-   if (imm < 0) then
-      imm = 4096 + imm
-   end
-
-   -- The 12 bit immediate is swirled between [31:25] and [11:7] for
-   -- bits [11:5] and [4:0] respectively.
-   
-   op = op + shl(band(imm, 0x1f), 7)
-   op = op + shl(band(imm, 0xfe0), 20)
-   return op
+   return op + shl(reg_num, 15)
 end
 
-local function parse_imm_K(s)
-   local reg_type, reg_num, imm = parse_reg_imm(s)
-   if (not(reg_type == "x")) then
-      werror("parse_imm_S register type not x")
-   end
-   if (not((reg_num >= 0) and (reg_num < 32))) then
-      werror("parse_imm_S register out of range")
-   end
-
-   -- Set rs1
-   local op = shl(reg_num, 15)
-
-   if (not (imm >= -2048) and (n < 2048)) then
-      werror("parse_imm_K immediate out of range")
-   end
-
-   -- Not sure this is necessary
-   
-   if (imm < 0) then
-      imm = 4096 + imm
-   end
-
-   -- The 12 bit immediate is put in [31:20].
-
-   op = op + shl(band(imm, 0xfff), 20)
-   return op
-end
-
-local function parse_load(params, nparams, n, op)
---   if (nparams and n and op) then
---      print(string.format("parse_load %d %d %08x", nparams, n, op))
---   end
-   if params[n+2] then werror("too many operands") end
-  local scale = shr(op, 30)
-  local pn, p2 = params[n], params[n+1]
-  local p1, wb = match(pn, "^%[%s*(.-)%s*%](!?)$")
-  if not p1 then
-    if not p2 then
-       local reg, tailr = match(pn, "^([%w_:]+)%s*(.*)$")
---       print("load3", pn, reg, tailr)
-       if reg and tailr ~= "" then
-	  local base, tp = parse_reg_base(reg)
-	  if tp then
---	     print(string.format("load4 %08x %d %d %s", op, base, scale, format(tp.ctypefmt, tailr)))
-	     waction("IMM_I", scale, format(tp.ctypefmt, tailr))
---	     print(string.format("load4 %08x %08x", op + shl(base, 15), shl(base, 15)))
-	     return op + shl(base, 15)
-	  end
-       end
-    end
-    werror("expected address operand")
-  end
-end
 
 -- ----------------------------------------------------------------------
 --
@@ -560,13 +496,13 @@ end
 -- ----------------------------------------------------------------------
 
 map_op = {
-   mv_2 = "00000013D1",
+   mv_2   = "00000013D1",
    addi_3 = "00000013D1I",
    ret_0  = "00008067",
    sb_2   = "000000232S",
    sd_2   = "000030232S",
-   lb_2   = "00000003DK|00000003DL",
-   ld_2   = "00003003DK|00003003DL",
+   lb_2   = "00000003DL",
+   ld_2   = "00003003DL",
    jalr_1 = "000000e71",
    jalr_2 = "00000067DI",
    jal_2  = "0000006fDJ",
@@ -594,22 +530,18 @@ local function parse_template(params, template, nparams, pos)
   for p in gmatch(template:sub(9), ".") do
      local q = params[n]
 
---     print("++", p, q) -- xyzzy
-     
-    if p == "D" then
-      op = op + parse_reg(q, 7); n = n + 1 -- rd [11:7]
-    elseif (p == "N") or (p == "1") then
-      op = op + parse_reg(q, 15); n = n + 1 -- rs1 [19:15]
-    elseif (p == "M") or (p == "2") then
-      op = op + parse_reg(q, 20); n = n + 1 -- rs2 [24:20]
-    elseif p == "I" then -- 12 bit immediate
+    if p == "D" then -- rd [11:7]
+      op = op + parse_reg(q, 7); n = n + 1
+    elseif p == "1" then -- rs1 [19:15]
+      op = op + parse_reg(q, 15); n = n + 1
+    elseif p == "2" then  -- rs2 [24:20]
+      op = op + parse_reg(q, 20); n = n + 1
+    elseif p == "I" then -- 12-bit immediate (I-format)
       op = op + parse_imm_I(q); n = n + 1
-    elseif p == "S" then
-      op = op + parse_imm_S(q); n = n + 1
-    elseif p == "K" then -- Actually I format for imm(rs1)
-      op = op + parse_imm_K(q); n = n + 1
-    elseif p == "L" then -- For loads from structures
-      op = parse_load(params, nparams, n, op)
+    elseif p == "S" then -- Save (S-format)
+       op = parse_load_save(q, "S", op)
+    elseif p == "L" then -- Load (I-format)
+       op = parse_load_save(q, "L", op)
     elseif p == "B" then
        local mode, v, s = parse_label(q, false); n = n + 1
        if not mode then werror("bad label `"..q.."'") end
