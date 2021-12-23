@@ -268,20 +268,24 @@ void dasm_put(Dst_DECL, int start, ...)
 	      break;
 
 	    case DASM_IMM_I:
-	      CK((n & ((1<<((ins>>10)&31))-1)) == 0, RANGE_I);
+	      //	      CK((n & ((1<<((ins>>10)&31))-1)) == 0, RANGE_I);
 	      //	      n >>= ((ins>>10)&31);
 #ifdef DASM_DEBUG
 	      printf("dasm_put DASM_IMM_I %d\n", n);
 #endif
 #ifdef DASM_CHECKS
-	      if ((ins & 0x8000))
-		CK(((n + (1<<(((ins>>5)&31)-1)))>>((ins>>5)&31)) == 0, RANGE_I);
-	      else
-		CK((n>>((ins>>5)&31)) == 0, RANGE_I);
+	      //	      if ((ins & 0x8000))
+	      //		CK(((n + (1<<(((ins>>5)&31)-1)))>>((ins>>5)&31)) == 0, RANGE_I);
+	      //	      else
+	      //		CK((n>>((ins>>5)&31)) == 0, RANGE_I);
 #endif
 	      b[pos++] = n;
 	      break;
 
+	    case DASM_IMM_S:
+	      b[pos++] = n;
+	      break;
+	      
 	    case DASM_IMM_B:
 	      CK((n & ((1<<((ins>>10)&31))-1)) == 0, RANGE_I);
 	      //	      n >>= ((ins>>10)&31);
@@ -495,11 +499,13 @@ int dasm_encode(Dst_DECL, void *buffer)
 #ifdef DASM_DEBUG
 		printf("dasm_encode DASM_IMM_I\n");
 #endif
-		cp[-1] |= (n << 20);
+		cp[-1] |= ((n & 0xfff) << 20);
 		break;
 	      case DASM_IMM_S:
+#ifdef DASM_DEBUG
 		printf("dasm_encode DASM_IMM_S\n");
-		cp[-1] |= ((n&31) << 19) | ((n&32) << 26);
+#endif
+		cp[-1] |= ((n & 0xfe0) << 20) | ((n & 0x1f) << 7);
 		break;
 	      case DASM_IMM_B:
 		printf("dasm_encode DASM_IMM_B %d\n", n);
