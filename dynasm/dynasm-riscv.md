@@ -4,10 +4,37 @@ author: Ross Alexander
 date: December 16, 2021
 ---
 
+# Working Notes
+
+## 2021-12-23
+
+1. Refactor load/save parsing into a single function (parse_load_save)
+   to reduce load/saves to a single template entry per load/save size.
+   Required fixing DASM_IMM_S handling.  IMM_I and IMM_S are almost
+   extractly the same except for the location of the lower 5 bits in
+   the instruction.
+2. There is still code for VREG but I could not find any instance it
+   being used in the luajit code so not really done anything with it.
+
+## 2021-12-18
+
+With the BF interpreter working with the mandelbrot.bf example there is now
+a break point.  There are a number of directions to go from here.
+
+1. Remove non RISCV code from dynasm\_riscv64.lua & dynasm\_riscv.h.
+2. Add missing instructions.
+3. Figure out how to implement LI pseudo-instruction.
+4. Add immediate for shift.
+5. Note that lui takes a 20-bit unsigned number.
+6. Rename registers N & M to 1 & 2 for RS1 & RS2 respectively.  D is
+for RD in the R format instructions.  For load it is D <- (RS1+IMM=L).
+For store it is 2 -> (RS1+IMM=S).  L & S both have the format of R,
+(R) or IMM(R) where -2048 <= IMM < 2048 (signed 12-bit immediate).
+
 # Precis
 
-The RISC-V ISA is now 10 years old and while I majority of C code runs
-on Linux on the RV64I instruction set there currently is no support
+The RISC-V ISA is now 10 years old and while a majority of Linux C
+code runs on the RV64I instruction set there currently is no support
 for luajit.
 
 The first thing to migrate luajit is to add RV64I support to dynasm.
@@ -415,3 +442,85 @@ was manually compiled and installed.
 I'm not sure why the unmatched is so much slower than it running under
 emulation.  It might be an I-cache issue given the Ryzen has 32KB
 I-cache (per core), 3MB L2 cache and 32MB of L3 cache.
+
+# Luajit
+
+## Add architecture defines
+
+Confirm which defines are set to determine the target is RISCV.
+
+~~~
+[root@stage4 jitdemo]# gcc -E -dM defines.c | grep -i riscv
+#define __riscv 1
+#define __riscv_atomic 1
+#define __riscv_cmodel_medlow 1
+#define __riscv_fdiv 1
+#define __riscv_float_abi_double 1
+#define __riscv_mul 1
+#define __riscv_muldiv 1
+#define __riscv_xlen 64
+#define __riscv_fsqrt 1
+#define __riscv_m 2000000
+#define __riscv_a 2000000
+#define __riscv_c 2000000
+#define __riscv_d 2000000
+#define __riscv_f 2000000
+#define __riscv_i 2000000
+#define __riscv_zicsr 2000000
+#define __riscv_compressed 1
+#define __riscv_flen 64
+#define __riscv_arch_test 1
+#define __riscv_div 1
+~~~
+
+In lj_arch.h
+
+Add new ARCH and check.
+
+~~~
+#define LUAJIT_ARCH_RISCV64     8
+#define LUAJIT_ARCH_riscv64     8
+
+#elif defined(__riscv) && (__riscv_xlen == 64)
+#define LUAJIT_TARGET  LUAJIT_ARCH_RISCV64
+~~~
+
+## Registers
+
+~~~
+|// ARM64 registers and the AAPCS64 ABI 1.0 at a glance:
+|//
+|// x0-x17 temp, x19-x28 callee-saved, x29 fp, x30 lr
+|// x18 is reserved on most platforms. Don't use it, save it or restore it.
+|// x31 doesn't exist. Register number 31 either means xzr/wzr (zero) or sp,
+|// depending on the instruction.
+|// v0-v7 temp, v8-v15 callee-saved (only d8-d15 preserved), v16-v31 temp
+|//
+|// x0-x7/v0-v7 hold parameters and results.
+~~~
+
+For RISCV a0-a7, t0-t6 are temp, s0-s12 are callee-saved, s0 [x8] fp,
+x1 lr, x2 sp.  x0 is always zero.
+
+fs0-fs11 are saved FP registers.  ft0-ft11 are FP temporaries.
+
+a0-x7 / fa0-fa7 hold arguments / results.
+
+~~~
+|// The following must be C callee-save.
+|.define BASE,		x19	// Base of current Lua stack frame.
+|.define KBASE,		x20	// Constants of current Lua function.
+|.define PC,		x21	// Next PC.
+|.define GLREG,		x22	// Global state.
+|.define LREG,		x23	// Register holding lua_State (also in SAVE_L).
+|.define TISNUM,	x24	// Constant LJ_TISNUM << 47.
+|.define TISNUMhi,	x25	// Constant LJ_TISNUM << 15.
+|.define TISNIL,	x26	// Constant -1LL.
+|.define fp,		x29	// Yes, we have to maintain a frame pointer.
+
+|.define ST_INTERP,	w26	// Constant -1.
+~~~
+
+For RV64I use s2-s9 and s0 for fp.
+
+
