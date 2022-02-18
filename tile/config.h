@@ -1,0 +1,14 @@
+#define HAVE_SYS_STAT_H
+#define HAVE_STDIO_H
+#define HAVE_STDLIB_H
+#define HAVE_STRING_H
+#define HAVE_UNISTD_H
+#define HAVE_ASSERT_H
+#define HAVE_GETOPT_H
+#define HAVE_STDINT_H
+#define HAVE_XLIB_H
+#define HAVE_XCB_XCB_H
+#define HAVE_XCB_XCBAUX_H
+#define HAVE_CAIROXCB_H
+#define HAVE_CAIROXLIB_H
+#define HAVE_GDK30_H
