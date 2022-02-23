@@ -1,0 +1,1314 @@
+#!/usr/bin/perl -I/home/ralexand/src/qemu
+
+# ----------------------------------------------------------------------
+#
+# build.pl
+
+# 2022-02-15
+#   Add update-shared-mime, otherwise gdkpixbuf doesn't work.
+
+# 2021-10-13
+#   Add support for ssh-keys within the YAML file.  Currently added
+#   by a second script but now means regeneated instances have the
+#   same keys.
+#   Fixed flushing buffers on filesystem create.  Not a particularly
+#   elegant solution so maybe mount the file system then fsync it.
+
+# 2020-03-21
+#  Add support for VRFs in linux
+
+# 2019-09-09
+#   Add etc fix for gnome schemas and gdk-puxbuf-loaders.
+
+# 2019-05-11
+#  Fix mount & umount stage function calls
+#  Convert systemd-networkd configuration to use MAC addresses
+
+# 2018-08-24
+#  Add stage to create grub.cfg
+#  Fix umount to accept a nbd and try to umount that
+
+# 2018-07-07
+#  Change to EFISYS, /boot, and / partition system
+#  Change / FS to XFS
+#  Move configuration to build.js.
+#  Need to fix locale
+
+#
+# 2018-07-04
+#   Add support for kernel_options.
+#
+# ----------------------------------------------------------------------
+
+use 5.24.0;
+use File::Spec::Functions qw(:ALL);
+use File::Copy;
+use File::Slurp;
+use File::Sync qw(fsync sync);
+use Perl6::Slurp;
+use Time::Piece;
+use Getopt::Long;
+use feature 'say';
+use JSON;
+use YAML qw(LoadFile);
+use Carp;
+use QemuPkg;
+use QemuVm;
+use QemuVmFile;
+
+# ----------------------------------------------------------------------
+#
+# vm_conf_check
+#
+# ----------------------------------------------------------------------
+
+sub vm_conf_check {
+    my ($vm) = @_;
+
+    if (!exists($vm->{name}))
+    {
+	printf STDERR "Key 'name' missing from VM definition.\n";
+	return 0;
+    }
+
+    if (!exists($vm->{image}))
+    {
+	printf STDERR "Key 'image' missing from VM definition.\n";
+	return 0;
+    }
+    my $image = $vm->{image};
+    if (!exists($image->{format}))
+    {
+	printf STDERR "Key 'format' missing from image definition.\n";
+	return 0;
+    }
+
+        if (!exists($image->{size}))
+    {
+	printf STDERR "Key 'size' missing from image definition.\n";
+	return 0;
+    }
+    return 1;
+}
+
+# ----------------------------------------------------------------------
+#
+# mod_check
+#
+# ----------------------------------------------------------------------
+
+sub mod_check {
+    if (! -d '/sys/module/kvm')
+    {
+	`modprobe kvm`;
+    }
+    else
+    {
+	print STDOUT "kvm module installed\n";
+    }
+
+    if (! -d '/sys/module/nbd')
+    {
+	`modprobe nbd max_part=8`;
+    }
+    else
+    {
+	print STDOUT "nbd module installed\n";
+    }
+}
+
+# ----------------------------------------------------------------------
+#
+# fuser_check
+#
+# ----------------------------------------------------------------------
+
+sub fuser_check {
+    my $vm = shift(@_);
+    my $conf = $vm->configuration_get();
+    my $opts = {@_};
+
+    exit 1 if (!&vm_conf_check($conf));
+    my $vmname = $conf->{name} || die;
+    my $format = $conf->{image}->{format};
+
+    my $imgfile;
+    
+    if (exists($conf->{image}->{path}))
+    {
+	$imgfile = $conf->{image}->{path};
+    }
+    else
+    {
+    	$imgfile = rel2abs(catfile($opts->{install_base}, $vmname, sprintf("%s.%s", $vmname, $format)));
+    }
+    my $res = `fuser --silent $imgfile 2>&1`;
+    if ($? == 0)
+    {
+	print STDERR "$imgfile in use: $res\n";
+	return 0;
+    }
+    $conf->{image}->{path} = $imgfile;
+    return 1;
+}   
+
+# ----------------------------------------------------------------------
+#
+# nbd_check
+#
+# ----------------------------------------------------------------------
+
+sub nbd_check {
+    my ($vm, $opts) = @_;
+
+    my $conf = $vm->configuration_get();
+    
+    if ($opts->{nbd})
+    {
+	my $dev = "/dev/" . $opts->{nbd}. "*";
+
+	my @blkid = map {
+	    +{ map { split(m:=:, $_) } split(m:\n:, $_) }
+	}  split(m:\n\n:, qx(blkid -o export $dev));
+	
+	# --------------------
+	# If nothing found complain and exit
+	# --------------------
+	
+	if (scalar(@blkid) == 0)
+	{
+	    printf STDERR "Block device %s not found.\n", $dev;
+	    exit 1;
+	}
+
+    # --------------------
+    # Check if partitioned
+    # --------------------
+
+	my $dev_map = {};
+	
+	if (exists(@blkid[0]->{PTTYPE}))
+	{
+	}
+	else
+	{
+	    my $t = $conf->{image}->{mtab}->{root} = {
+		'dev' => @blkid[0]->{DEVNAME},
+	    };
+	    $dev_map->{$t->{dev}} = $t;
+	}
+	    
+	map {
+	    my ($dev, $mount) = split(m: :, $_);
+	    if ($dev_map->{$dev})
+	    {
+		$dev_map->{$dev}->{mountpoint} = $mount;
+	    }
+	} qx(cat /proc/self/mounts);
+
+#	say %{$conf->{image}->{mtab}->{root}};
+#	exit(1);
+	
+    # 	my %dev_to_fs = (
+    # 	    'esp' => sprintf("%sp1", $dev),
+    # 	    'boot' => sprintf("%sp2", $dev),
+    # 	    'root' => sprintf("%sp3", $dev),
+    # 	    );
+
+    # 	while(my ($k, $v) = each(%dev_to_fs))
+    # 	{
+    # 	    if ($mount_map{$v})
+    # 	    {
+    # 		$conf->{part}->{$k}->{_mnt} = $mount_map{$v};
+    # 	    }
+    # 	}
+	$conf->{image}->{device} = $dev;
+     	return;
+    }
+
+    # --------------------
+    # No nbd specified to find next one available
+    # --------------------
+
+    my %blockdev = map { my @parts = split(m: +:, $_); $parts[6] => 1; } grep(m:/dev/nbd:, split(m:\n:, `blockdev --report`));
+    my $nbd_dev;
+
+    for my $i (0 .. 15)
+    {
+	my $dev = sprintf("/dev/nbd%d", $i);
+	if ($blockdev{$dev})
+	    {
+		print "NBD device $dev in use\n";
+	    }
+	else
+	{
+	    $nbd_dev = $dev;
+	    last;
+	}
+    }
+    
+    if (!defined($nbd_dev))
+    {
+	print STDERR "No free NBD device found.\n";
+	exit 1;
+    }
+    $conf->{image}->{device} = $nbd_dev;
+}
+
+# ----------------------------------------------------------------------
+#
+# image_mount
+#
+# ----------------------------------------------------------------------
+
+sub image_mount {
+    my $conf = shift(@_);
+    my $opts = {@_};
+    
+    my $vmname = $conf->{name} || die;
+
+    my $image = $conf->{image};
+    my $dev = $image->{device};
+    my $fmt = $image->{format};
+    my $path = $image->{path};
+    my $mtab = $image->{mtab} = {};
+
+    if (!-f $path)
+    {
+	croak "$0: image $path does not exist";
+    }
+    if ($opts->{qemu})
+    {
+	printf "NBD: %s %s (%s)\n", $dev, $path, $fmt;
+	my $qemu_nbd = sprintf("qemu-nbd -c %s -f %s %s", $dev, $fmt, $path);
+	print qx($qemu_nbd);
+	qx(udevadm settle);
+	qx(partprobe -s $dev);
+#	sleep(1);
+    }
+
+    # --------------------
+    # Use blkid to determine details of image
+    # --------------------
+
+    my @blkid = map {
+        +{ map { split(m:=:, $_) } split(m:\n:, $_) }
+    }  split(m:\n\n:, qx(blkid -o export ${dev}*));
+
+    if (exists(@blkid[0]->{PTTYPE}))
+    {
+	say "Found partition type @blkid[0]->{PTTYPE}";
+    }
+    else
+    {
+	if ($image->{partition})
+	{
+	    warn "Expecting partition but did not find any";
+	    qx(qemu-nbd -d $dev);
+	    exit(1);
+	}
+	my $b = @blkid[0];
+	say "Found filesystem $b->{TYPE} [$b->{LABEL}] on $dev";
+	$mtab->{root} = {
+	    dev => $dev,
+	    path => '/',
+	    fstype => $b->{TYPE},
+	    label => $b->{LABEL},
+	    uuid => $b->{UUID},
+	};
+    }
+#    qx(qemu-nbd -d $dev);
+#    exit(0);
+    
+#    my $blockdev = qx(blockdev --report);
+
+
+    
+    if ($image->{partition})
+    {
+    	my $part = $conf->{part} //= {};
+	
+	my $esp = $part->{esp} //= {};
+	my $boot = $part->{boot} //= {};
+	my $root = $part->{root} //= {};
+	
+	$esp->{nbd} = sprintf("%sp1", $dev);
+	$boot->{nbd} = sprintf("%sp2", $dev);
+	$root->{nbd} = sprintf("%sp3", $dev);
+
+	# --------------------
+	# map devices to partitions
+	# --------------------
+	
+	my $partmap = {};
+	while (my ($k, $v) = each(%$part))
+	{
+	    $partmap->{$v->{nbd}} = $k;
+	}
+	
+	# --------------------
+	# Get block IDs
+	# --------------------
+	
+	for my $blkid (grep(m:$dev:, split(m:\n:, qx/blkid/)))
+	{
+	    my ($dev, $list) = split(m/: /, $blkid, 2);
+	    if (my $name = $partmap->{$dev})
+	    {
+		print $dev," ", $name, " ", $list, "\n";
+		for my $i (split(m: :, $list))
+		{
+		    my ($k, $v) = split(m:=:, $i);
+		    $v =~ s:^\"::;
+		    $v =~ s:\"$::;
+		    
+		    $part->{$name}->{id}->{$k} = $v;
+		}
+	    }
+	}
+    }
+    
+    # --------------------
+    # Check mount base directory exists
+    # --------------------
+    
+    if (!-d $vmname)
+    {
+	mkdir($vmname) || die;
+    }
+	
+    # --------------------
+    # Create mount points
+    # --------------------
+    
+#    $part->{root}->{mnt} = "/";
+#    $part->{boot}->{mnt} = "/boot";
+#    $part->{esp}->{mnt} = "/boot/efi";
+    
+    my $mnt_root = catdir($vmname, "root");
+
+    for my $n ('root', 'boot', 'esp')
+    {
+	if (my $e = $mtab->{$n})
+	{
+	    my $mnt = catdir($mnt_root, $e->{path});
+	    my $nbd = $e->{dev};
+	    
+	    if (! -d $mnt)
+	    {
+		mkdir($mnt);
+		printf("%s created\n", $mnt);
+	    }
+	    
+	    my @mounts = split(m:\n:, slurp('/proc/self/mounts'));
+	    
+	    printf("Attempting to mount $nbd onto $mnt\n");
+	    
+	    if (grep(m:$mnt:, @mounts))
+	    {
+		print "$mnt already mounted\n";
+	    }
+	    else
+	    {   
+		print qx(mount -v $nbd $mnt);
+		die if $!;
+	    }
+	    $mtab->{$n}->{mountpoint} = $mnt;
+	}
+    }
+    return 1;
+}
+
+# ----------------------------------------------------------------------
+#
+# image_umount
+#
+# ----------------------------------------------------------------------
+
+sub image_umount {
+    my $conf = shift(@_);
+    my $opts = {@_};
+    
+    my $vmname = $conf->{name} || die;
+    
+    my $dev = $conf->{image}->{device};
+    my $fmt = $conf->{image}->{format};
+    my $path = $conf->{image}->{path};
+    my $mtab = $conf->{image}->{mtab};
+    
+    for my $n ('esp', 'boot', 'root')
+    {
+	if ($mtab->{$n} && $mtab->{$n}->{mountpoint})
+	{
+	    my $mnt = $mtab->{$n}->{mountpoint};
+	    if (grep(m:$mnt:, split(m:\n:, slurp('/proc/self/mounts'))))
+	    {
+		print `umount -v $mnt`;
+	    }
+	    else
+	    {   
+		print "$mnt not mounted\n";
+	    }
+	}
+    }
+
+#    sleep(5);
+
+    if ($opts->{qemu})
+    {
+	qx(udevadm trigger);
+	qx(udevadm settle);
+	print qx(qemu-nbd -d $dev);
+    }
+}
+
+
+# ----------------------------------------------------------------------
+#
+# image_create
+#
+# ----------------------------------------------------------------------
+
+sub image_create {
+    my ($vm) = @_;
+
+    my $conf = $vm->configuration_get();
+    
+# --------------------
+# Put everything into a directory
+# --------------------
+
+    my $vmname = $conf->{name} || die;
+    my $image = $conf->{image} || die;
+    my $format = $conf->{image}->{format} || die;
+    my $size = $conf->{image}->{size} || die;
+
+    # --------------------
+    # Create directory if necessary
+    # --------------------
+    
+    if (! -d $vmname)
+    {
+	mkdir($vmname) || die;
+    }
+    
+    my $imgfile = $conf->{image}->{path};
+
+    if (-f $imgfile)
+    {
+	print "Removing old $imgfile\n";
+	unlink($imgfile);
+    }
+    
+    # --------------------
+    # Create img file
+    # --------------------
+    
+    print qx(qemu-img create -f $format $imgfile $size);
+    sync();
+
+    # --------------------
+    # use NBD to make image a device
+    # --------------------
+    
+    my $nbd = $conf->{image}->{device}  || die;
+    print qx(qemu-nbd -c $nbd -f $format $imgfile);
+    
+    # --------------------
+    # Set sizes (all in M)
+    # --------------------
+
+    if ($image->{partition})
+    {
+	my $partition = $image->{partition};
+	my $size_ptable = 2;
+	my $size_current;
+	my @part;
+
+        # --------------------
+	# Add GPT partition label (for UEFI)
+	# --------------------
+	
+	print qx(parted -s $nbd mklabel gpt);
+	print qx(parted -s $nbd print);
+	
+	# --------------------
+	# Add UEFI boot partition
+	# --------------------	
+
+	if ($partition->{efisys})
+	{
+	    my $size_efi = $partition->{efisys}->{size} // 36;
+	    my $mkpart_efi = sprintf("parted -s $nbd mkpart EFISYS %dM %dM", $size_ptable, $size_ptable + $size_efi);
+	    $size_current = $size_ptable + $size_efi;
+
+	    print qx($mkpart_efi);
+	    print qx(parted -s $nbd set 1 esp);
+	    push(@part, {name => "efisys", fstype => "fat", options => "-F 32 -n EFISYS"});
+	}
+	
+	# --------------------
+	# Add boot partition
+	# --------------------
+
+	if ($partition->{boot})
+	{
+	    my $size_boot = $partition->{boot}->{size} // 128;
+	    my $mkpart_efi = sprintf("parted -s $nbd mkpart boot %dM %dM", $size_current, $size_current + $size_boot);
+	    $size_current += $size_boot;
+	
+	    print qx($mkpart_efi);
+
+	    my $label = $partition->{boot}->{label} // "/boot";
+	    my $options = "-L $label";
+	    
+	    push(@part, {name => "boot", fstype => $partition->{boot}->{fstype} // "ext4", options => $options});
+	}
+	
+	# --------------------
+	# Add root partition
+	# --------------------
+
+	if ($partition->{root})
+	{
+	    my $mkpart_root = sprintf("parted -s $nbd mkpart root %dM %s", $size_current, $size);
+	    print qx($mkpart_root);
+	    
+	    my $label = $partition->{root}->{label} // "/";
+	    my $options = "-L $label";
+	    
+	    push(@part, {name => "root", fstype => $partition->{root}->{fstype} // "ext4", options => $options});
+	}
+	
+	# --------------------
+	# Add print result
+	# --------------------
+	
+	print qx(parted -s $nbd print);
+	
+	# --------------------
+	# Use partprobe to pick up partitions
+	# --------------------
+	
+	sleep(2);
+	print qx(partprobe -s $nbd);
+    
+	# --------------------
+	# Check devices exist
+	# --------------------
+
+	for my $i (1 .. scalar(@part))
+	{
+	    my $dev = sprintf("%sp%d", $nbd, $i);
+	    my $part = @part[$i-1];
+
+	    if (! -b $dev)
+	    {
+		printf STDERR "NBD device %s [%s] missing.\n", $nbd, $part->{name};
+		qx(qemu-nbd -d $nbd);
+		exit 1;
+	    }
+	    else
+	    {
+		my $mkfs = sprintf("mkfs -t %s %s %s", $part->{fstype}, $part->{options}, $dev);
+		print qx($mkfs);
+	    }
+	}
+    }
+    else
+    {
+	my $fstype = $image->{fstype} // "ext4";
+	my $label = $image->{label} // "/";
+	print qx(mkfs -t $fstype -L $label $nbd);
+ 	sync();
+
+	# --------------------
+	# For some reason sync and fsync don't cut it
+	# --------------------
+
+	print qx(sysctl vm.drop_caches=3);
+    }
+
+    # --------------------
+    # Disconnect nbd
+    # --------------------
+    
+    print qx(qemu-nbd -d $nbd);
+    print "\n";
+    sleep(2);
+	
+}
+
+# ----------------------------------------------------------------------
+#
+# efi_install
+#
+# ----------------------------------------------------------------------
+
+sub efi_install {
+    my ($conf, @opts) = @_;
+    my $opts = {@opts};
+    my $name = $conf->{name};
+    my $dev = $conf->{image}->{device};
+    my $path = $conf->{image}->{path};
+    my $fmt = $conf->{image}->{format};
+
+    my $vars = 'OVMF_VARS.fd';
+
+    if (!-f catdir($name, $vars))
+    {
+	copy(catdir($opts->{ovmf_base}, $vars), catfile($name, $vars)) || die;
+    }
+    
+    &image_mount($conf, qemu => 1) || die;
+
+    my $bootmnt = $conf->{part}->{boot}->{_mnt} || die;
+    my $root = $conf->{part}->{root} || die;
+    my $partuuid = $root->{id}->{PARTUUID};
+
+    # --------------------
+    # Copy grub.efi to EFI/BOOT/BOOTX64.EFI
+    # --------------------
+    
+    printf "Installing EFI bootloader on device %s (%s)\n", $dev, $bootmnt;
+    
+    my $efi = catdir($bootmnt, "efi", "EFI", "BOOT");
+    if (! -d $efi)
+    {
+	`mkdir -p $efi`;
+    }
+    my $efi_boot = catfile($efi, "bootx64.efi");
+    my $grub_efi = catdir($opts->{ovmf_base}, 'grub/grub.efi');
+    
+    copy($grub_efi, $efi_boot);
+    printf "%s copied to %s\n", $grub_efi, $efi_boot;
+
+    &image_umount($conf, qemu => 1);
+}
+
+# ----------------------------------------------------------------------
+#
+# install_pkg
+#
+# ----------------------------------------------------------------------
+
+sub install_pkg {
+    my ($dst, $pkg) = @_;
+
+    for my $path (@$pkg)
+    {
+	if (! -d $path)
+	{
+	    print "$path: Could not find directory\n";
+	}
+	else
+	{
+	    print "Installing $path\n";
+	    my $cmd = "tar -C $path -cf - . | tar -C $dst --skip-old-files -xhf -";
+	    `$cmd`;
+	}
+    }
+}
+
+# ----------------------------------------------------------------------
+#
+# pkgs_install
+#
+# ----------------------------------------------------------------------
+
+sub pkgs_recc {
+    my ($base, $pkg_conf, $pkg) = @_;
+
+    my @res;
+    
+    # --------------------
+    # Check if pkg exists in configuration
+    # --------------------
+
+#    say $pkg, ref($pkg);
+#    say "++++++++++";
+    my @pkg_list = (ref($pkg) eq "ARRAY") ? @$pkg : $pkg;
+
+    for my $pkg (@pkg_list)
+    {
+	if ($pkg_conf->{$pkg})
+	{
+	    my $pp = $pkg_conf->{$pkg};
+	    $pp = [ $pp ] if (!(ref($pp) eq "ARRAY"));
+	    push(@res, map { pkgs_recc($base, $pkg_conf, $_); } @$pp);
+	}
+	elsif (-d catdir($base, $pkg))
+	{
+	    push(@res, (catdir($base, $pkg)));
+	}
+	else
+	{
+	    printf(STDERR "Package %s cannot be found.\n", $pkg);
+	    return;
+	}
+    }
+    return @res;
+}
+
+# ----------------------------------------------------------------------
+#
+# pkgs_install
+#
+# ----------------------------------------------------------------------
+
+sub pkgs_install {
+    my ($vm, @opts) = @_;
+    my $opts = {@opts};
+
+    my $base = $opts->{pkg_base};
+    my $pkg_conf = $opts->{_pkg_conf_};
+    
+    if (!($vm->{pkg} || $opts->{pkg}))
+    {
+	printf(STDERR "$0: VM %s missing pkg configurtion or --pkg argument\n", $vm->{name});
+	return 0;
+    }
+
+    my $pkgs = $opts->{pkg} // $vm->{pkg};
+
+    if ($opts->{preview})
+    {
+	printf("pkgs: %s\n", join(" ", @$pkgs));
+	my @paths = $opts->{_pkg_conf_}->files($pkgs);
+	printf("paths: %s\n", join(" ", @paths));
+	return;
+    }
+
+    my @paths = $opts->{_pkg_conf_}->files($pkgs);
+
+    # &pkgs_recc($base, $pkg_conf, $pkgs);
+#    say "----------";
+#    say @pkgs;
+#    exit 1;
+    
+    # --------------------
+    # Mount file systems
+    # --------------------
+    
+    &image_mount($vm, qemu => 1);   
+    my $dst = $vm->{image}->{mtab}->{root}->{mountpoint};
+
+    &install_pkg($dst, [@paths]);
+    &image_umount($vm, qemu => 1);
+}
+
+# ----------------------------------------------------------------------
+#
+# etc_install
+#
+# ----------------------------------------------------------------------
+sub etc_install {
+    my ($conf) = @_;
+
+    &image_mount($conf, qemu => 1);   
+    my $stream;
+
+    my $root_mnt = $conf->{image}->{mtab}->{root}->{mountpoint};
+    
+    # --------------------
+    # Create /etc/fstab
+    # --------------------
+
+    printf("Creating /etc/fstab\n");
+    my $fstab = catfile($root_mnt, "etc", "fstab");
+    open($stream, ">", $fstab) || die "Failed to open $fstab";
+    for my $fs ('root', 'boot', 'esp')
+    {
+	my $t = $conf->{image}->{mtab}->{$fs};
+	if ($t)
+	{
+	    my $uuid = $t->{uuid};
+	    my $type = $t->{fstype};
+	    my $label = $t->{label};
+	    my $path = $t->{path};
+
+	    my $line = sprintf("UUID=%s\t%s\t%s\tdefaults\t1 1\n", $uuid, $path, $type);
+	    print $line;
+	    printf($stream $line);
+	}
+    }
+    close($stream);
+
+    # --------------------
+    # /etc/machine-id
+    # --------------------
+    
+    my $machine_id = catfile($root_mnt, "etc", "machine-id");
+    if (! -f $machine_id)
+    {
+	print `dbus-uuidgen > $machine_id`;
+    }
+    
+    # --------------------
+    # /etc/hostname
+    # --------------------
+
+    my $hostname = catfile($root_mnt, "etc", "hostname");
+    open($stream, ">", $hostname) || die;
+    printf($stream "%s\n", $conf->{fqdn});
+    close($stream);
+
+    # --------------------
+    # /etc/motd
+    # --------------------
+
+    open($stream, ">", catfile($root_mnt, 'etc', 'motd')) || die;
+    printf($stream "\n--------------------\n");
+    printf($stream "--\n");
+    printf($stream "-- Welcome to %s\n", $conf->{fqdn});
+    printf($stream "--\n");
+    printf($stream "-- Build: %s\n", Time::Piece->new->cdate);
+    printf($stream "--\n");
+    printf($stream "--------------------\n\n");
+    close($stream);
+    
+    # --------------------
+    # /etc/motd
+    # --------------------
+
+    open($stream, ">", catfile($root_mnt, 'etc', 'issue')) || die;
+    printf($stream "\nWelcome to %s\n\n", $conf->{name});
+    close($stream);
+    
+    # --------------------
+    # locale
+    # --------------------
+
+    say qx(localedef --prefix=$root_mnt -f UTF-8 -i en_US en_US.UTF-8);
+    say qx(localedef --prefix=$root_mnt -f UTF-8 -i en_GB en_GB.UTF-8);
+
+    # --------------------
+    # /etc/systemd/network
+    # --------------------
+
+    my $network_dir = catfile($root_mnt, "etc", "systemd", "network");
+
+    my $vrf_map = {};
+     
+    for my $vrf (@{$conf->{vrf} || []})
+    {
+	$vrf_map->{$vrf->{name}} = $vrf;
+	my $stream;
+	my $vrf_file = catfile($network_dir, sprintf("20-vrf-%02d.netdev", $vrf->{table}));
+	open($stream, ">", $vrf_file);
+	printf($stream "[NetDev]\nName=%s\nKind=vrf\n\n[VRF]\nTableId=%d\n", $vrf->{name}, $vrf->{table});
+	close($stream);
+
+	my $vrf_file = catfile($network_dir, sprintf("20-vrf-%02d.network", $vrf->{table}));
+	open($stream, ">", $vrf_file);
+	printf($stream "[Match]\nName=%s\n", $vrf->{name});
+	close($stream);
+    }
+    
+    if ($conf->{nic})
+    {
+	my $nic_list = $conf->{nic};
+	for my $i (0 .. scalar(@$nic_list)-1)
+	{
+	    my $nic = $nic_list->[$i];
+	    my $stream;
+	    if (! -d $network_dir)
+	    {
+		mkdir($network_dir) || die;
+	    }
+	    my $network = catfile($network_dir, sprintf("10-en%02d.network", $i));
+	    open($stream, ">", $network) || die;
+	    printf($stream "[Match]\nMACAddress=%s\n\n", $nic->{mac});
+
+	    printf($stream "[Network]\n");
+	    
+	    if ($nic->{dhcp6})
+	    {
+		printf($stream "DHCP=ipv6\n");
+	    }
+	    if ($nic->{ip6})
+	    {
+		printf($stream "Address=%s\n", $nic->{ip6});
+	    }
+	    if ($nic->{vrf})
+	    {
+		printf($stream "VRF=%s\n", $nic->{vrf});
+	    }	    
+	    close($stream);
+	    print("Adding systemd-network configuration file $network\n");
+	}
+    }
+    # --------------------
+    # SSH keys
+    # --------------------
+
+    my $fqdn = $conf->{fqdn};
+
+    if (!$fqdn)
+    {
+	printf STDERR "Key 'fqdn' missing from VM definition.\n";
+	exit 1;
+    }
+    
+    my $sshconf = catfile($root_mnt, "etc", "ssh");
+    if (!-d $sshconf)
+    {
+	mkdir($sshconf);
+    }    
+    for my $t ('rsa', 'dsa', 'ecdsa', 'ed25519')
+    {
+	if (exists($conf->{ssh}->{$t}))
+	{
+	    say "Found existing ssh key for $t";
+	    my $keyfile = catfile($sshconf, sprintf("ssh_host_%s_key", $t));
+	    if (!-f $keyfile)
+	    {
+		write_file($keyfile, $conf->{ssh}->{$t}->{key});
+		chmod(0600, $keyfile);
+		say "Writing $keyfile";
+	    }
+	    my $pubfile = catfile($sshconf, sprintf("ssh_host_%s_key.pub", $t));
+	    if (!-f $pubfile)
+	    {
+		write_file($pubfile, $conf->{ssh}->{$t}->{pub});
+		chmod(0644, $pubfile);
+		say "Writing $pubfile";
+	    }
+	}
+	else
+	{
+	    my $keyfile = catfile($sshconf, sprintf("ssh_host_%s_key", $t));
+	    if (!-f $keyfile)
+	    {
+		my $cmd = sprintf("ssh-keygen -t %s -N \"\" -f %s -C $fqdn", $t, $keyfile);
+		print $cmd, "\n";
+		print qx/$cmd/;
+	    }
+	}
+    }
+    # --------------------
+    # Install root ssh key
+    # --------------------
+    
+    my $root_key = '/root/.ssh/id_rsa.pub';
+    if (-f $root_key)
+    {
+	my $key = slurp($root_key);
+	my $auth_dir = catfile($root_mnt, "root", ".ssh");
+	mkdir ($auth_dir) if (! -d $auth_dir);
+	my $auth_file = catfile($auth_dir, "authorized_keys");
+	if (! -f $auth_file)
+	{
+	    my $stream;
+	    open($stream, ">", $auth_file) || die;
+	    print $stream $key;
+	    close($stream);
+	}
+    }
+
+    # --------------------
+    # enable systemd-networkd
+    # --------------------
+
+    my @cmd = ('chroot', $root_mnt, 'systemctl', 'enable', 'systemd-networkd');
+    say qx/@cmd/;
+
+    # --------------------
+    # GLib schemas
+    # --------------------
+
+    my $schema_dir = catdir($root_mnt, 'usr', 'share', 'glib-2.0', 'schemas');
+    if (-d $schema_dir)
+    {
+	say "Compiling glib schemas";
+	my @cmd = ('chroot', $root_mnt, 'glib-compile-schemas', '/usr/share/glib-2.0/schemas');
+	say qx/@cmd/;
+    }
+    
+    # --------------------
+    # gdk-pixbuf-loaders
+    # --------------------
+
+    my $schema_dir = catdir($root_mnt, 'usr', 'bin', 'gdk-pixbuf-query-loaders');
+    if (-x $schema_dir)
+    {
+	say "Running gdk-pixbuf-query-loaders";
+	my @cmd = ('chroot', $root_mnt, 'gdk-pixbuf-query-loaders', '--update-cache');
+	say qx/@cmd/;
+    }
+
+    # --------------------
+    # update-mime-database
+    # --------------------
+
+    my $mime_dir = catdir($root_mnt, 'usr', 'share', 'mime');
+    my $mime_exe = catdir($root_mnt, 'usr', 'bin', 'update-mime-database');
+    if (-x $mime_exe && -d $mime_dir)
+    {
+	say "Running update-mime-database";
+	my @cmd = ('chroot', $root_mnt, 'update-mime-database', '/usr/share/mime');
+	say qx/@cmd/;
+    }
+
+    &image_umount($conf, qemu => 1);
+}
+
+# ----------------------------------------------------------------------
+#
+# grub_install
+#
+# ----------------------------------------------------------------------
+
+sub grub_install {
+    my ($vm, @opts) = @_;
+
+    my $opts = {@opts};
+    
+    # --------------------
+    # Check kernel passed
+    # --------------------
+
+    if (!($opts->{kernel} || $vm->{kernel}))
+    {
+	printf STDERR "Kernel version must be set with either --kernel or the vm key 'kernel'.\n";
+	exit 1;
+    }
+    my $kernel = $opts->{kernel} // $vm->{kernel};
+    my $cmdline = $opts->{cmdline} // $vm->{cmdline};
+    	
+    &image_mount($vm, qemu => 1);   
+    
+    if (!$vm->{part}->{boot}->{_mnt})
+    {
+	printf STDERR "Cannot find mountpoint.\n";
+	&image_umount($vm, qemu => 1);
+	exit 1;
+    }
+
+    my $partuuid = $vm->{part}->{root}->{id}->{PARTUUID};
+    my $mount = $vm->{part}->{boot}->{_mnt};
+
+    my $grub = catdir($mount, "grub");
+    if (!-d $grub)
+    {
+	mkdir($grub) || die;
+    }
+
+    # --------------------
+    # Actual grub.cfg
+    # --------------------
+    
+    my $grub_dir = catdir($mount, "grub");
+    if (! -d $grub_dir)
+    {
+	`mkdir -p $grub_dir`;
+    }
+
+    # --------------------
+    # grub.cfg
+    # --------------------
+
+    my $fstype = $vm->{part}->{root}->{id}->{TYPE};
+    my $linux = join(" ", ("linux",
+			   sprintf("(\$boot)/vmlinuz-%s", $kernel),
+			   sprintf("root=PARTUUID=%s",  $partuuid),
+			   sprintf("rootfstype=%s", $fstype),
+			   "console=ttyS0", $cmdline));
+
+    my $stream;
+    my $grub_cfg = catfile($grub_dir, "grub.cfg");
+    open($stream, ">", $grub_cfg);
+    printf $stream "# grub.cfg written by build.pl\n";
+    printf $stream "\n";
+    printf($stream "set timeout=5\n");
+    printf($stream "search.fs_label /boot boot\n");
+    printf($stream "menuentry \"Linux %s\" {\n", $kernel);
+    printf($stream "$linux\n");
+    printf($stream "}\n");
+    close($stream);
+
+    printf("grub.cfg installed for kernel version %s\n", $kernel);
+
+    &image_umount($vm, qemu => 1);
+}
+
+# ----------------------------------------------------------------------
+#
+# yaml_file_read
+#
+# ----------------------------------------------------------------------
+
+sub yaml_file_read {
+    my ($path) = @_;
+
+    my ($yaml) = LoadFile($path);
+    if (!$yaml)
+    {
+	printf STDERR "$0: Could not load YAML file %s\n", $path;
+	exit(1);
+    }
+    
+    if (!(ref($yaml) eq "HASH"))
+    {
+	printf STDERR "YAML file %s need to be an hash.\n", $path;
+	exit 1;
+    }
+    
+    if (!exists($yaml->{vm}))
+    {
+	printf STDERR "Cannot find key 'vm'.\n";
+	exit 1;
+    }
+    
+    if (!((ref($yaml->{vm}) eq "HASH") || (ref($yaml->{vm}) eq "ARRAY")))
+    {
+	printf STDERR "Value of 'vm' must be hash or array.\n";
+	exit 1;
+    }
+    return $yaml;
+}
+
+# ----------------------------------------------------------------------
+#
+# M A I N
+#
+# ----------------------------------------------------------------------
+
+# --------------------
+# GetOptions
+# --------------------
+
+my $opts = {
+    qemu => 1,
+    pkg_base => '/locker/pkg',
+    conf_base => '/locker/vm',
+    ovmf_base => '/locker/vm/uefi',
+    install_base => '.',
+};
+
+# my $confpath = 'build.js';
+
+GetOptions("vmname=s" => \$opts->{name},
+	   "nbd=s" => \$opts->{nbd},
+	   "stage=s@", => \$opts->{stage},
+	   "kernel=s" => \$opts->{kernel},
+	   "pkg=s@" => \$opts->{pkg},
+	   "yaml=s" => \$opts->{yaml},
+	   "preview" => \$opts->{preview}
+	   )
+    or die("Error in command line arguments\n");
+
+# --------------------
+# Check if vm configuration exists
+# --------------------
+
+if (!$opts->{name})
+{
+    printf STDERR "$0: --vmname=<vm> required.\n";
+    exit 1;
+}
+
+# --------------------
+# Get package YAML file
+# --------------------
+
+my $qemu_pkg = QemuPkg->new($opts, "pkg.yml");
+$opts->{_pkg_conf_} = $qemu_pkg;
+
+# --------------------
+# Check for YAML file
+# --------------------
+
+my $yaml_conf_file = $opts->{yaml} // catfile($opts->{conf_base}, sprintf("%s.yaml", $opts->{name}));
+my $vm_file = QemuVmFile->new($yaml_conf_file);
+
+printf(STDOUT "Using YAML file %s\n", $yaml_conf_file);
+
+my $vm = $vm_file->vm_get($opts->{name});
+if (!$vm)
+{
+    printf(STDERR "Cannot find vm %s in file %s\n", $opts->{name}, $yaml_conf_file);
+    exit(1);
+}
+
+# --------------------
+# stages
+# --------------------
+
+my $stages = [
+    {
+	stage => 'create',
+	function => \&image_create,
+    },
+    {
+	stage => 'efi',
+	function => \&efi_install,
+    },
+    {
+	stage => 'grub',
+	function => \&grub_install,
+    },
+    {
+	stage => 'install',
+	function => \&pkgs_install,
+    },
+    {
+	stage => 'etc',
+	function => \&etc_install,
+    },
+    {
+	stage => 'umount',
+	function => \&image_umount,
+    },
+    {
+	stage => 'mount',
+	function => \&image_mount,
+    }
+    ];
+
+my $stage_map = {};
+my $seq = 0;
+for my $s (@$stages)
+{
+    $s->{seq} = ++$seq;
+    $stage_map->{$s->{stage}} = $s;
+}
+
+# --------------------
+# Check stage hash
+# --------------------
+
+my %stage;
+for my $s (@{$opts->{stage}})
+{
+    if (!exists($stage_map->{$s}))
+    {
+	printf STDERR "$0: stage '%s' invalid.\n", $s;
+	exit 1;
+    }
+    $stage{$s} = 1;
+}
+
+
+# --------------------
+# Call individual functions
+# --------------------
+
+&mod_check();
+&fuser_check($vm, %$opts);
+&nbd_check($vm, $opts);
+
+for my $s (@$stages)
+{
+    if ($stage{$s->{stage}})
+    {
+	if ($s->{function})
+	{
+	    $s->{function}->($vm, %$opts);
+	}
+	else
+	{
+	    printf(STDERR "$0: stage %s missing function\n", $s->{stage});
+	}
+    }
+}
