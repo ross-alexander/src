@@ -4,6 +4,8 @@
 #
 # build.pl
 
+# 2022-03-05: Minimal GDBM pkg installation recording added.
+
 # 2022-02-15
 #   Add update-shared-mime, otherwise gdkpixbuf doesn't work.
 
@@ -55,6 +57,7 @@ use Carp;
 use QemuPkg;
 use QemuVm;
 use QemuVmFile;
+use GDBM_File;
 
 # ----------------------------------------------------------------------
 #
@@ -693,61 +696,49 @@ sub efi_install {
 # ----------------------------------------------------------------------
 
 sub install_pkg {
-    my ($dst, $pkg) = @_;
+    my ($dst, $pkg_list) = @_;
 
-    for my $path (@$pkg)
+    my $dbdir = catdir($dst, "var");
+
+    if (!-d $dbdir)
     {
-	if (! -d $path)
+	if (!mkdir($dbdir))
 	{
-	    print "$path: Could not find directory\n";
-	}
-	else
-	{
-	    print "Installing $path\n";
-	    my $cmd = "tar -C $path -cf - . | tar -C $dst --skip-old-files -xhf -";
-	    `$cmd`;
-	}
-    }
-}
-
-# ----------------------------------------------------------------------
-#
-# pkgs_install
-#
-# ----------------------------------------------------------------------
-
-sub pkgs_recc {
-    my ($base, $pkg_conf, $pkg) = @_;
-
-    my @res;
-    
-    # --------------------
-    # Check if pkg exists in configuration
-    # --------------------
-
-#    say $pkg, ref($pkg);
-#    say "++++++++++";
-    my @pkg_list = (ref($pkg) eq "ARRAY") ? @$pkg : $pkg;
-
-    for my $pkg (@pkg_list)
-    {
-	if ($pkg_conf->{$pkg})
-	{
-	    my $pp = $pkg_conf->{$pkg};
-	    $pp = [ $pp ] if (!(ref($pp) eq "ARRAY"));
-	    push(@res, map { pkgs_recc($base, $pkg_conf, $_); } @$pp);
-	}
-	elsif (-d catdir($base, $pkg))
-	{
-	    push(@res, (catdir($base, $pkg)));
-	}
-	else
-	{
-	    printf(STDERR "Package %s cannot be found.\n", $pkg);
+	    warn "Cannot create $dbdir";
 	    return;
 	}
     }
-    return @res;
+    
+    my $dbfile = catfile($dbdir, "pkg.db");
+
+    my $ok = tie(my %db, 'GDBM_File', $dbfile, &GDBM_WRCREAT, 0664);
+    die "can't tie to $dbfile for WRCREAT access: $!" unless $ok;
+    
+    for my $pkg (@$pkg_list)
+    {
+	my $name = $pkg->{name};
+	if (exists($db{$name}))
+	{
+	    my $t = from_json($db{$name});
+	    printf("%s [%s] installed @ %s\n", $name, $t->{src}, Time::Piece->new($t->{epoch})->cdate());
+	}
+	else
+	{
+	    my $path = $pkg->{path};
+	    my $now = Time::Piece->new();
+	    printf("installing %s [%s] @ %s\n", $name, $pkg->{path}, $now->cdate());
+	    my $cmd = "tar -C $path -cf - . | tar -C $dst --skip-old-files -xhf -";
+	    `$cmd`;
+	    my $t = {
+		name => $name,
+		src => $path,
+		zeit => $now->epoch,
+	    };
+	    $db{$name} = to_json($t);
+	}
+    }
+    undef($ok);
+    untie(%db);
 }
 
 # ----------------------------------------------------------------------
@@ -760,16 +751,17 @@ sub pkgs_install {
     my ($vm, @opts) = @_;
     my $opts = {@opts};
 
+    my $conf = $vm->configuration_get();
     my $base = $opts->{pkg_base};
     my $pkg_conf = $opts->{_pkg_conf_};
     
-    if (!($vm->{pkg} || $opts->{pkg}))
+    if (!($conf->{pkg} || $opts->{pkg}))
     {
 	printf(STDERR "$0: VM %s missing pkg configurtion or --pkg argument\n", $vm->{name});
 	return 0;
     }
 
-    my $pkgs = $opts->{pkg} // $vm->{pkg};
+    my $pkgs = $opts->{pkg} // $conf->{pkg};
 
     if ($opts->{preview})
     {
@@ -781,20 +773,15 @@ sub pkgs_install {
 
     my @paths = $opts->{_pkg_conf_}->files($pkgs);
 
-    # &pkgs_recc($base, $pkg_conf, $pkgs);
-#    say "----------";
-#    say @pkgs;
-#    exit 1;
-    
     # --------------------
     # Mount file systems
     # --------------------
     
-    &image_mount($vm, qemu => 1);   
-    my $dst = $vm->{image}->{mtab}->{root}->{mountpoint};
+    &image_mount($conf, qemu => 1);
+    my $dst = $conf->{image}->{mtab}->{root}->{mountpoint};
 
-    &install_pkg($dst, [@paths]);
-    &image_umount($vm, qemu => 1);
+    &install_pkg($dst, \@paths);
+    &image_umount($conf, qemu => 1);
 }
 
 # ----------------------------------------------------------------------
@@ -803,8 +790,10 @@ sub pkgs_install {
 #
 # ----------------------------------------------------------------------
 sub etc_install {
-    my ($conf) = @_;
+    my ($vm) = @_;
 
+    my $conf = $vm->configuration_get();
+    
     &image_mount($conf, qemu => 1);   
     my $stream;
 
