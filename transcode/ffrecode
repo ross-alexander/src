@@ -1,0 +1,375 @@
+#!/usr/bin/perl -w
+
+use 5.24.0;
+use Getopt::Long;
+use File::Basename;
+use File::Path qw(make_path);
+use File::Spec::Functions;
+use JSON;
+use Data::Dumper;
+use IPC::Run qw(run);
+
+# ----------------------------------------------------------------------
+#
+# ffrecode
+#
+# Use FFMPEG to recode media (mostly DVD aka MPEG-TS) into other
+# video formats, mostly H.264+AAC.
+
+# 2023-02-19: Dump formats and parameters if ARGV blank
+
+# 2023-01-30: Rename output to dest
+
+# 2022-12-22: Ross Alexander
+#   Set default output directory to format name rather than container format
+
+#
+# 2019-01-05: Ross Alexnder
+#
+# ----------------------------------------------------------------------
+
+my $map = {
+    formats => {
+	avi => {
+	    suffix => 'avi',
+	    format => 'avi',
+	},
+	h264 => {
+	    suffix => 'm4v',
+	    format => 'mp4',
+            acodec => 'libfdk_aac',
+            vcodec => 'libx264',
+	},
+	h265 => {
+	    suffix => 'm4v',
+	    format => 'mp4',
+            acodec => 'libfdk_aac',
+            vcodec => 'libx265',
+	},
+	ogg => {
+	    suffix => 'ogg',
+	    format => 'ogg',
+	    acodec => 'libvorbis',
+	    vcodec => 'libtheora',
+	},
+	mkv => {
+	    suffix => 'mkv',
+	    format => 'matroska',
+	},
+	webm => {
+	    suffix => 'webm',
+	    format => 'webm',
+	    acodec => 'libvorbis',
+	    vcodec => 'libvpx',
+	},
+	mpg => {
+	    suffix => 'mpg',
+	    format => 'mpegts',
+	},
+	mov => {
+	    suffix => 'mov',
+	    format => 'mov',
+	},
+	vob => {
+	    suffix => 'vob',
+	    format => 'vob',
+	},
+	av1 => {
+	    suffix => 'm4v',
+	    format => 'mp4',
+	    acodec => 'libfdk_aac',
+	    vcodec => 'libaom'
+	},
+	rv1 => {
+	    suffix => 'm4v',
+	    format => 'mp4',
+	    acodec => 'libfdk_aac',
+	    vcodec => 'rav1e'
+	},
+    },
+    codecs => {
+	libvorbis => '-c:a libvorbis -ab 128k -ac 2 -ar 44100',
+	libfaac => '-c:a libfaac -ab 128k -ac 2 -ar 44100',
+	libfdk_aac => '-c:a libfdk_aac -b:a 128k -ac 2 -ar 44100',
+	libvpx => '-c:v libvpx -vb 1024k',
+	libx264 => '-c:v libx264 -preset fast -tune film -vprofile high422 -crf 26',
+	libx265 => '-c:v libx265 -preset fast -x265-params crf=26:pools=4:frame-threads=8',
+	libtheora => '-c:v libtheorea -vb 1024k',
+	nvenc => '-hwaccel cuvid -c:v h264_cuvid -c:v h264_nvenc -tune firm -crf 26',
+	libaom => '-c:v libaom-av1',
+	rav1e => '-c:v librav1e -b:v 500k -rav1e-params threads=16',
+    },
+};
+
+
+# ----------------------------------------------------------------------
+#
+# RecodeMedia
+#
+# ----------------------------------------------------------------------
+
+sub RecodeMedia {
+    my ($in, $out, @args) = @_;
+    my $args = {@args};
+    
+# --------------------
+# define reused variables
+# --------------------
+
+    my $res;
+    my $rc;
+
+    if (!exists($args->{acodec}))
+    {
+	print STDERR "No audio codec given\n";
+	exit(1);
+    }
+    if (!exists($args->{vcodec}))
+    {
+	print STDERR "No video codec given\n";
+	exit(1);
+    }
+    
+    # --------------------
+    # Use ffprobe to get streams from container
+    # --------------------
+    
+    $res = `ffprobe -print_format json -show_streams \"$in\" 2> /dev/null`;
+    $rc = $?;
+    if ($rc != 0)
+    {
+	print $res;
+	return 0;
+    }
+    my $json = decode_json($res);
+    
+    # --------------------
+    # map streams
+    # --------------------
+
+    my %video;
+    my %audio;
+    my %subtitle;
+    
+    map {
+	$video{$_->{index}} = $_ if ($_->{codec_type} eq "video");
+	$audio{$_->{index}} = $_ if ($_->{codec_type} eq "audio");
+	$subtitle{$_->{index}} = $_ if ($_->{codec_type} eq "subtitle");
+    } @{$json->{streams}};
+    
+    printf "Found %d video streams (%s)\n", scalar(keys(%video)), join(",", keys(%video));
+    printf "Found %d audio streams (%s)\n", scalar(keys(%audio)), join(",", keys(%audio));
+    printf "Found %d subtitle streams (%s)\n", scalar(keys(%subtitle)), join(",", keys(%subtitle));
+
+    # --------------------
+    # Sanity check
+    # --------------------
+    
+    if (scalar(keys(%video)) > 1)
+    {
+	print "More than one video stream, something wrong.\n";
+	return;
+    }
+
+    my $iformat = {
+#	'mpeg2video' => '-hwaccel cuvid -c:v mpeg2_cuvid'
+    };
+    
+    my @cmd = ("ffmpeg");
+    push(@cmd, "-loglevel", 8);
+
+    # --------------------
+    # Allow for specific input processing
+    # not really implemented
+    # --------------------
+    
+    push(@cmd, grep({ defined($_) } map { $iformat->{$_->{codec_name}} } values(%video)));
+
+    push(@cmd, '-i', $in); 
+
+# --------------------
+# Check if any video streams
+# --------------------
+
+    if (scalar(keys(%video)) == 0)
+    {
+	print "No video\n";
+    }
+    else
+    {
+	push(@cmd, split(m: :, $args->{vcodec}), "-map", sprintf("0:%d", (keys(%video))[0]));
+    }
+
+# --------------------
+# Get list of audio streams, either from -a command line argument or from container, sorted by id
+# --------------------
+
+    my @audioreq;
+    if (defined($args->{audio}))
+    {
+	@audioreq = split(m:,:, $args->{audio});
+    }
+    else
+    {
+	@audioreq = sort({eval($audio{$a}->{id}) <=> eval($audio{$b}->{id})} keys(%audio));
+    }
+
+    if (scalar(@audioreq) == 0)
+    {
+	print "No audio\n";
+    }
+    else
+    {
+	map {
+	    my $ach = $_;
+	    push(@cmd, split(m: :, $args->{acodec}), "-map", sprintf("0:%d", $ach));
+	} @audioreq;
+    }
+
+# --------------------
+# Check for subtitles (not done since they don't work in ffmpeg still)
+# --------------------
+
+    push(@cmd, '-ss', $args->{start}) if (defined($args->{start}));
+    push(@cmd, '-t', $args->{time}) if (defined($args->{time}));
+    push(@cmd, '-threads', $args->{threads});
+    push(@cmd, '-f', $args->{format});
+    push(@cmd, '-y', "$out");
+    
+    my $cmd = join(" ", @cmd);
+    print $cmd, "\n";
+
+    my $tick_start = time();
+
+    my $run_stdin;
+    my $run_stdout;
+    my $run_stderr;
+    
+    run(\@cmd, \$run_stdin, \$run_stdout, \$run_stderr);
+    $rc = $?;
+
+    my $tick_end = time();
+    my $tick_diff = $tick_end - $tick_start;
+    my $min = int($tick_diff / 60);
+    my $sec = $tick_diff - 60*$min;
+
+    printf("Time taken: %02d:%02d\n",  $min, $sec);
+    print "OUT:", $run_stdout, "\n";
+    
+    if ($rc != 0)
+    {
+	print "ERR:", $run_stderr, "\n";
+	exit 1;
+    }   
+    printf("\n");
+}
+
+# ----------------------------------------------------------------------
+#
+# M A I N
+#
+# ----------------------------------------------------------------------
+
+my $defaults = {
+    format => 'h264',
+    threads => 2 * qx(cat /proc/cpuinfo | grep processor | wc -l),
+};
+
+# --------------------
+# f - format
+# s - start time
+# t - time dururation
+# p - procesess (threads)
+# o - output directory
+# a - CSV list of audio streams to map
+# --------------------
+
+my %opts;
+
+GetOptions(
+    'format=s' => \$opts{f},
+    'start=s' => \$opts{s},
+    'time=s' => \$opts{t},
+    'dest=s' => \$opts{d},
+    'audio=s' => \$opts{a},
+    );
+
+if (scalar(@ARGV) == 0)
+{
+    printf("%s: --format=<format> --dest=<directory> --audio=<track number>\n", basename($0));
+    my $formats = $map->{formats};
+    for my $format (sort(keys(%$formats)))
+    {
+	printf("%s %-5s  %-12s %-12s %-10s\n",
+	       $format eq $defaults->{format} ? "* " : "  ",
+	       $format,
+	       $formats->{$format}->{vcodec} // "---", 
+	       $formats->{$format}->{acodec} // "---", 
+	       $formats->{$format}->{format});
+    }
+    exit(0);
+}
+
+my $format = $opts{'f'} ? $opts{'f'} : $defaults->{format};
+my $threads = $opts{'p'} ? ($opts{'p'}) : $defaults->{threads};
+
+# $threads = $threads > 16 ? 16 : $threads;
+
+# --------------------
+# Check format record
+# --------------------
+
+if (!exists($map->{formats}->{$format}))
+{
+    printf STDERR "Format %s does not exist.\n", $format;
+    exit 1;
+}
+
+my $format_details = $map->{formats}->{$format};
+my $dest_dir = $opts{d} // $format;
+my $codecs = $map->{codecs};
+my $suffix = $format_details->{suffix};
+my $acodec = $codecs->{exists($format_details->{acodec}) ? $format_details->{acodec} : 'libfdk_aac'};
+my $vcodec = $codecs->{exists($format_details->{vcodec}) ? $format_details->{vcodec} : 'libx264'};
+
+if (!-d $dest_dir)
+{
+    make_path($dest_dir) || die;
+}
+
+# --------------------
+# Loop over command line arguments
+# --------------------
+
+for my $source (@ARGV)
+{
+    if (! -f $source)
+    {
+	printf("Cannot find $source\n");
+	next;
+    }
+
+    my $dest;
+    if ($source =~ m:\.([A-Za-z0-9]+)$:)
+    {
+	$dest = basename($source);
+	$dest =~ s:\.$1:\.$suffix:;
+    }
+    else
+    {
+	$dest = "$source\.$suffix";
+    }
+
+    if (! -d $dest_dir)
+    {
+	mkdir ($dest_dir) || die;
+    }
+    $dest = catfile($dest_dir, $dest);
+    
+    my @args = (acodec => $acodec, vcodec => $vcodec, format => $format_details->{format}, audio => $opts{a}, threads => $threads, start => $opts{s}, time => $opts{t});
+    push(@args, start => $opts{s}) if ($opts{s});
+    push(@args, time => $opts{t}) if ($opts{t});
+    push(@args, audio => $opts{a}) if ($opts{a});
+
+    RecodeMedia($source, $dest, @args);
+}
