@@ -1,3 +1,9 @@
+/* ----------------------------------------------------------------------
+   --
+   -- 2023-03-26:
+   --
+   ---------------------------------------------------------------------- */
+
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -42,40 +48,43 @@ gboolean bus_call (GstBus *bus, GstMessage *msg, gpointer data)
 {
   GMainLoop *loop = (GMainLoop *)data;
 
-    g_print ("Got %s message\n", GST_MESSAGE_TYPE_NAME(msg));
+  g_print ("Got %s message\n", GST_MESSAGE_TYPE_NAME(msg));
   
-  switch (GST_MESSAGE_TYPE(msg)) {
-  case GST_MESSAGE_STREAM_STATUS:
-    break;
-
-  case GST_MESSAGE_STATE_CHANGED:
+  switch (GST_MESSAGE_TYPE(msg))
     {
-      GstState old_state, new_state, pending_state;
-      gst_message_parse_state_changed (msg, &old_state, &new_state, &pending_state);
-      g_print ("%s state set to %s\n", gst_object_get_name(GST_MESSAGE_SRC(msg)), gst_element_state_get_name (new_state));
+    case GST_MESSAGE_STREAM_STATUS:
+      g_print("Stream status changed\n");
+      break;
+      
+    case GST_MESSAGE_STATE_CHANGED:
+      {
+	GstState old_state, new_state, pending_state;
+	gst_message_parse_state_changed (msg, &old_state, &new_state, &pending_state);
+	g_print ("%s state set to %s\n", gst_object_get_name(GST_MESSAGE_SRC(msg)), gst_element_state_get_name (new_state));
+	break;
+      }
+    case GST_MESSAGE_EOS:
+      g_print ("End of stream\n");
+      g_main_loop_quit (loop);
+      break;
+      
+    case GST_MESSAGE_ERROR:
+      {
+	gchar  *debug;
+	GError *error;
+	
+	gst_message_parse_error (msg, &error, &debug);
+	g_free (debug);
+	
+	g_printerr ("Error: %s\n", error->message);
+	g_error_free (error);
+	
+	g_main_loop_quit (loop);
+	break;
+      }
+    default:
       break;
     }
-  case GST_MESSAGE_EOS:
-    g_print ("End of stream\n");
-    g_main_loop_quit (loop);
-    break;
-    
-  case GST_MESSAGE_ERROR: {
-    gchar  *debug;
-    GError *error;
-    
-    gst_message_parse_error (msg, &error, &debug);
-    g_free (debug);
-    
-    g_printerr ("Error: %s\n", error->message);
-    g_error_free (error);
-    
-    g_main_loop_quit (loop);
-    break;
-  }
-  default:
-    break;
-  }
   return TRUE;
 }
 
@@ -96,10 +105,10 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
   for (int i = 0; i < gst_caps_get_size(caps); i++)
     {
       s = gst_caps_get_structure(caps, i);
-      printf("** %s %d\n", gst_structure_get_name(s), gst_structure_n_fields(s));
+      printf("** %s\n", gst_structure_get_name(s));
       for (int j = 0; j < gst_structure_n_fields(s); j++)
 	{
-	  printf("++ %s\n", gst_structure_nth_field_name(s, j));
+	  printf("     %s\n", gst_structure_nth_field_name(s, j));
 	}
     }
   s = gst_caps_get_structure(caps, 0);
@@ -110,12 +119,12 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
   g_print ("Dynamic pad created, linking demuxer/decoder %s\n", name);
 
   GstPad *sinkpad;
+  GstElement *decode = 0;
 
   if (strncmp(name, "video", 5) == 0)
     {
       const char *type = name + 6;
       printf("video %s found\n", type);
-      GstElement *decode = 0;
       if (strcmp(type, "mpeg") == 0)
 	{
 	  int version;
@@ -128,9 +137,11 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
 	}
       if (strcmp(type, "x-h264") == 0)
 	{
-	  decode = gst_element_factory_make("vaapih264dec", "decode");
-	  //	  decode = gst_element_factory_make("avdec_h264", "decode");
+	  // decode = gst_element_factory_make("vaapih264dec", "decode");
+	  decode = gst_element_factory_make("avdec_h264", "decode");
 	}
+      assert(decode);
+      
       if (decode)
 	{
 	  GstElement* bin      = gst_bin_new("video-bin");
@@ -169,7 +180,6 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
       printf("audio %s found\n", type);
       GstElement *bin = gst_bin_new("audio-bin");
       GstElement *queue = gst_element_factory_make ("queue", "audio-queue");
-      GstElement *decode;
       if (strcmp(type, "x-vorbis") == 0)
 	{
 	  decode = gst_element_factory_make("vorbisdec", "decode");
@@ -185,10 +195,11 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
 	{
 	  decode = gst_element_factory_make("avdec_ac3", "decode");
 	}
+      assert(decode);
       if (decode)
 	{
 	  GstElement *convert = gst_element_factory_make("audioconvert", "convert");
-	  GstElement *sink = gst_element_factory_make("alsasink", "alsasink");
+	  GstElement *sink = gst_element_factory_make("autoaudiosink", "audiosink");
 	  
 	  assert(convert);
 	  assert(sink);
@@ -251,7 +262,7 @@ static void cb_typefound (GstElement *typefind,
       gst_bin_add(GST_BIN(decoders->pipe), demux);
       g_signal_connect (demux, "pad-added", G_CALLBACK(on_pad_added), decoders);
       gst_pad_link(typefind_src, sink_pad);
-      printf("Demux added\n");
+      printf("Demux added for %s\n", type);
     }
   else
     {
