@@ -10,7 +10,6 @@
 #include <sys/ioctl.h>
 #include <linux/cdrom.h>
 #include <errno.h>
-
 #include <glib.h>
 
 #include "common.h"
@@ -47,7 +46,11 @@ void tc_log(int level, char *tag, char *format, ...)
 Language lists
 -------------------- */
 
-static struct { char code[3];	char name[20];}
+static struct {
+  const char code[3];
+  const char name[20];
+}
+
 language[] = {
 	{ "  ", "Not Specified" }, { "aa", "Afar" },
 	{ "ab", "Abkhazian" }, { "af", "Afrikaans" },
@@ -125,7 +128,8 @@ int   audio_id[7]     = {0x80, 0, 0xC0, 0xC0, 0xA0, 0, 0x88};
 char *sample_freq[2]  = {"48000", "48000"};
 char *audio_type[5]   = {"Undefined", "Normal", "Impaired", "Comments1", "Comments2"};
 char *subp_type[16]   = {"Undefined", "Normal", "Large", "Children", "reserved", "Normal_CC", "Large_CC", "Children_CC",
-	"reserved", "Forced", "reserved", "reserved", "reserved", "Director", "Large_Director", "Children_Director"};
+			 "reserved", "Forced", "reserved", "reserved", "reserved", "Director",
+			 "Large_Director", "Children_Director"};
 
 double frames_per_s[4] = {-1.0, 25.00, -1.0, 29.97};
 
@@ -177,9 +181,15 @@ void converttime(playback_time_t *pt, dvd_time_t *dt)
   if ( pt->minute > 59 ) { pt->minute -= 60; pt->hour++; }
 }
 
-char* lang_name(char* code)
+/* ----------------------------------------------------------------------
+   --
+   -- lang_name
+   --
+   ---------------------------------------------------------------------- */
+
+const char* lang_name(const char* code)
 {
-  int k=0;
+  int k = 0;
   while (memcmp(language[k].code, code, 2) && language[k].name[0] ) { k++; }
   return language[k].name;
 }
@@ -195,69 +205,64 @@ char* lang_name(char* code)
 GString* title_gprint(dvd_title_t *t)
 {
   GString *s = g_string_new(0);
+  playback_time_t *pbt = &t->general.playback_time;
+  
+  gsap(s, "Title: %02d, Length: %02d:%02d:%02d.%03d ", t->num, pbt->hour, pbt->minute, pbt->second, pbt->usec);
+  gsap(s, "Chapters: %02d, Cells: %02d, ", t->chapter_count_reported, t->cell_count);
+  gsap(s, "Audio streams: %02d, Subpictures: %02d", t->audiostream_count, t->subtitle_count);
+  gsap(s, "\n"); 
 
-  gsap(s, "Title: %02d, Length: %02d:%02d:%02d.%03d ", t->num,
-       t->general.playback_time.hour,
-       t->general.playback_time.minute,
-       t->general.playback_time.second,
-       t->general.playback_time.usec);
-  g_string_append_printf(s, "Chapters: %02d, Cells: %02d, ", t->chapter_count_reported, t->cell_count);
-  g_string_append_printf(s, "Audio streams: %02d, Subpictures: %02d", t->audiostream_count, t->subtitle_count);
-  g_string_append_printf(s, "\n"); 
-
-  if (t->parameter.format != NULL )
+  if (t->parameter.format != NULL)
     {
-      g_string_append_printf(s, "\tVTS: %02d, TTN: %02d, ", t->parameter.vts, t->parameter.ttn);
-      g_string_append_printf(s, "FPS: %.2f, ", t->parameter.fps);
-      g_string_append_printf(s, "Format: %s, Aspect ratio: %s, ", t->parameter.format, t->parameter.aspect);
-      g_string_append_printf(s, "Width: %s, Height: %s, ", t->parameter.width, t->parameter.height);
-      g_string_append_printf(s, "DF: %s\n", t->parameter.df);
+      gsap(s, "\tVTS: %02d, TTN: %02d, ", t->parameter.vts, t->parameter.ttn);
+      gsap(s, "FPS: %.2f, ", t->parameter.fps);
+      gsap(s, "Format: %s, Aspect ratio: %s, ", t->parameter.format, t->parameter.aspect);
+      gsap(s, "Width: %s, Height: %s, ", t->parameter.width, t->parameter.height);
+      gsap(s, "DF: %s\n", t->parameter.df);
     }
-
+  
   // PALETTE
-
-  if (t->palette != NULL )
+  if (t->palette != NULL)
     {
-      g_string_append_printf(s, "\tPalette: ");
+      gsap(s, "\tPalette: ");
       for (int i=0; i < 16; i++)
 	{
-	  g_string_append_printf(s, "%06x ", t->palette[i]);
+	  gsap(s, "%06x ", t->palette[i]);
 	}
-      g_string_append_printf(s, "\n");
+      gsap(s, "\n");
     }
+  
   // ANGLES
   if (t->angle_count)
     {
-      g_string_append_printf(s, "\tNumber of Angles: %d\n", t->angle_count);
+      gsap(s, "\tNumber of Angles: %d\n", t->angle_count);
     }
+
   // AUDIO
   if (t->audiostreams != NULL)
     {
-      for (int i=0; i<t->audiostream_count; i++)
+      for (unsigned int i = 0; i < t->audiostream_count; i++)
 	{
-	  g_string_append_printf(s, "\tAudio: %d, Language: %s - %s, ", i +1 ,
-				 t->audiostreams[i].langcode, t->audiostreams[i].language);
-	  g_string_append_printf(s, "Format: %s, ", t->audiostreams[i].format);
-	  g_string_append_printf(s, "Frequency: %s, ", t->audiostreams[i].frequency);
-	  g_string_append_printf(s, "Quantization: %s, ", t->audiostreams[i].quantization);
-	  g_string_append_printf(s, "Channels: %d, AP: %d, ", t->audiostreams[i].channels, t->audiostreams[i].ap_mode);
-	  g_string_append_printf(s, "Content: %s, ", t->audiostreams[i].content);
-	  g_string_append_printf(s, "Stream id: 0x%x", t->audiostreams[i].streamid);
-	  g_string_append_printf(s, "\n");
+	  struct audiostream *as = &(t->audiostreams[i]);
+	  gsap(s, "\tAudio: %d, Language: %s - %s, ", i+1, as->langcode, as->language);
+	  gsap(s, "Format: %s, ", t->audiostreams[i].format);
+	  gsap(s, "Frequency: %s, ", t->audiostreams[i].frequency);
+	  gsap(s, "Quantization: %s, ", t->audiostreams[i].quantization);
+	  gsap(s, "Channels: %d, AP: %d, ", t->audiostreams[i].channels, t->audiostreams[i].ap_mode);
+	  gsap(s, "Content: %s, ", t->audiostreams[i].content);
+	  gsap(s, "Stream id: 0x%x", t->audiostreams[i].streamid);
+	  gsap(s, "\n");
 	}
     }
   
   // CHAPTERS
   if (t->chapters != NULL)
     {
-      for (int i=0; i<t->chapter_count; i++)
+      for (unsigned int i = 0;  i <t->chapter_count; i++)
 	{
-	  g_string_append_printf(s, "\tChapter: %02d, Length: %02d:%02d:%02d.%03d, Start Cell: %02d\n", i+1,
-				 t->chapters[i].playback_time.hour,
-				 t->chapters[i].playback_time.minute,
-				 t->chapters[i].playback_time.second,
-				 t->chapters[i].playback_time.usec,
-				 t->chapters[i].startcell);
+	  playback_time_t *pbt = &t->chapters[i].playback_time;
+	  gsap(s, "\tChapter: %02d, Length: %02d:%02d:%02d.%03d, Start Cell: %02d\n", i+1,
+	       pbt->hour, pbt->minute, pbt->second, pbt->usec, t->chapters[i].startcell);
 	}
     }
 	  
@@ -266,7 +271,7 @@ GString* title_gprint(dvd_title_t *t)
     {
       for (int i=0; i<t->cell_count; i++)   
 	{
-	  g_string_append_printf(s, "\tCell: %02d, Length: %02d:%02d:%02d.%03d\n", i+1, 
+	  gsap(s, "\tCell: %02d, Length: %02d:%02d:%02d.%03d\n", i+1, 
 				 t->cells[i].playback_time.hour,
 				 t->cells[i].playback_time.minute,
 				 t->cells[i].playback_time.second,
@@ -278,17 +283,22 @@ GString* title_gprint(dvd_title_t *t)
     {
       for (int i=0; i<t->subtitle_count; i++)
 	{
-	  g_string_append_printf(s, "\tSubtitle: %02d, Language: %s - %s, ", i+1,
+	  gsap(s, "\tSubtitle: %02d, Language: %s - %s, ", i+1,
 				 t->subtitles[i].langcode,
 				 t->subtitles[i].language);
-	  g_string_append_printf(s, "Content: %s, ", t->subtitles[i].content);
-	  g_string_append_printf(s, "Stream id: 0x%x, ", t->subtitles[i].streamid);
-	  g_string_append_printf(s, "\n");
+	  gsap(s, "Content: %s, ", t->subtitles[i].content);
+	  gsap(s, "Stream id: 0x%x, ", t->subtitles[i].streamid);
+	  gsap(s, "\n");
 	}
     }
-  g_string_append_printf(s, "\n");
   return s;
 }
+
+/* ----------------------------------------------------------------------
+   --
+   -- dvd_gprint_title
+   --
+   ---------------------------------------------------------------------- */
 
 GString* dvd_gprint_title(struct dvd_info_t *dvd_info, int track)
 {
@@ -306,26 +316,28 @@ int get_title_name(const char* dvd_device, char* title)
   FILE *filehandle = 0;
   int  i;
 
-  if (! (filehandle = fopen(dvd_device, "r"))) {
-    fprintf(stderr, "Couldn't open %s for title\n", dvd_device);
-    strcpy(title, "unknown");
-    return -1;
+  if (! (filehandle = fopen(dvd_device, "r")))
+    {
+      fprintf(stderr, "Couldn't open %s for title\n", dvd_device);
+      strcpy(title, "unknown");
+      return -1;
   }
   
-  if ( fseek(filehandle, 32808, SEEK_SET )) {
-    fclose(filehandle);
-    fprintf(stderr, "Couldn't seek in %s for title\n", dvd_device);
-    strcpy(title, "unknown");
-    return -1;
+  if ( fseek(filehandle, 32808, SEEK_SET ))
+    {
+      fclose(filehandle);
+      fprintf(stderr, "Couldn't seek in %s for title\n", dvd_device);
+      strcpy(title, "unknown");
+      return -1;
   }
 
-  if ( 32 != (i = fread(title, 1, 32, filehandle)) ) {
-    fclose(filehandle);
-    fprintf(stderr, "Couldn't read enough bytes for title.\n");
-    strcpy(title, "unknown");
-    return -1;
-  }
-  
+  if ( 32 != (i = fread(title, 1, 32, filehandle)))
+    {
+      fclose(filehandle);
+      fprintf(stderr, "Couldn't read enough bytes for title.\n");
+      strcpy(title, "unknown");
+      return -1;
+    }
   fclose (filehandle);
   
   title[32] = '\0';
@@ -367,7 +379,7 @@ dvd_info_t* lsdvd_read_dvd(const char *dvd_device)
   dvd = DVDOpen(dvd_device);
   if(!dvd)
     {
-      fprintf( stderr, "Can't open disc %s!\n", dvd_device);
+      fprintf(stderr, "Can't open disc %s!\n", dvd_device);
       exit(2);
     }
   ifo_zero = ifoOpen(dvd, 0);
@@ -379,7 +391,7 @@ dvd_info_t* lsdvd_read_dvd(const char *dvd_device)
 
   ifo = (ifo_handle_t **)malloc((ifo_zero->vts_atrt->nr_of_vtss + 1) * sizeof(ifo_handle_t *));
   
-  for (int i=1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++)
+  for (unsigned int i = 1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++)
     {
       ifo[i] = ifoOpen(dvd, i);
       if (!ifo[i])
@@ -399,8 +411,8 @@ dvd_info_t* lsdvd_read_dvd(const char *dvd_device)
   
   dvd_info->discinfo.device = strdup(dvd_device);
   dvd_info->discinfo.disc_title = has_title ? "unknown" : strdup(title);
-  dvd_info->discinfo.vmg_id =  vmgi_mat->vmg_identifier;
-  dvd_info->discinfo.provider_id = vmgi_mat->provider_identifier;
+  dvd_info->discinfo.vmg_id = strdup(vmgi_mat->vmg_identifier);
+  dvd_info->discinfo.provider_id = strdup(vmgi_mat->provider_identifier);
   dvd_info->title_count = titles;
   dvd_info->titles = calloc(titles, sizeof(*dvd_info->titles));
 
@@ -486,7 +498,7 @@ dvd_info_t* lsdvd_read_dvd(const char *dvd_device)
 			}
 		      
 		      dvd_info->titles[j].audiostreams[i].langcode = strdup(lang_code);
-		      dvd_info->titles[j].audiostreams[i].language = lang_name(lang_code);
+		      dvd_info->titles[j].audiostreams[i].language = strdup(lang_name(lang_code));
 		      dvd_info->titles[j].audiostreams[i].format = audio_format[audio_attr->audio_format];
 		      dvd_info->titles[j].audiostreams[i].frequency = sample_freq[audio_attr->sample_frequency];
 		      dvd_info->titles[j].audiostreams[i].quantization = quantization[audio_attr->quantization];
@@ -551,7 +563,7 @@ dvd_info_t* lsdvd_read_dvd(const char *dvd_device)
 			  lang_code[0] = 'x'; lang_code[1] = 'x';
 			}
 		      dvd_info->titles[j].subtitles[i].langcode = strdup(lang_code);
-		      dvd_info->titles[j].subtitles[i].language = lang_name(lang_code);
+		      dvd_info->titles[j].subtitles[i].language = strdup(lang_name(lang_code));
 		      dvd_info->titles[j].subtitles[i].content = subp_type[subp_attr->lang_extension];
 		      dvd_info->titles[j].subtitles[i].streamid = 0x20 + i;				
 		    }
