@@ -504,14 +504,11 @@ int main(int argc, char* argv[])
   
   title_v titles = dvdrip_ifo(dvdrip);
 
-  dvdrip_lua_titles(L, &dvdrip, titles);
-  
   for (auto title: titles)
     {
       printf("Title %d: Set: %d TTN: %d Duration: %d Chapters: %d\n", title->title_nr, title->title_set_nr, title->vts_ttn, title->duration, title->nr_chapters);
     }
 
-  dvdrip_read_title(&dvdrip, titles[0], "foo.vob");
-  
+  dvdrip_lua_titles(L, &dvdrip, titles);
   exit(0);
 }
