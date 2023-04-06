@@ -6,15 +6,17 @@
    --
    ---------------------------------------------------------------------- */
 
+#include <cassert>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <lua/5.4/lua.hpp>
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <glibmm/ustring.h>
+#include <fmt/format.h>
 
 #include <dvdread/ifo_read.h>
 #include <dvdread/nav_read.h>
@@ -22,6 +24,177 @@
 #include "dvdrip.h"
 
 static double frames_per_s[4] = {-1.0, 25.00, -1.0, 29.97};
+
+struct audiostream
+{
+  const char *langcode;
+  const char *language;
+  const char *format;
+  const char *frequency;
+  const char *quantization;
+  int channels;
+  int ap_mode;
+  const char *content;
+  int streamid;
+};
+
+struct chapter
+{
+  float length;
+  playback_time_t playback_time;
+  int startcell;
+};
+
+struct cell
+{
+  float length;
+  playback_time_t playback_time;
+};
+
+struct subtitle
+{
+  const char *langcode;
+  const char *language;
+  const char *content;
+  int streamid;
+};
+
+struct dvd_title_t
+{
+  int enabled;
+  int num;
+  //  struct dvd_info_t *dvd_info;
+  struct
+  {
+    float length;
+    playback_time_t playback_time;
+    char *vts_id;
+  } general;
+  struct
+  {
+    int vts;
+    int ttn;
+    float fps;
+    const char *format;
+    const char *aspect;
+    const char *width;
+    const char *height;
+    const char *df;
+  } parameter;
+  int angle_count; // no real angle detail is available... but hey.
+  int audiostream_count;
+  struct audiostream *audiostreams;
+  int chapter_count_reported; // This value is sometimes wrong
+  int chapter_count; //This value is real
+  struct chapter* chapters;
+  int cell_count;
+  struct cell *cells;
+  int subtitle_count;
+  struct subtitle *subtitles;
+  int *palette;
+};
+
+/* --------------------
+Language lists
+-------------------- */
+
+static struct {
+  const char code[3];
+  const char name[20];
+}
+
+language[] = {
+	{ "  ", "Not Specified" }, { "aa", "Afar" },
+	{ "ab", "Abkhazian" }, { "af", "Afrikaans" },
+	{ "am", "Amharic" }, { "ar", "Arabic" },
+	{ "as", "Assamese" },	{ "ay", "Aymara" },
+	{ "az", "Azerbaijani" }, { "ba", "Bashkir" },
+	{ "be", "Byelorussian" }, { "bg", "Bulgarian" },
+	{ "bh", "Bihari" }, { "bi", "Bislama" },
+	{ "bn", "Bengali; Bangla" }, { "bo", "Tibetan" },
+	{ "br", "Breton" },
+	{ "ca", "Catalan" }, { "co", "Corsican" },
+	{ "cs", "Czech" }, { "cy", "Welsh" },
+	{ "da", "Dansk" }, { "de", "Deutsch" }, { "dz", "Bhutani" },
+	{ "el", "Greek" }, { "en", "English" },
+	{ "eo", "Esperanto" }, { "es", "Espanol" },
+	{ "et", "Estonian" }, { "eu", "Basque" }, { "fa", "Persian" },
+	{ "fi", "Suomi" }, { "fj", "Fiji" }, { "fo", "Faroese" },
+	{ "fr", "Francais" }, { "fy", "Frisian" },
+	{ "ga", "Gaelic" }, { "gd", "Scots Gaelic" }, { "gl", "Galician" },
+	{ "gn", "Guarani" }, { "gu", "Gujarati" },
+	{ "ha", "Hausa" }, { "he", "Hebrew" }, { "hi", "Hindi" },
+	{ "hr", "Hrvatski" }, { "hu", "Magyar" }, { "hy", "Armenian" },
+	{ "ia", "Interlingua" }, { "id", "Indonesian" },
+	{ "ie", "Interlingue" }, { "ik", "Inupiak" }, { "in", "Indonesian" },
+	{ "is", "Islenska" }, { "it", "Italiano" },
+	{ "iu", "Inuktitut" }, { "iw", "Hebrew" },
+	{ "ja", "Japanese" }, { "ji", "Yiddish" }, { "jw", "Javanese" },
+	{ "ka", "Georgian" }, { "kk", "Kazakh" }, { "kl", "Greenlandic" },
+	{ "km", "Cambodian" }, { "kn", "Kannada" }, { "ko", "Korean" },
+	{ "ks", "Kashmiri" }, { "ku", "Kurdish" }, { "ky", "Kirghiz" },
+	{ "la", "Latin" }, { "ln", "Lingala" }, { "lo", "Laothian" },
+	{ "lt", "Lithuanian" }, { "lv", "Latvian, Lettish" },
+	{ "mg", "Malagasy" }, { "mi", "Maori" }, { "mk", "Macedonian" },
+	{ "ml", "Malayalam" }, { "mn", "Mongolian" }, { "mo", "Moldavian" },
+	{ "mr", "Marathi" }, { "ms", "Malay" }, { "mt", "Maltese" },
+	{ "my", "Burmese" },
+	{ "na", "Nauru" }, { "ne", "Nepali" },
+	{ "nl", "Nederlands" }, { "no", "Norsk" }, { "oc", "Occitan" },
+	{ "om", "Oromo" }, { "or", "Oriya" },
+	{ "pa", "Punjabi" }, { "pl", "Polish" }, { "ps", "Pashto, Pushto" },
+	{ "pt", "Portugues" }, { "qu", "Quechua" },
+	{ "rm", "Rhaeto-Romance" }, { "rn", "Kirundi" }, { "ro", "Romanian"  },
+	{ "ru", "Russian" }, { "rw", "Kinyarwanda" },
+	{ "sa", "Sanskrit" }, { "sd", "Sindhi" }, { "sg", "Sangho" },
+	{ "sh", "Serbo-Croatian" }, { "si", "Sinhalese" }, { "sk", "Slovak" },
+	{ "sl", "Slovenian" }, { "sm", "Samoan" },
+ 	{ "sn", "Shona"  }, { "so", "Somali" }, { "sq", "Albanian" },
+	{ "sr", "Serbian" }, { "ss", "Siswati" },
+	{ "st", "Sesotho" }, { "su", "Sundanese" },
+	{ "sv", "Svenska" }, { "sw", "Swahili" },
+	{ "ta", "Tamil" }, { "te", "Telugu" }, { "tg", "Tajik" },
+	{ "th", "Thai" }, { "ti", "Tigrinya" }, { "tk", "Turkmen" },
+	{ "tl", "Tagalog" }, { "tn", "Setswana" }, { "to", "Tonga" },
+	{ "tr", "Turkish" }, { "ts", "Tsonga" },
+	{ "tt", "Tatar" }, { "tw", "Twi" },
+	{ "ug", "Uighur" }, { "uk", "Ukrainian" },
+	{ "ur", "Urdu" }, { "uz", "Uzbek" },
+	{ "vi", "Vietnamese" }, { "vo", "Volapuk" },
+	{ "wo", "Wolof" }, { "xh", "Xhosa" },
+	{ "yi", "Yiddish" }, { "yo", "Yoruba" },
+	{ "za", "Zhuang" }, { "zh", "Chinese" },
+	{ "zu", "Zulu" },
+	{ "xx", "Unknown" },
+	{ "\0", "Unknown" } };
+
+
+const char *quantization[4] = {"16bit", "20bit", "24bit", "drc"};
+const char *video_format[2] = {"NTSC", "PAL"};
+const char *aspect_ratio[4] = {"4/3", "16/9", "\"?:?\"", "16/9"};
+const char *video_width[4]  = {"720", "704", "352", "352"};
+const char *video_height[4] = {"480", "576", "???", "576"};
+const char *permitted_df[4] = {"P&S + Letter", "Pan&Scan", "Letterbox", "?"};
+const char *audio_format[7] = {"ac3", "?", "mpeg1", "mpeg2", "lpcm ", "sdds ", "dts"};
+const int   audio_id[7]     = {0x80, 0, 0xC0, 0xC0, 0xA0, 0, 0x88};
+const char *sample_freq[2]  = {"48000", "48000"};
+const char *audio_type[5]   = {"Undefined", "Normal", "Impaired", "Comments1", "Comments2"};
+const char *subp_type[16]   = {"Undefined", "Normal", "Large", "Children", "reserved", "Normal_CC", "Large_CC", "Children_CC",
+			 "reserved", "Forced", "reserved", "reserved", "reserved", "Director",
+			 "Large_Director", "Children_Director"};
+
+/* ----------------------------------------------------------------------
+   --
+   -- lang_name
+   --
+   ---------------------------------------------------------------------- */
+
+const char* lang_name(const char* code)
+{
+  int k = 0;
+  while (memcmp(language[k].code, code, 2) && language[k].name[0] ) { k++; }
+  return language[k].name;
+}
 
 
 /* ----------------------------------------------------------------------
@@ -70,6 +243,276 @@ void converttime(playback_time_t *pt, dvd_time_t *dt)
   if ( pt->usec >= 1000 ) { pt->usec -= 1000; pt->second++; }
   if ( pt->second >= 60 ) { pt->second -= 60; pt->minute++; }
   if ( pt->minute > 59 ) { pt->minute -= 60; pt->hour++; }
+}
+
+/* ----------------------------------------------------------------------
+--
+-- lsdvd_read_dvd
+--
+---------------------------------------------------------------------- */
+
+void lsdvd_read_dvd(const char *dvd_device)
+{
+  dvd_reader_t *dvd;
+  ifo_handle_t *ifo_zero, **ifo;
+  vtsi_mat_t *vtsi_mat;
+  pgcit_t *vts_pgcit;
+  audio_attr_t *audio_attr;
+  video_attr_t *video_attr;
+  subp_attr_t *subp_attr;
+  pgc_t *pgc;
+  int cell, vts_ttn, title_set_nr;
+  int max_length = 0, max_track = 0;
+  char lang_code[3];
+
+  dvd = DVDOpen(dvd_device);
+  if(!dvd)
+    {
+      fprintf(stderr, "Can't open disc %s!\n", dvd_device);
+      exit(2);
+    }
+  ifo_zero = ifoOpen(dvd, 0);
+  if (!ifo_zero)
+    {
+      fprintf( stderr, "Can't open main ifo!\n");
+      exit(3);
+  }
+
+  ifo = new ifo_handle_t*[ifo_zero->vts_atrt->nr_of_vtss + 1];
+  
+  for (unsigned int i = 1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++)
+    {
+      ifo[i] = ifoOpen(dvd, i);
+      if (!ifo[i])
+	{
+	  fprintf( stderr, "Can't open ifo %d!\n", i);
+	  exit(4);
+	}
+    }
+
+  std::vector<dvd_title_t> titles;
+  
+  int nr_titles = ifo_zero->tt_srpt->nr_of_srpts;
+  vmgi_mat_t *vmgi_mat = ifo_zero->vmgi_mat;
+
+  for (unsigned int j = 0; j < nr_titles; j++)
+    {     
+      if (!ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat)
+	continue;
+      
+      dvd_title_t t;
+      t.num = j + 1;
+      
+      vtsi_mat     = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat;
+      vts_pgcit    = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vts_pgcit;
+      video_attr   = &vtsi_mat->vts_video_attr;
+      vts_ttn      = ifo_zero->tt_srpt->title[j].vts_ttn;
+      vmgi_mat     = ifo_zero->vmgi_mat;
+      title_set_nr = ifo_zero->tt_srpt->title[j].title_set_nr;
+      pgc          = vts_pgcit->pgci_srp[ifo[title_set_nr]->vts_ptt_srpt->title[vts_ttn - 1].ptt[0].pgcn - 1].pgc;
+      
+      t.general.length = dvdtime2msec(&pgc->playback_time)/1000.0;
+
+      printf("%f\n", t.general.length);
+      t.general.playback_time = {0,0,0,0};
+      converttime(&t.general.playback_time, &pgc->playback_time);
+
+      t.general.vts_id = vtsi_mat->vts_identifier;
+      
+      t.chapter_count_reported = ifo_zero->tt_srpt->title[j].nr_of_ptts;
+      t.cell_count = pgc->nr_of_cells;
+      t.audiostream_count = vtsi_mat->nr_of_vts_audio_streams;
+      t.subtitle_count = vtsi_mat->nr_of_vts_subp_streams;  
+      
+      t.parameter.vts = ifo_zero->tt_srpt->title[j].title_set_nr;
+      t.parameter.ttn = ifo_zero->tt_srpt->title[j].vts_ttn;
+      t.parameter.fps = frames_per_s[(pgc->playback_time.frame_u & 0xc0) >> 6];
+      t.parameter.format = video_format[video_attr->video_format];
+      t.parameter.aspect = aspect_ratio[video_attr->display_aspect_ratio];		  
+      t.parameter.width = video_width[video_attr->picture_size];
+      t.parameter.height = video_height[video_attr->video_format];
+      t.parameter.df = permitted_df[video_attr->permitted_df];
+      
+      t.palette = new int[16];
+      for (int i = 1; i < 16; i++)
+	t.palette[i] = pgc->palette[i];
+      
+      // ANGLES
+      t.angle_count = ifo_zero->tt_srpt->title[j].nr_of_angles;
+      
+      // AUDIO
+      
+      t.audiostreams = new audiostream[t.audiostream_count];
+      
+      for (int i = 0; i < t.audiostream_count; i++)
+	{
+	  audio_attr = &vtsi_mat->vts_audio_attr[i];
+	  sprintf(lang_code, "%c%c", audio_attr->lang_code>>8, audio_attr->lang_code & 0xff);
+	  if (!lang_code[0])
+	    {
+	      lang_code[0] = 'x'; lang_code[1] = 'x';
+	    }
+	  
+	  t.audiostreams[i].langcode = strdup(lang_code);
+	  t.audiostreams[i].language = strdup(lang_name(lang_code));
+	  t.audiostreams[i].format = audio_format[audio_attr->audio_format];
+	  t.audiostreams[i].frequency = sample_freq[audio_attr->sample_frequency];
+	  t.audiostreams[i].quantization = quantization[audio_attr->quantization];
+	  t.audiostreams[i].channels = audio_attr->channels+1;
+	  t.audiostreams[i].ap_mode = audio_attr->application_mode;
+	  t.audiostreams[i].content = audio_type[audio_attr->lang_extension];
+	  t.audiostreams[i].streamid = audio_id[audio_attr->audio_format] + i;
+	}
+      // CHAPTERS
+      
+      cell = 0;
+      t.chapter_count = pgc->nr_of_programs;
+      t.chapters = new chapter[t.chapter_count];
+      
+      int ms;
+      for (int i = 0; i < pgc->nr_of_programs; i++)
+	{	   
+	  ms = 0;
+	  int next = pgc->program_map[i+1];   
+	  if (i == pgc->nr_of_programs - 1) next = pgc->nr_of_cells + 1;
+	  
+	  while (cell < next - 1)
+	    {
+	      ms = ms + dvdtime2msec(&pgc->cell_playback[cell].playback_time);
+	      t.chapters[i].playback_time = {0, 0, 0, 0};
+	      converttime(&t.chapters[i].playback_time, &pgc->cell_playback[cell].playback_time);
+	      cell++;
+	    }
+	  t.chapters[i].startcell = pgc->program_map[i];
+	  t.chapters[i].length = ms * 0.001;			
+	}
+  
+      // CELLS
+      t.cells = new struct cell[t.cell_count];
+      
+      for (int i = 0; i < pgc->nr_of_cells; i++)
+	{
+	  t.cells[i].length = dvdtime2msec(&pgc->cell_playback[i].playback_time)/1000.0;
+	  t.cells[i].playback_time = {0, 0, 0, 0};
+	  converttime(&t.cells[i].playback_time, &pgc->cell_playback[i].playback_time);
+	}
+  // SUBTITLES
+      t.subtitles = new subtitle[t.subtitle_count];
+      for (int i = 0; i < vtsi_mat->nr_of_vts_subp_streams; i++)
+	{
+	  subp_attr = &vtsi_mat->vts_subp_attr[i];
+	  sprintf(lang_code, "%c%c", subp_attr->lang_code>>8, subp_attr->lang_code & 0xff);
+	  if (!lang_code[0])
+	    {
+	      lang_code[0] = 'x'; lang_code[1] = 'x';
+	    }
+	  t.subtitles[i].langcode = strdup(lang_code);
+	  t.subtitles[i].language = strdup(lang_name(lang_code));
+	  t.subtitles[i].content = subp_type[subp_attr->lang_extension];
+	  t.subtitles[i].streamid = 0x20 + i;				
+	}
+      titles.push_back(t);
+    } // for each title
+  ifoClose(ifo_zero);
+  DVDClose(dvd);
+
+  /* Convert into text */
+  
+  Glib::ustring s;  
+  for (auto title : titles)
+    {
+      dvd_title_t *t = &title;
+      playback_time_t *pbt = &t->general.playback_time;
+
+      
+      s += Glib::ustring::sprintf("Title: %02d, Length: %02d:%02d:%02d.%03d ", t->num, pbt->hour, pbt->minute, pbt->second, pbt->usec);
+      s += Glib::ustring::sprintf("Chapters: %02d, Cells: %02d, ", t->chapter_count_reported, t->cell_count);
+      s += Glib::ustring::sprintf("Audio streams: %02d, Subpictures: %02d", t->audiostream_count, t->subtitle_count);
+      s += Glib::ustring::sprintf("\n"); 
+      
+      if (t->parameter.format != NULL)
+	{
+	  s += Glib::ustring::sprintf("\tVTS: %02d, TTN: %02d, ", t->parameter.vts, t->parameter.ttn);
+	  s += Glib::ustring::sprintf("FPS: %.2f, ", t->parameter.fps);
+	  s += Glib::ustring::sprintf("Format: %s, Aspect ratio: %s, ", t->parameter.format, t->parameter.aspect);
+	  s += Glib::ustring::sprintf("Width: %s, Height: %s, ", t->parameter.width, t->parameter.height);
+	  s += Glib::ustring::sprintf("DF: %s\n", t->parameter.df);
+	}
+      
+      // PALETTE
+      if (t->palette != NULL)
+	{
+	  s += Glib::ustring::sprintf("\tPalette: ");
+	  for (int i=0; i < 16; i++)
+	    {
+	      s += Glib::ustring::sprintf("%06x ", t->palette[i]);
+	    }
+	  s += Glib::ustring::sprintf("\n");
+	}
+      
+      // ANGLES
+      if (t->angle_count)
+	{
+	  s += Glib::ustring::sprintf("\tNumber of Angles: %d\n", t->angle_count);
+	}
+      
+      // AUDIO
+      if (t->audiostreams != NULL)
+	{
+	  for (unsigned int i = 0; i < t->audiostream_count; i++)
+	    {
+	      struct audiostream *as = &(t->audiostreams[i]);
+	      s += Glib::ustring::sprintf("\tAudio: %d, Language: %s - %s, ", i+1, as->langcode, as->language);
+	      s += Glib::ustring::sprintf("Format: %s, ", t->audiostreams[i].format);
+	      s += Glib::ustring::sprintf("Frequency: %s, ", t->audiostreams[i].frequency);
+	      s += Glib::ustring::sprintf("Quantization: %s, ", t->audiostreams[i].quantization);
+	      s += Glib::ustring::sprintf("Channels: %d, AP: %d, ", t->audiostreams[i].channels, t->audiostreams[i].ap_mode);
+	      s += Glib::ustring::sprintf("Content: %s, ", t->audiostreams[i].content);
+	      s += Glib::ustring::sprintf("Stream id: 0x%x", t->audiostreams[i].streamid);
+	      s += Glib::ustring::sprintf("\n");
+	    }
+	}
+      
+      // CHAPTERS
+      if (t->chapters != NULL)
+	{
+	  for (unsigned int i = 0;  i <t->chapter_count; i++)
+	    {
+	      playback_time_t *pbt = &t->chapters[i].playback_time;
+	      s += Glib::ustring::sprintf("\tChapter: %02d, Length: %02d:%02d:%02d.%03d, Start Cell: %02d\n", i+1,
+					  pbt->hour, pbt->minute, pbt->second, pbt->usec, t->chapters[i].startcell);
+	    }
+	}
+      
+      // CELLS
+      if (t->cells != NULL)
+	{
+	  for (int i=0; i<t->cell_count; i++)   
+	    {
+	      s += Glib::ustring::sprintf("\tCell: %02d, Length: %02d:%02d:%02d.%03d\n", i+1, 
+					  t->cells[i].playback_time.hour,
+					  t->cells[i].playback_time.minute,
+					  t->cells[i].playback_time.second,
+					  t->cells[i].playback_time.usec);
+	    }
+	}
+      // SUBTITLES
+      if (t->subtitles != NULL)
+	{
+	  for (int i=0; i<t->subtitle_count; i++)
+	    {
+	      s += Glib::ustring::sprintf("\tSubtitle: %02d, Language: %s - %s, ", i+1,
+					  t->subtitles[i].langcode,
+					  t->subtitles[i].language);
+	      s += Glib::ustring::sprintf("Content: %s, ", t->subtitles[i].content);
+	      s += Glib::ustring::sprintf("Stream id: 0x%x, ", t->subtitles[i].streamid);
+	      s += Glib::ustring::sprintf("\n");
+	    }
+	}
+    }
+  std::cout << s;
+
+  //  return dvd_info;
 }
 
 /* ----------------------------------------------------------------------
@@ -442,6 +885,9 @@ int dvdrip_read_title(dvdrip_t* dvdrip, title_t* title, const char *dest)
   return 1;
 }
 
+/* ----------------------------------------------------------------------
+   --
+   
 
 /* ----------------------------------------------------------------------
    --
@@ -493,6 +939,8 @@ int main(int argc, char* argv[])
   if (dvdrip.device.empty())
     dvdrip.device = "/dev/sr0";
 
+  lsdvd_read_dvd(dvdrip.device.c_str());
+  exit(1);
 
   /* --------------------
      Load lua script
