@@ -124,32 +124,5 @@ int main(int argc, char *argv[])
       exit(0);
     }
 
-  GMainLoop * loop	= g_main_loop_new(0, 0);
-  GstElement * pipe	= gst_pipeline_new("av-player");
-  GstElement * source	= gst_element_factory_make("filesrc", "file-source");
-
-  GstElement * fakesink	= gst_element_factory_make("fakesink", "fakesink");
-  GstElement * demux	= gst_element_factory_make("oggdemux", "demux");
-
-  assert(pipe);
-  assert(source);
-  assert(demux);
-
-  gst_bin_add_many(GST_BIN(pipe), source, demux, 0);
-  //  gst_bin_add_many(GST_BIN(pipe), source, fakesink, 0);
-
-  gst_element_link_many(source, demux, 0);
-  //  gst_element_link_many(demux, fakesink, 0);
-
-  g_signal_connect (demux, "pad-added", G_CALLBACK (on_pad_added), pipe);
-
-  g_object_set(G_OBJECT(source), "location", src, 0);
-
-  GstBus * bus = gst_pipeline_get_bus(GST_PIPELINE(pipe));
-  gst_bus_add_watch(bus, bus_call, loop);
-  gst_object_unref(bus);
-
-  GstStateChangeReturn state = gst_element_set_state(GST_ELEMENT(pipe), GST_STATE_PLAYING);
-  g_main_loop_run(loop);
   exit(0);
 }

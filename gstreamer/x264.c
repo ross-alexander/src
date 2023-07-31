@@ -24,8 +24,9 @@ struct decoders_t {
   GMainLoop *loop;
   GstElement *pipe;
   GstElement *typefind;
-  GstElement *queue;
   GstElement *src;
+  GstElement *video;
+  GstElement *audio;
 };
 
 
@@ -137,12 +138,14 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
 	}
       if (strcmp(type, "x-h264") == 0)
 	{
-	  // decode = gst_element_factory_make("vaapih264dec", "decode");
-	  decode = gst_element_factory_make("avdec_h264", "decode");
+	  // decode = gst_element_factory_make("openh264dec", "video-decode");
+	  //d ecode = gst_element_factory_make("vah264dec", "video-decode");
+	  decode = gst_element_factory_make("vaapih264dec", "decode");
+	  // decode = gst_element_factory_make("avdec_h264", "video-decode");
 	}
       assert(decode);
       
-      if (decode)
+      if (decode && (decoders->video == 0))
 	{
 	  GstElement* bin      = gst_bin_new("video-bin");
 	  GstElement* queue    = gst_element_factory_make("queue", "video-queue");
@@ -166,6 +169,7 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
 	  //      gst_object_unref (sinkpad);
 	  
 	  gst_element_set_state(bin, GST_STATE_PAUSED);
+	  decoders->video = bin;
 	  g_print("Linked video\n");
 	}
     }
@@ -196,7 +200,7 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
 	  decode = gst_element_factory_make("avdec_ac3", "decode");
 	}
       assert(decode);
-      if (decode)
+      if (decode && (decoders->audio == 0))
 	{
 	  GstElement *convert = gst_element_factory_make("audioconvert", "convert");
 	  GstElement *sink = gst_element_factory_make("autoaudiosink", "audiosink");
@@ -219,6 +223,7 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
 	  //      gst_object_unref (sinkpad);
 	  gst_element_set_state(bin, GST_STATE_PAUSED);
 	  g_print("Linked audio\n");
+	  decoders->audio = bin;
 	}
     }
 }
@@ -275,50 +280,6 @@ static void cb_typefound (GstElement *typefind,
   gst_element_set_state (decoders->typefind, GST_STATE_PLAYING);
   gst_element_set_state (demux, GST_STATE_PLAYING);
   return;
-  
-  GST_PAD_STREAM_LOCK(typefind_sink);
-
-  if(strncmp(type, "video/quicktime", strlen("video/quicktime")) == 0)
-    {
-      GstElement *demux = gst_element_factory_make("qtdemux", "demux");
-      GstPad *sink_pad = gst_element_get_static_pad(demux, "sink");
-      gst_bin_add(GST_BIN(decoders->pipe), demux);
-
-      gst_pad_link(typefind_src, sink_pad);
-
-#ifdef UseGhost
-      GstPad *ghost = gst_ghost_pad_new_no_target("src", GST_PAD_SRC);
-
-      gst_ghost_pad_set_target(GST_GHOST_PAD(ghost), src_pad);
-
-      GstPadLinkReturn res = gst_pad_link(GST_PAD(ghost), sink_pad);
-      g_print ("res : %d\n", res);
-#endif
-
-      g_signal_connect(demux, "pad-added", G_CALLBACK (on_pad_added), &decoders);
-      printf("Demuxer added\n");
-    }
-
-  if(strncmp(type, "audio/ogg", strlen("audio/ogg")) == 0)
-    {
-      GstElement *demux = gst_element_factory_make("oggdemux", "demux");
-      gst_bin_add_many(GST_BIN(decoders->pipe), demux, 0);
-
-      GstPad *demux_sink = gst_element_get_static_pad(demux, "sink");
-
-      g_signal_connect (demux, "pad-added", G_CALLBACK (on_pad_added), decoders);
-
-      gst_pad_link(typefind_src, demux_sink);
-      gst_object_unref(demux_sink);
-    }
-  
-  g_free (type);
-  GST_PAD_STREAM_UNLOCK(typefind_sink);
-  gst_object_unref(typefind_src);
-
-  /* since we connect to a signal in the pipeline thread context, we need
-   * to set an idle handler to exit the main loop in the mainloop context.
-   * Normally, your app should not need to worry about such things. */
 }
 
 
@@ -381,7 +342,7 @@ int main(int argc, char *argv[])
   decoders.pipe = pipe;
   decoders.src = source;
   decoders.typefind = typefind;
-  //  decoders.queue = queue;
+  decoders.video = decoders.audio = 0;
 
   g_signal_connect(typefind, "have-type", G_CALLBACK (cb_typefound), &decoders);
   g_object_set (G_OBJECT(source), "location", src, NULL);

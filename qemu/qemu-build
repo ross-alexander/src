@@ -4,6 +4,13 @@
 #
 # build.pl
 
+# 2022-08-26:
+#   Fix fuser_check for image->directory
+
+# 2022-06-03:
+#   Add --basedir so don't have to be in image directory
+#   Put root mounts into /tmp/vm/
+
 # 2022-03-05: Minimal GDBM pkg installation recording added.
 
 # 2022-02-15
@@ -46,6 +53,7 @@ use 5.24.0;
 use File::Spec::Functions qw(:ALL);
 use File::Copy;
 use File::Slurp;
+use File::Basename;
 use File::Sync qw(fsync sync);
 use Perl6::Slurp;
 use Time::Piece;
@@ -132,9 +140,10 @@ sub fuser_check {
     my $opts = {@_};
 
     exit 1 if (!&vm_conf_check($conf));
-    my $vmname = $conf->{name} || die;
-    my $format = $conf->{image}->{format};
-
+    my $vmname = $conf->{name};
+    my $image = $conf->{image};
+    my $format = $image->{format};
+    
     my $imgfile;
     
     if (exists($conf->{image}->{path}))
@@ -143,8 +152,21 @@ sub fuser_check {
     }
     else
     {
-    	$imgfile = rel2abs(catfile($opts->{install_base}, $vmname, sprintf("%s.%s", $vmname, $format)));
-    }
+	my $basedir;
+	if ($opts->{install_base})
+	{
+	    $basedir = catdir($opts->{install_base}, $vmname);
+	}
+	elsif ($image->{directory})
+	{
+	    $basedir = $image->{directory};
+	}
+	else
+	{
+	    $basedir = rel2abs($vmname);
+	}	
+    	$imgfile = catfile($basedir, sprintf("%s.%s", $vmname, $format));
+    }    
     my $res = `fuser --silent $imgfile 2>&1`;
     if ($? == 0)
     {
@@ -276,6 +298,27 @@ sub image_mount {
     my $path = $image->{path};
     my $mtab = $image->{mtab} = {};
 
+    # --------------------
+    # Check tmpdir
+    # --------------------
+    
+    my $tmpdir = File::Spec->tmpdir();
+    if(!-d $tmpdir)
+    {
+	printf(STDERR "$0: Temporary directory %s does not exist.\n", $tmpdir);
+	exit(1);
+    }
+
+    # --------------------
+    # Create $TMP/vm/
+    # --------------------
+    
+    $tmpdir = catdir($tmpdir, "vm");
+    if (!-d $tmpdir)
+    {
+	mkdir($tmpdir) || die;
+    }
+
     if (!-f $path)
     {
 	croak "$0: image $path does not exist";
@@ -320,16 +363,10 @@ sub image_mount {
 	    uuid => $b->{UUID},
 	};
     }
-#    qx(qemu-nbd -d $dev);
-#    exit(0);
-    
-#    my $blockdev = qx(blockdev --report);
 
-
-    
     if ($image->{partition})
     {
-    	my $part = $conf->{part} //= {};
+    	my $part = $image->{partition} //= {};
 	
 	my $esp = $part->{esp} //= {};
 	my $boot = $part->{boot} //= {};
@@ -374,10 +411,12 @@ sub image_mount {
     # --------------------
     # Check mount base directory exists
     # --------------------
+
+    $tmpdir = catdir($tmpdir, $vmname);
     
-    if (!-d $vmname)
+    if (!-d $tmpdir)
     {
-	mkdir($vmname) || die;
+	mkdir($tmpdir) || die;
     }
 	
     # --------------------
@@ -387,8 +426,8 @@ sub image_mount {
 #    $part->{root}->{mnt} = "/";
 #    $part->{boot}->{mnt} = "/boot";
 #    $part->{esp}->{mnt} = "/boot/efi";
-    
-    my $mnt_root = catdir($vmname, "root");
+
+    my $mnt_root = catdir($tmpdir, "root");
 
     for my $n ('root', 'boot', 'esp')
     {
@@ -473,8 +512,9 @@ sub image_umount {
 # ----------------------------------------------------------------------
 
 sub image_create {
-    my ($vm) = @_;
-
+    my $vm = shift @_;
+    my $opts = {@_};
+    
     my $conf = $vm->configuration_get();
     
 # --------------------
@@ -486,28 +526,34 @@ sub image_create {
     my $format = $conf->{image}->{format} || die;
     my $size = $conf->{image}->{size} || die;
 
+    my $imagefile = $conf->{image}->{path};
+    my $basedir = dirname($imagefile);
+
     # --------------------
     # Create directory if necessary
     # --------------------
-    
-    if (! -d $vmname)
-    {
-	mkdir($vmname) || die;
-    }
-    
-    my $imgfile = $conf->{image}->{path};
 
-    if (-f $imgfile)
+	   
+    if (! -d $basedir)
     {
-	print "Removing old $imgfile\n";
-	unlink($imgfile);
+	mkdir($basedir) || die;
+    }
+
+    # --------------------
+    # Remove old image file
+    # --------------------
+    
+    if (-f $imagefile)
+    {
+	print "Removing old $imagefile\n";
+	unlink($imagefile);
     }
     
     # --------------------
     # Create img file
     # --------------------
     
-    print qx(qemu-img create -f $format $imgfile $size);
+    print qx(qemu-img create -f $format $imagefile $size);
     sync();
 
     # --------------------
@@ -515,7 +561,7 @@ sub image_create {
     # --------------------
     
     my $nbd = $conf->{image}->{device}  || die;
-    print qx(qemu-nbd -c $nbd -f $format $imgfile);
+    print qx(qemu-nbd -c $nbd -f $format $imagefile);
     
     # --------------------
     # Set sizes (all in M)
@@ -639,7 +685,6 @@ sub image_create {
     print qx(qemu-nbd -d $nbd);
     print "\n";
     sleep(2);
-	
 }
 
 # ----------------------------------------------------------------------
@@ -696,7 +741,7 @@ sub efi_install {
 # ----------------------------------------------------------------------
 
 sub install_pkg {
-    my ($dst, $pkg_list) = @_;
+    my ($dst, $pkg_list, $force) = @_;
 
     my $dbdir = catdir($dst, "var");
 
@@ -717,22 +762,22 @@ sub install_pkg {
     for my $pkg (@$pkg_list)
     {
 	my $name = $pkg->{name};
-	if (exists($db{$name}))
+	if (exists($db{$name}) && !$force)
 	{
 	    my $t = from_json($db{$name});
-	    printf("%s [%s] installed @ %s\n", $name, $t->{src}, Time::Piece->new($t->{epoch})->cdate());
+	    printf("  %s [%s] @ %s\n", $name, $t->{src}, Time::Piece->new($t->{epoch})->cdate());
 	}
 	else
 	{
 	    my $path = $pkg->{path};
 	    my $now = Time::Piece->new();
-	    printf("installing %s [%s] @ %s\n", $name, $pkg->{path}, $now->cdate());
+	    printf("+ %s [%s] @ %s\n", $name, $pkg->{path}, $now->cdate());
 	    my $cmd = "tar -C $path -cf - . | tar -C $dst --skip-old-files -xhf -";
 	    `$cmd`;
 	    my $t = {
 		name => $name,
 		src => $path,
-		zeit => $now->epoch,
+		epoch => $now->epoch,
 	    };
 	    $db{$name} = to_json($t);
 	}
@@ -772,7 +817,13 @@ sub pkgs_install {
     }
 
     my @paths = $opts->{_pkg_conf_}->files($pkgs);
-
+    
+    if (scalar(keys(%{$opts->{_pkg_conf_}->{missing}})))
+    {
+	printf(STDERR "$0: Packages missing, halting\n");
+	return 0;
+    }
+    
     # --------------------
     # Mount file systems
     # --------------------
@@ -780,7 +831,7 @@ sub pkgs_install {
     &image_mount($conf, qemu => 1);
     my $dst = $conf->{image}->{mtab}->{root}->{mountpoint};
 
-    &install_pkg($dst, \@paths);
+    &install_pkg($dst, \@paths, $opts->{force});
     &image_umount($conf, qemu => 1);
 }
 
@@ -1169,10 +1220,11 @@ sub yaml_file_read {
 
 my $opts = {
     qemu => 1,
-    pkg_base => '/locker/pkg',
+    pkg_base => '/locker/pkg/x86',
     conf_base => '/locker/vm',
     ovmf_base => '/locker/vm/uefi',
-    install_base => '.',
+    install_base => undef,
+    forace => 0,
 };
 
 # my $confpath = 'build.js';
@@ -1183,7 +1235,9 @@ GetOptions("vmname=s" => \$opts->{name},
 	   "kernel=s" => \$opts->{kernel},
 	   "pkg=s@" => \$opts->{pkg},
 	   "yaml=s" => \$opts->{yaml},
-	   "preview" => \$opts->{preview}
+	   "preview" => \$opts->{preview},
+	   "force" => \$opts->{force},
+	   'basedir=s' => \$opts->{install_base},
 	   )
     or die("Error in command line arguments\n");
 
@@ -1196,13 +1250,6 @@ if (!$opts->{name})
     printf STDERR "$0: --vmname=<vm> required.\n";
     exit 1;
 }
-
-# --------------------
-# Get package YAML file
-# --------------------
-
-my $qemu_pkg = QemuPkg->new($opts, "pkg.yml");
-$opts->{_pkg_conf_} = $qemu_pkg;
 
 # --------------------
 # Check for YAML file
@@ -1219,6 +1266,30 @@ if (!$vm)
     printf(STDERR "Cannot find vm %s in file %s\n", $opts->{name}, $yaml_conf_file);
     exit(1);
 }
+
+my $vm_config = $vm->configuration_get();
+
+if (!exists($vm_config->{model}))
+{
+    printf(STDERR "VM %s required arch to be set\n", $vm_config->{name});
+    exit(1);
+}
+
+# Should be done via fixup function
+
+if ($vm_config->{model} eq "riscv64")
+{
+    $opts->{pkg_base} = "/locker/pkg/rv64";
+    printf(STDOUT "Setting pkg_base to %s\n", $opts->{pkg_base});
+}
+
+# --------------------
+# Get package YAML file
+# --------------------
+
+my $qemu_pkg = QemuPkg->new($opts, "pkg.yml");
+$opts->{_pkg_conf_} = $qemu_pkg;
+
 
 # --------------------
 # stages

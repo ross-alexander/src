@@ -5,3 +5,8 @@ For opus
 For vorbis
 
 ./reflac.pl --format=vorbis --source=/locker/flac --target=/locker/ogg
+
+
+For m4a
+
+./reflac.pl --format=aac --source=/locker/flac --target=/locker/m4a

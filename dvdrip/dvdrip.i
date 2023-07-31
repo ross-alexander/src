@@ -135,9 +135,7 @@ int dvdrip_read_title(dvdrip_t*, title_t*, const char*);
     if (lua_getglobal(L, "process_titles") == LUA_TFUNCTION)
       {
 	SWIG_NewPointerObj(L, dvdrip, SWIG_TypeQuery("dvdrip_t *"), 0);
-	swig_type_info *info = SWIG_TypeQuery("std::vector< title_t * > *");
-	assert(info);
-	SWIG_NewPointerObj(L, &titles, info, 0);
+	SWIG_NewPointerObj(L, &titles, SWIG_TypeQuery("std::vector< title_t * > *"), 0);
 	lua_call(L, 2, 0);
       }
     else

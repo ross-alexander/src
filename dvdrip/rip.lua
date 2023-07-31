@@ -20,7 +20,7 @@ function check_params(params)
    if (params.path == "") then
       params.path = "."
    end
-   return false
+   return true
 end
 
 function process_titles(dvdrip, titles)
@@ -29,7 +29,7 @@ function process_titles(dvdrip, titles)
       if (titles[title].duration > 1000) then
 	 print(titles[title].duration)
 	 local media_file = string.format("%s/%s%s%02d.mpg", dvdrip.path, dvdrip.file, dvdrip.separator, index)
-	 dvd.dvdrip_read_title(dvdrip, titles[title], media_file)
+--	 dvd.dvdrip_read_title(dvdrip, titles[title], media_file)
 	 index = index + 1
       end
    end

@@ -1,8 +1,8 @@
-LDLIBS	= -ldvdread `pkg-config --libs gtk+-3.0 gthread-2.0` -lreadline -lcurses
-CFLAGS	= -std=c11 -fPIC -D_DEFAULT_SOURCE -D_FILE_OFFSET_BITS=64 `pkg-config --cflags glib-2.0`
+LDLIBS	= -ldvdread `pkg-config --libs gtk+-3.0 gthread-2.0` # -lreadline -lcurses
+CFLAGS	= -std=c17 -fPIC -D_DEFAULT_SOURCE -D_FILE_OFFSET_BITS=64 `pkg-config --cflags glib-2.0`
 
 # ALL	= gtkdvd unlock dvd.so foo.so
-ALL	= unlock dvd.so
+ALL	= unlock dvd.so dvdrip
 
 default	: $(ALL) 
 

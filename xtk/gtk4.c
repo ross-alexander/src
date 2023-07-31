@@ -87,11 +87,28 @@ static void activate (GtkApplication *app, gpointer user_data)
       gtk4->xtk  = xtk;
 
       gtk4->window = gtk_application_window_new (app);
+
       if (xtk->title)
 	gtk_window_set_title (GTK_WINDOW (gtk4->window), xtk->title);
       else
 	gtk_window_set_title (GTK_WINDOW (gtk4->window), "Window");
-      gtk_window_set_default_size (GTK_WINDOW (gtk4->window), xtk->width, xtk->height);
+
+      // gtk_window_set_default_size (GTK_WINDOW (gtk4->window), xtk->width, xtk->height);
+
+      gtk_widget_show (gtk4->window);
+
+      // Get monitor size to allow drawing to be clipped
+      
+      GdkSurface *s = gtk_native_get_surface(GTK_NATIVE(gtk4->window));
+      GdkDisplay *d = gdk_surface_get_display(s);
+      GdkMonitor *m = gdk_display_get_monitor_at_surface(d, s);
+
+      GdkRectangle geometry;
+      gdk_monitor_get_geometry(m, &geometry);
+
+      // Don't clip to monitor currently
+      
+      //      printf("gtk4: Monitor [%d × %d]\n", geometry.width, geometry.height);
       
       gtk4->drawing = gtk_drawing_area_new();
       gtk_widget_set_size_request (gtk4->drawing, xtk->width, xtk->height);
@@ -100,7 +117,8 @@ static void activate (GtkApplication *app, gpointer user_data)
       gtk_drawing_area_set_draw_func (GTK_DRAWING_AREA (gtk4->drawing), draw_cb, gtk4, NULL);
       g_signal_connect_after (gtk4->drawing, "resize", G_CALLBACK (resize_cb), gtk4);
       
-      gtk_widget_show (gtk4->window);
+      
+
     }
 }
 

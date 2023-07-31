@@ -2,6 +2,10 @@
 
 # ----------------------------------------------------------------------
 #
+# 2023-05-03:
+#  - Change schema so that seasons is a list with season -> INT as key
+#  - Use YAML rather than JSON as data format
+#
 # 2023-02-19
 #
 # ----------------------------------------------------------------------
@@ -9,6 +13,7 @@
 use 5.36.0;
 use Encode;
 use JSON::XS;
+use YAML;
 use Data::Dumper;
 use Perl6::Slurp;
 use File::Basename;
@@ -25,6 +30,10 @@ sub get_js_file {
     return decode_json(slurp($path));
 }
 
+sub get_titles_yaml {
+    my ($path) = @_;
+    return YAML::LoadFile($path);
+}
 
 # ----------------------------------------------------------------------
 #
@@ -65,24 +74,26 @@ sub rename_files {
 
     my @rxlist;
     
-    for my $d (@$series_list)
+    for my $series (@$series_list)
     {
-	my $series = $d->{series};
+	my $name = $series->{series};
 
 	# --------------------
 	# Have seasons
 	# --------------------
-	
-	if (my $seasons = $d->{seasons})
-	{ 
-	    foreach my $season (sort(keys(%$seasons)))
+
+	if (my $seasons = $series->{seasons})
+	{
+	    foreach my $season (@$seasons)
 	    {
-		my $v = $seasons->{$season};
-		my $episode = exists($v->{start}) ? $v->{start} : 1;
-		foreach my $title (@{$v->{titles}})
+		my $number = $season->{season};
+#		printf("%s [S %d]\n", $name, $number);
+		my $episode = exists($season->{start}) ? $season->{start} : 1;
+		foreach my $title (@{$season->{titles}})
 		{
-		    my $regex = sprintf("%s.%02d.%02d", mangle($series), $season, $episode);
-		    push(@rxlist, [ $regex, $series, $season, $episode, $title ]);
+		    my $regex = sprintf("%s.%02d.%02d", mangle($name), $number, $episode);
+#		    say $regex;
+		    push(@rxlist, [ $regex, $name, $number, $episode, $title ]);
 		    $episode++;
 		}
 	    }
@@ -93,19 +104,21 @@ sub rename_files {
 	    # Single season / No seaons
 	    # --------------------
 	    
-	    my $titles = $d->{titles};
-	    my $i = (exists($d->{start})) ? $d->{start} : 1;
+	    my $titles = $series->{titles};
+	    my $i = (exists($series->{start})) ? $series->{start} : 1;
+	    printf("%s - old format\n", $name) if ($series->{season});
+	    
 	    for my $t (@$titles)
 	    {
 		my $regex;
-		if (my $season = $d->{season})
-		{	    
-		    $regex = sprintf("%s.%02d.%02d", mangle($series), $season, $i);
+		if (my $season = $series->{season})
+		{
+		    $regex = sprintf("%s.%02d.%02d", mangle($name), $season, $i);
 		    push(@rxlist, [ $regex, $series, $season, $i, $t ]);
 		}
 		else
 		{
-		    $regex = sprintf("%s.%02d", mangle($series), $i);
+		    $regex = sprintf("%s.%02d", mangle($name), $i);
 		    push(@rxlist, [ $regex, $series, undef, $i, $t ]);
 		}
 		$i++;
@@ -152,7 +165,9 @@ sub rename_files {
 
 binmode(STDOUT, ":utf8");
 
-my $js = get_js_file("/locker/dvd/titles.js");
+# my $titles = get_js_file("/home/ralexand/src/titlemedia/titles.js");
+my $titles = get_titles_yaml("/home/ralexand/src/titlemedia/titles.yaml");
 
-    rename_files($js, [@ARGV]);
+
+rename_files($titles, [@ARGV]);
     

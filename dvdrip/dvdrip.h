@@ -24,7 +24,6 @@ struct playback_time_t {
   unsigned int usec;
 };
 
-
 extern lua_State* dvdrip_lua_init(dvdrip_t*);
 extern int dvdrip_lua_titles(lua_State *, dvdrip_t*, title_v&);
 extern int dvdrip_read_title(dvdrip_t* dvdrip, title_t* title, const char *file);

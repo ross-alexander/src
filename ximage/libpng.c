@@ -124,7 +124,7 @@ int mandel_write_cm(mandel_image *image, char *filename)
 
 int main(int argc, char *argv[])
 {
-  int width = 2000;
+  int width = 1500;
   int height = 1000;
   FILE *stream;
   int colors = 256;

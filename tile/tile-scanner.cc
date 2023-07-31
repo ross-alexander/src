@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <string>
+#include <ctime>
 #include <algorithm>
 
 struct scanner_t {
@@ -331,8 +332,10 @@ extern "C" int luaopen_scanner_t(lua_State *L)
      Create scanner_t object
      -------------------- */
 
+  lua_pushglobaltable(L);
   lua_newtable(L);
   lua_pushcclosure(L, scanner_t_new, 0);
   lua_setfield(L, -2, "new");
+  lua_setfield(L, -2, "scanner_t");
   return 1;
 }

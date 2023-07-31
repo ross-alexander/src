@@ -64,13 +64,10 @@ rgb3d convert_hsv_to_rgb(double hue, double s, double v)
   return res;
 }
 
-
-static int mandel_pixel(int iters, double a, double b)
+static inline int mandel_pixel(int iters, double a, double b)
 {	
-  register int count;
+  register int count = 0;
   double t, tx, ty, tx2, ty2;
-
-  count = 0;
   tx = a;
   ty = b;
   

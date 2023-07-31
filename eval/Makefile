@@ -1,7 +1,10 @@
 CFLAGS = -I.
 
-eval: parse.tab.o tokenize.o main.o
+eval: parse.tab.o tokenize.o expr.o main.o
 	$(CC) $^ -o $@
+
+main.o: main.c eval.h tokenize.h parse.tab.h
+	$(CC) -c $(CFLAGS) $< -o $@
 
 dyn.c : dyn.dasc
 	dynasm/minilua dynasm/dynasm.lua -D X64 -o $@ $<

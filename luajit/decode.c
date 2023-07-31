@@ -27,7 +27,10 @@ luajit -bg t01.lua t01.raw
 ** +--------------------
 ** MSB               LSB
 **
-** In-memory instructions are always stored in host byte order.
+
+In-memory instructions are always stored in host byte order.  The
+instruction OP is an index into lj_bc_mode table, which consists of
+16-bit halfword which encodes the instruction format.
 */
 
 #define BCDUMP_VERSION   2
@@ -40,7 +43,6 @@ luajit -bg t01.lua t01.raw
 typedef uint32_t BCReg;  /* Bytecode register. */
 
 #include "bc_ops.h"
-
 
 #define MMDEF_FFI(_)
 #define MMDEF_PAIRS(_)
@@ -87,7 +89,7 @@ typedef enum {
 
 
 #define BCMODE(name, ma, mb, mc, mm) (BCM##ma|(BCM##mb<<3)|(BCM##mc<<7)|(MM_##mm<<11)),
-#define BCSTRUCT(mname, ma, mb, mc, mt)  {.name = #mname, .a = #ma, .b = #mb, .c = #mc, .t = #mt, .mode = (BCM##ma|(BCM##mb<<3)|(BCM##mc<<7)|(MM_##mt<<11))},
+#define BCSTRUCT(mname, ma, mb, mc, mm)  {.name = #mname, .a = #ma, .b = #mb, .c = #mc, .t = #mt, .mode = (BCM##ma|(BCM##mb<<3)|(BCM##mc<<7)|(MM_##mm<<11))},
 
 #define bcmode_a(op)    ((BCMode)(lj_bc_mode[op] & 7))
 #define bcmode_b(op)    ((BCMode)((lj_bc_mode[op]>>3) & 15))
@@ -199,7 +201,13 @@ uint32_t uleb128_33_decode(uint8_t **p)
 void decode_ktabk(uint8_t **pptr)
 {
   int ktype = uleb128_decode(pptr);
-  if (ktype == BCDUMP_KTAB_NIL)
+  if (ktype >= BCDUMP_KTAB_STR)
+    {
+      int slen = ktype - BCDUMP_KTAB_STR;
+      printf("string(%.*s)\n", slen, *pptr);
+      *pptr += slen;
+    }
+  else if (ktype == BCDUMP_KTAB_NIL)
     printf("nil\n");
   else if (ktype == BCDUMP_KTAB_INT)
     {
@@ -215,7 +223,8 @@ void decode_ktabk(uint8_t **pptr)
     }
   else
     {
-      exit(0);
+      fprintf(stderr, "Unsupported ktabk\n");
+      exit(1);
     }
 }
 
@@ -228,14 +237,18 @@ void decode_ktabk(uint8_t **pptr)
 
 int main(int argc, char* argv[])
 {
+
+  /* simple single file as argument */
+  
   if (argc < 2)
     {
       fprintf(stderr, "%s: <bytecode file>\n", argv[0]);
       exit(1);
     }
 
-  char *path = argv[1];
+  /* open file or die */
   
+  char *path = argv[1];
   FILE *stream;
   if ((stream = fopen(path, "r")) == 0)
     {
@@ -249,8 +262,9 @@ int main(int argc, char* argv[])
   long code_size = ftell(stream);
   rewind(stream);
 
-  uint8_t *code = calloc(sizeof(uint8_t), code_size);
+  /* read file into buffer */
 
+  uint8_t *code = calloc(sizeof(uint8_t), code_size);
   if (code_size != fread(code, sizeof(uint8_t), code_size, stream))
     {
       fprintf(stderr, "%s: tell/read size mismatch", argv[0]);
@@ -304,6 +318,8 @@ B = 8 bit, H = 16 bit, W = 32 bit, U = ULEB128 of W, U0/U1 = ULEB128 of W+1
       uint8_t *ptr_save = ptr;
       printf("proto start = %d, len = %d\n", (ptr - code), len);
 
+      /* extract proto header values */
+      
       int pflags = ptr[0];
       int numparams = ptr[1];
       int framesize = ptr[2];
@@ -336,10 +352,8 @@ B = 8 bit, H = 16 bit, W = 32 bit, U = ULEB128 of W, U0/U1 = ULEB128 of W+1
 
       printf("kgc @ %d\n", (ptr - code));
       
-      /* kgc */
+      /* Constant table (except for numbers) [kgc] */
 
-      /* count strings to create array */
-      
       int str_num = 0;
       char **strings = calloc(sizeof(char*), numkgc);
       
@@ -374,25 +388,35 @@ B = 8 bit, H = 16 bit, W = 32 bit, U = ULEB128 of W, U0/U1 = ULEB128 of W+1
 	    }
 	}
       
-      /* kn */
+      /* Number constants [kn] */
 
+      double *numtab = calloc(sizeof(num), numkn);
+      
       printf("num constants @ %d: %d\n", (ptr - code), numkn);
       
       for (int i = 0; i < numkn; i++)
 	{
 	  num v;
+	  
+	  /* Num is either an integer or double, indiciated by lowest bit */
+	  /* The remaining bits are part of a uleb128 number */
+
 	  int isnum = (ptr[0] & 1);
 	  uint32_t lo = uleb128_33_decode(&ptr);
+
+	  /* If num then get high 32 bits of the 64-bit double, otherwise use integer -> double conversion */
+	  
 	  if (isnum)
 	    {
-	      v.u.hi = uleb128_decode(&ptr);
 	      v.u.lo = lo;
+	      v.u.hi = uleb128_decode(&ptr);
 	    }
 	  else
 	    {
 	      v.d = lo;
 	    }
 	  printf("num %d: %f\n", v.d);
+	  numtab[i] = v.d;
 	}    
       ptr = ptr_save + len;
 
@@ -411,6 +435,9 @@ B = 8 bit, H = 16 bit, W = 32 bit, U = ULEB128 of W, U0/U1 = ULEB128 of W+1
 
 	  if (bcmode_d(op) == BCMstr)
 	    printf(" ; %s", strings[numkgc - 1 - (bcmode_hasd(op) ? bc_d(ins) : bc_c(ins))]);
+
+	  if (bcmode_d(op) == BCMnum)
+	    printf(" ; %f", numtab[(bcmode_hasd(op) ? bc_d(ins) : bc_c(ins))]);
 	  
 	  printf("\n");
 	}

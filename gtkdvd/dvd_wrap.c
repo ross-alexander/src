@@ -2723,18 +2723,18 @@ static swig_module_info swig_module = {swig_types, 11, 0, 0, 0, 0};
 
 char *device;
 
- dvd_info_t* dvd_read(const char *dev)
- {
-   dvd_info_t *info = lsdvd_read_dvd(dev ? dev : device);
-   return info;
- }
+dvd_info_t* dvd_read(const char *dev)
+{
+  dvd_info_t *info = lsdvd_read_dvd(dev ? dev : device);
+  return info;
+}
 
- dvd_title_t *info_get_title(dvd_info_t *info, int i)
- {
-   dvd_title_t *title = &info->titles[i-1];
-   title->dvd_info = info;
-   return title;
- }
+dvd_title_t *info_get_title(dvd_info_t *info, int i)
+{
+  dvd_title_t *title = &info->titles[i-1];
+  title->dvd_info = info;
+  return title;
+}
 
 int eject(const char *device)
 {
@@ -2755,6 +2755,12 @@ int eject(const char *device)
   close(fd);
 }
 
+/* ----------------------------------------------------------------------
+--
+-- info_read_title
+--
+---------------------------------------------------------------------- */
+ 
 int info_read_title(dvd_info_t *info, int title, const char *file)
 {
   printf("Device = %s\n", info->discinfo.device);
@@ -2762,9 +2768,7 @@ int info_read_title(dvd_info_t *info, int title, const char *file)
 
   FILE *stream;
   if ((stream = fopen(file, "wb")) == 0)
-    {
-      return 0;
-    }
+    return 0;
 
   unsigned char *readdata = malloc(1024 * DVD_VIDEO_LB_LEN);
   for (int j = 1; j <= n_chapters; j++)
@@ -2778,73 +2782,105 @@ int info_read_title(dvd_info_t *info, int title, const char *file)
   return 1;
 }
 
+/* ----------------------------------------------------------------------
+--
+-- dvd_info_table
+--
+---------------------------------------------------------------------- */
 
- int dvd_info_table(lua_State *L)
- {
-   assert(lua_gettop(L) > 0);
-   dvd_info_t *info;
-   assert(SWIG_IsOK(SWIG_ConvertPtr(L, 1, (void**)&info, SWIGTYPE_p_dvd_info_t, 0)));
-
-   lua_newtable(L);
-   lua_newtable(L);
-   lua_pushstring(L, info->discinfo.device); lua_setfield(L, -2, "device");
-   lua_pushstring(L, info->discinfo.disc_title); lua_setfield(L, -2, "disc_title");
-   lua_pushstring(L, info->discinfo.vmg_id); lua_setfield(L, -2, "vmg_id");
-   lua_pushstring(L, info->discinfo.provider_id); lua_setfield(L, -2, "provider_id");
-   lua_setfield(L, -2, "discinfo");
-
+int dvd_info_table(lua_State *L)
+{
+  assert(lua_gettop(L) > 0);
+  dvd_info_t *info;
+  assert(SWIG_IsOK(SWIG_ConvertPtr(L, 1, (void**)&info, SWIGTYPE_p_dvd_info_t, 0)));
+  
+  lua_newtable(L);
+  lua_newtable(L);
+  lua_pushstring(L, info->discinfo.device); lua_setfield(L, -2, "device");
+  lua_pushstring(L, info->discinfo.disc_title); lua_setfield(L, -2, "disc_title");
+  lua_pushstring(L, info->discinfo.vmg_id); lua_setfield(L, -2, "vmg_id");
+  lua_pushstring(L, info->discinfo.provider_id); lua_setfield(L, -2, "provider_id");
+  lua_setfield(L, -2, "discinfo");
+  
    /* titles */
 
-   lua_newtable(L);
-   for (int i = 0; i < info->title_count; i++)
-     {
-       lua_newtable(L);
-       dvd_title_t *t = &info->titles[i];
-       lua_pushinteger(L, t->num);
-       lua_setfield(L, -2, "num");
-
-       /* general */
-       lua_newtable(L);
-       lua_pushnumber(L, t->general.length); lua_setfield(L, -2, "length");
-       lua_setfield(L, -2, "general");
-
-       /* video */
-
-       lua_newtable(L);
-       lua_pushnumber(L, t->parameter.fps); lua_setfield(L, -2, "fps");
-       lua_pushstring(L, t->parameter.format); lua_setfield(L, -2, "format");
-       lua_pushstring(L, t->parameter.aspect); lua_setfield(L, -2, "aspect");
-       lua_pushinteger(L, strtol(t->parameter.width, 0, 10)); lua_setfield(L, -2, "width");
-       lua_pushinteger(L, strtol(t->parameter.height, 0, 10)); lua_setfield(L, -2, "height");
-       lua_setfield(L, -2, "parameter");
-
+  lua_newtable(L);
+  for (int i = 0; i < info->title_count; i++)
+    {
+      lua_newtable(L);
+      dvd_title_t *t = &info->titles[i];
+      lua_pushinteger(L, t->num);
+      lua_setfield(L, -2, "num");
+      
+      /* general */
+      lua_newtable(L);
+      lua_pushnumber(L, t->general.length); lua_setfield(L, -2, "length");
+      lua_setfield(L, -2, "general");
+      
+      /* video */
+      
+      lua_newtable(L);
+      lua_pushnumber(L, t->parameter.fps); lua_setfield(L, -2, "fps");
+      lua_pushstring(L, t->parameter.format); lua_setfield(L, -2, "format");
+      lua_pushstring(L, t->parameter.aspect); lua_setfield(L, -2, "aspect");
+      lua_pushinteger(L, strtol(t->parameter.width, 0, 10)); lua_setfield(L, -2, "width");
+      lua_pushinteger(L, strtol(t->parameter.height, 0, 10)); lua_setfield(L, -2, "height");
+      lua_setfield(L, -2, "parameter");
+      
        /* audio tracks */
+      
+      lua_newtable(L);
+      for (int j = 0; j < t->audiostream_count; j++)
+	{
+	  struct audiostream *a = &t->audiostreams[j];
+	  lua_newtable(L);
+	  
+	  lua_pushstring(L, a->langcode); lua_setfield(L, -2, "langcode");
+	  lua_pushstring(L, a->language); lua_setfield(L, -2, "language");
+	  lua_pushstring(L, a->format); lua_setfield(L, -2, "format");
+	  lua_pushnumber(L, strtod(a->frequency, 0)); lua_setfield(L, -2, "frequency");
+	  lua_pushstring(L, a->quantization); lua_setfield(L, -2, "quantization");
+	  lua_pushinteger(L, a->channels); lua_setfield(L, -2, "channels");
+	  lua_pushinteger(L, a->streamid); lua_setfield(L, -2, "streamid");
+	  
+	  
+	  lua_rawseti(L, -2, j+1);
+	}
+      lua_setfield(L, -2, "audiotracks");
+      
+      lua_rawseti(L, -2, i+1);
+    }
+  lua_setfield(L, -2, "titles");
+  return 1;
+}
 
-       lua_newtable(L);
-       for (int j = 0; j < t->audiostream_count; j++)
-	 {
-	   struct audiostream *a = &t->audiostreams[j];
-	   lua_newtable(L);
+  /* ----------------------------------------------------------------------
+   --
+   -- cli_options
+   --
+   ---------------------------------------------------------------------- */
 
-	   lua_pushstring(L, a->langcode); lua_setfield(L, -2, "langcode");
-	   lua_pushstring(L, a->language); lua_setfield(L, -2, "language");
-	   lua_pushstring(L, a->format); lua_setfield(L, -2, "format");
-	   lua_pushnumber(L, strtod(a->frequency, 0)); lua_setfield(L, -2, "frequency");
-	   lua_pushstring(L, a->quantization); lua_setfield(L, -2, "quantization");
-	   lua_pushinteger(L, a->channels); lua_setfield(L, -2, "channels");
-	   lua_pushinteger(L, a->streamid); lua_setfield(L, -2, "streamid");
+int cli_options(lua_State *L)
+{
+  assert(lua_gettop(L) > 0);
+  assert(lua_istable(L, 1));
+  int t = 1;
+  
+  /* table is in the stack at index 't' */
+  lua_pushnil(L);  /* first key */
+  while (lua_next(L, t) != 0)
+    {
+       /* uses 'key' (at index -2) and 'value' (at index -1) */
+      printf("%s - %s\n",
+	     lua_typename(L, lua_type(L, -2)),
+	     lua_typename(L, lua_type(L, -1)));
+      printf("%d - %s\n",  lua_tointeger(L, -2), lua_tostring(L, -1));
+      /* removes 'value'; keeps 'key' for next iteration */
+      lua_pop(L, 1);
+    }  
+  exit(1);
+}
 
-
-	   lua_rawseti(L, -2, j+1);
-	 }
-       lua_setfield(L, -2, "audiotracks");
-
-       lua_rawseti(L, -2, i+1);
-     }
-   lua_setfield(L, -2, "titles");
-
-   return 1;
- }
 
 
 
@@ -2912,6 +2948,10 @@ SWIGINTERN int dvd_title_t_copy(struct dvd_title_t *self,char const *vfile,char 
 	free(s);
       }
     return ret;
+  }
+SWIGINTERN char const *dvd_title_t_to_string(struct dvd_title_t *self){
+    const char *s = title_print(self);
+    return s;
   }
 typedef struct {
   char *device;
@@ -3885,6 +3925,28 @@ static int _wrap_dvd_title_t_copy(lua_State* L) {
 }
 
 
+static int _wrap_dvd_title_t_to_string(lua_State* L) {
+  int SWIG_arg = 0;
+  struct dvd_title_t *arg1 = (struct dvd_title_t *) 0 ;
+  char *result = 0 ;
+  
+  SWIG_check_num_args("dvd_title_t::to_string",1,1)
+  if(!SWIG_isptrtype(L,1)) SWIG_fail_arg("dvd_title_t::to_string",1,"struct dvd_title_t *");
+  
+  if (!SWIG_IsOK(SWIG_ConvertPtr(L,1,(void**)&arg1,SWIGTYPE_p_dvd_title_t,0))){
+    SWIG_fail_ptr("dvd_title_t_to_string",1,SWIGTYPE_p_dvd_title_t);
+  }
+  
+  result = (char *)dvd_title_t_to_string(arg1);
+  lua_pushstring(L,(const char *)result); SWIG_arg++;
+  return SWIG_arg;
+  
+  fail: SWIGUNUSED;
+  lua_error(L);
+  return 0;
+}
+
+
 static int _wrap_new_dvd_title_t(lua_State* L) {
   int SWIG_arg = 0;
   struct dvd_title_t *result = 0 ;
@@ -3933,6 +3995,7 @@ static swig_lua_attribute swig_dvd_title_t_attributes[] = {
 };
 static swig_lua_method swig_dvd_title_t_methods[]= {
     { "copy", _wrap_dvd_title_t_copy},
+    { "to_string", _wrap_dvd_title_t_to_string},
     {0,0}
 };
 static swig_lua_method swig_dvd_title_t_meta[] = {
@@ -6522,6 +6585,7 @@ static swig_lua_method swig_SwigModule_methods[]= {
     { "title_print", _wrap_title_print},
     { "eject", _wrap_eject},
     { "dvd_info_table",dvd_info_table},
+    { "cli_options",cli_options},
     {0,0}
 };
 static swig_lua_class* swig_SwigModule_classes[]= {

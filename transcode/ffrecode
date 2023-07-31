@@ -34,33 +34,47 @@ my $map = {
 	    suffix => 'avi',
 	    format => 'avi',
 	},
-	h264 => {
+	x264 => {
 	    suffix => 'm4v',
 	    format => 'mp4',
             acodec => 'libfdk_aac',
             vcodec => 'libx264',
 	},
-	h265 => {
+	x264_mkv => {
+	    suffix => 'mkv',
+	    format => 'matroska',
+            acodec => 'libfdk_aac',
+            vcodec => 'libx264',
+	},
+	openh264 => {
+	    suffix => 'm4v',
+	    format => 'mp4',
+            acodec => 'libfdk_aac',
+            vcodec => 'openh264',
+	},
+	x265 => {
 	    suffix => 'm4v',
 	    format => 'mp4',
             acodec => 'libfdk_aac',
             vcodec => 'libx265',
 	},
-	ogg => {
+	theora => {
 	    suffix => 'ogg',
 	    format => 'ogg',
 	    acodec => 'libvorbis',
 	    vcodec => 'libtheora',
 	},
-	mkv => {
-	    suffix => 'mkv',
-	    format => 'matroska',
-	},
-	webm => {
+	vp8 => {
 	    suffix => 'webm',
 	    format => 'webm',
 	    acodec => 'libvorbis',
-	    vcodec => 'libvpx',
+	    vcodec => 'vp8',
+	},
+	vp9 => {
+	    suffix => 'webm',
+	    format => 'webm',
+	    acodec => 'libopus',
+	    vcodec => 'vp9',
 	},
 	mpg => {
 	    suffix => 'mpg',
@@ -89,10 +103,13 @@ my $map = {
     },
     codecs => {
 	libvorbis => '-c:a libvorbis -ab 128k -ac 2 -ar 44100',
+	libopus => '-c:a libopus -ab 128k -ac 2',
 	libfaac => '-c:a libfaac -ab 128k -ac 2 -ar 44100',
 	libfdk_aac => '-c:a libfdk_aac -b:a 128k -ac 2 -ar 44100',
-	libvpx => '-c:v libvpx -vb 1024k',
-	libx264 => '-c:v libx264 -preset fast -tune film -vprofile high422 -crf 26',
+	vp8 => '-c:v libvpx -crf 20 -row-mt 1',
+	vp9 => '-c:v libvpx-vp9 -crf 20 -row-mt 1',
+	openh264 => '-c:v libopenh264 -vb 1024k',
+	libx264 => '-c:v libx264 -preset slow -tune film -vprofile high422 -crf 23',
 	libx265 => '-c:v libx265 -preset fast -x265-params crf=26:pools=4:frame-threads=8',
 	libtheora => '-c:v libtheorea -vb 1024k',
 	nvenc => '-hwaccel cuvid -c:v h264_cuvid -c:v h264_nvenc -tune firm -crf 26',
@@ -271,7 +288,7 @@ sub RecodeMedia {
 # ----------------------------------------------------------------------
 
 my $defaults = {
-    format => 'h264',
+    format => 'x264',
     threads => 2 * qx(cat /proc/cpuinfo | grep processor | wc -l),
 };
 
@@ -293,6 +310,10 @@ GetOptions(
     'dest=s' => \$opts{d},
     'audio=s' => \$opts{a},
     );
+
+# --------------------
+# output helpful info if no arguments
+# --------------------
 
 if (scalar(@ARGV) == 0)
 {
@@ -327,10 +348,15 @@ if (!exists($map->{formats}->{$format}))
 
 my $format_details = $map->{formats}->{$format};
 my $dest_dir = $opts{d} // $format;
+
 my $codecs = $map->{codecs};
 my $suffix = $format_details->{suffix};
 my $acodec = $codecs->{exists($format_details->{acodec}) ? $format_details->{acodec} : 'libfdk_aac'};
 my $vcodec = $codecs->{exists($format_details->{vcodec}) ? $format_details->{vcodec} : 'libx264'};
+
+# --------------------
+# Make sure dest_dir exists
+# --------------------
 
 if (!-d $dest_dir)
 {
@@ -358,11 +384,6 @@ for my $source (@ARGV)
     else
     {
 	$dest = "$source\.$suffix";
-    }
-
-    if (! -d $dest_dir)
-    {
-	mkdir ($dest_dir) || die;
     }
     $dest = catfile($dest_dir, $dest);
     

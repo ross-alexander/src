@@ -225,7 +225,8 @@ sub m3u_check {
 	    if ((!-f $dstpath) || (stat($srcpath)->mtime > stat($dstpath)->mtime))
 	    {
 		my $codec = $conf->{formats}->{$args->{format}}->{codec};
-		my $cmd = "ffmpeg -threads 16 -i $srcpath -acodec $codec -ab 192k -ac 2 -y $dstpath";
+		my $cmd = "ffmpeg -v error -threads 16 -i $srcpath -acodec $codec -ab 192k -ac 2 -y $dstpath";
+		say $cmd;
 		push(@cmds, $cmd);
 	    }
 	}

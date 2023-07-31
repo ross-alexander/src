@@ -1,9 +1,21 @@
+/* ----------------------------------------------------------------------
+--
+-- parse fdt Device Tree Binary (DTB)
+--
+---------------------------------------------------------------------- */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 
 #include <libfdt_env.h>
 #include <fdt.h>
+
+/* ----------------------------------------------------------------------
+--
+-- main
+--
+---------------------------------------------------------------------- */
 
 int main(int argc, char *argv[])
 {
@@ -13,6 +25,8 @@ int main(int argc, char *argv[])
       exit(1);
     }
 
+  /* Open file using stdio */
+  
   FILE *stream;
   if ((stream = fopen(argv[1], "rb")) == NULL)
     {
@@ -20,10 +34,13 @@ int main(int argc, char *argv[])
       exit(1);
     }
 
+  /* Read header */
+  
   struct fdt_header* header = calloc(1, sizeof(struct fdt_header));
   fread(header, sizeof(struct fdt_header), 1, stream);
 
- 
+  /* Check MAGIC number */
+  
   if (fdt32_to_cpu(header->magic) != FDT_MAGIC)
     {
       fprintf(stderr, "%s: %s failed to match magic [%04x]\n", argv[0], argv[1], FDT_MAGIC);
@@ -35,11 +52,13 @@ int main(int argc, char *argv[])
 
   size_t totalsize = fdt32_to_cpu(header->totalsize);
 
+  /* Realloc and read in body */
+  
   header = realloc(header, totalsize);
   fread(header + 1, totalsize - sizeof(struct fdt_header), 1, stream);
 
-  printf("%d -- %02x\n", fdt32_to_cpu(header->off_dt_struct), fdt32_to_cpu(header->off_dt_struct));
-  printf("%d -- %02x\n", fdt32_to_cpu(header->off_dt_strings), fdt32_to_cpu(header->off_dt_strings));
+  printf("struct offset %d -- %02x\n", fdt32_to_cpu(header->off_dt_struct), fdt32_to_cpu(header->off_dt_struct));
+  printf("string offset %d -- %02x\n", fdt32_to_cpu(header->off_dt_strings), fdt32_to_cpu(header->off_dt_strings));
   
   uint8_t *strings = (uint8_t*)((uint8_t*)header + fdt32_to_cpu(header->off_dt_strings));
     
@@ -51,7 +70,6 @@ int main(int argc, char *argv[])
   while(fin != 1)
     {
       fdt32_t nodetype = fdt32_to_cpu(nodeptr[index++]);
-      //      printf("[%d] %d\n", index, nodetype);
       for (int j = 0; j < (level<<2); j++) putchar(' ');
       switch(nodetype)
 	{

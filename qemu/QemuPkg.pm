@@ -7,7 +7,7 @@ use File::Spec::Functions;
 use JSON;
 
 sub pkgs_recc {
-    my ($base, $pkg_conf, $pkg) = @_;
+    my ($obj, $base, $pkg_conf, $pkg) = @_;
 
     my @res;
 
@@ -23,7 +23,7 @@ sub pkgs_recc {
     
     if (ref($pp) eq "ARRAY")
     {
-	@res = +( map { pkgs_recc($base, $pkg_conf, $_); } @$pp );
+	@res = +( map { pkgs_recc($obj, $base, $pkg_conf, $_); } @$pp );
 	push(@res, {
 	    name => $pkg,
 	    deps => [ map {$_->{name}} @res ]
@@ -42,15 +42,23 @@ sub pkgs_recc {
 	};
 	if ($pp->{path})
 	{
-	    my $path = catdir($base, $pp->{path});
 	    if ($pp->{deps})
 	    {
-		push(@res, +( map { pkgs_recc($base, $pkg_conf, $_); } @{$pp->{deps}} ));
+		push(@res, +( map { pkgs_recc($obj, $base, $pkg_conf, $_); } @{$pp->{deps}} ));
 		$res->{deps} = [ map {$_->{name}} @res ];
 	    }
+	    my $path = catdir($base, $pp->{path});
 	    if (-d $path)
 	    {
 		$res->{path} = $path;
+	    }
+	    else
+	    {
+		if (!$obj->{missing}->{$pkg})
+		{
+		    printf(STDERR "Package %s cannot be found.\n", length($pp) ? "$pkg [$path]" : $pkg);
+		    $obj->{missing}->{$pkg} = 1;
+		}
 	    }
 	    push(@res, $res);
 	}
@@ -69,8 +77,12 @@ sub pkgs_recc {
     }
     else
     {
-	printf(STDERR "Package %s cannot be found.\n", length($pp) ? "$pkg [$pp]" : $pkg);
-	return @res;
+	if (!$obj->{missing}->{$pkg})
+	{
+	    printf(STDERR "Package %s cannot be found.\n", length($pp) ? "$pkg [$pp]" : $pkg);
+	    $obj->{missing}->{$pkg} = 1;
+	    return @res;
+	}
     }
     return @res;
 }
@@ -122,7 +134,7 @@ sub files {
     
     my @pkgs = ref($pkgs) eq "ARRAY" ? @$pkgs : $pkgs;
 
-    my @files = map { &pkgs_recc($obj->{base}, $obj->{conf}, $_); } @pkgs;
+    my @files = map { &pkgs_recc($obj, $obj->{base}, $obj->{conf}, $_); } @pkgs;
     
 # --------------------
 # Create hash
@@ -170,7 +182,8 @@ sub new {
 
     $res = {
 	conf => $pkg_conf->{pkg},
-	base => $opts->{pkg_base}
+	base => $opts->{pkg_base},
+	missing => {}
     };
     
     bless $res, $class;

@@ -16,7 +16,6 @@
 #include <string.h>
 #include <getopt.h>
 #include <glibmm/ustring.h>
-#include <fmt/format.h>
 
 #include <dvdread/ifo_read.h>
 #include <dvdread/nav_read.h>
@@ -290,7 +289,7 @@ void lsdvd_read_dvd(const char *dvd_device)
 	}
     }
 
-  std::vector<dvd_title_t> titles;
+  std::vector<dvd_title_t*> titles;
   
   int nr_titles = ifo_zero->tt_srpt->nr_of_srpts;
   vmgi_mat_t *vmgi_mat = ifo_zero->vmgi_mat;
@@ -299,8 +298,10 @@ void lsdvd_read_dvd(const char *dvd_device)
     {     
       if (!ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat)
 	continue;
-      
-      dvd_title_t t;
+
+      dvd_title_t* title_ptr = new dvd_title_t;
+      dvd_title_t &t = *title_ptr;
+
       t.num = j + 1;
       
       vtsi_mat     = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat;
@@ -411,7 +412,7 @@ void lsdvd_read_dvd(const char *dvd_device)
 	  t.subtitles[i].content = subp_type[subp_attr->lang_extension];
 	  t.subtitles[i].streamid = 0x20 + i;				
 	}
-      titles.push_back(t);
+      titles.push_back(title_ptr);
     } // for each title
   ifoClose(ifo_zero);
   DVDClose(dvd);
@@ -419,9 +420,8 @@ void lsdvd_read_dvd(const char *dvd_device)
   /* Convert into text */
   
   Glib::ustring s;  
-  for (auto title : titles)
+  for (auto t : titles)
     {
-      dvd_title_t *t = &title;
       playback_time_t *pbt = &t->general.playback_time;
 
       

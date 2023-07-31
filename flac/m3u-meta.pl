@@ -1,9 +1,19 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -CA
+
+# -CA tells perl that ARGV will be UTF-8 encoded
 
 # ----------------------------------------------------------------------
 #
-# rf.pl
+# m3u-meta.pl
 #
+# Recurse through directories to find m3u files, then extract
+# metadata from referenced files using ffprobe.
+
+# 2021-11-19: Ross Alexander
+#   Rename to m3u-meta.pl
+#   Clean up code
+#   Ensure ARGV treated as UTF-8
+
 # 2021-11-01: Ross Alexander
 #   Fix for perl 5.34.0
 #   Lots of fixes for utf8.
@@ -19,13 +29,13 @@ use File::Spec::Functions;
 use File::stat;
 use Carp::Assert;
 use JSON;
+use Getopt::Long;
 
 # ----------------------------------------------------------------------
 #
 # m3u_find
 #
 # Recursively find all .m3u files in a directory.
-
 #
 # ----------------------------------------------------------------------
 
@@ -52,30 +62,29 @@ sub m3u_find {
     for my $f (sort(@files))
     {
 	my $full = catfile($dir, $f);
-	my $st = stat($full) || die;
+	my $st = stat($full);
+	if (!$st)
+	{
+	    printf(STDERR "Failed to stat $full: $!\n");
+	    exit(1);
+	}
 
 	# --------------------
 	# Recurse if directory
 	# --------------------
 
-	if (-d $st)
-	{
-	    push(@$res, @{m3u_find($base, catdir($path, $f))});
-	}
+	push(@$res, @{m3u_find($base, $path ? catdir($path, $f) : $f)}) if (-d $st);
 
 	# --------------------
 	# If .m3u then add to list
 	# --------------------
 
-	if (-f $st && $f =~ m:\.m3u$:)
-	{
-	    push(@$res, {
-		base => $base,
-		dir => $path,
-		file => $f,
-		mtime => $st->mtime,
-		 });
-	}
+	push(@$res, {
+	    base => $base,
+	    dir => $path,
+	    file => $f,
+	    mtime => $st->mtime,
+	     }) if (-f $st && $f =~ m:\.m3u$:);
     }
     return $res;
 }
@@ -87,16 +96,14 @@ sub m3u_find {
 # ----------------------------------------------------------------------
 
 sub m3u_check {
-    my $args = {@_};
+    my ($m3u) = @_;
 
     # --------------------
-    # Somewhat complicated params with entry => HASH
+    # Somewhat complicated three part directory structure
     # --------------------
-    
-    my $e = $args->{entry};
-    assert($e);
 
-    my $file = catfile($e->{base}, $e->{dir}, $e->{file});
+    my $path = catdir($m3u->{base}, $m3u->{dir});
+    my $file = catfile($path, $m3u->{file});
     print $file, "\n";
 
     # --------------------
@@ -105,27 +112,22 @@ sub m3u_check {
     
     my $stream;
     open($stream, "<", $file) || die;
-    my @files = grep(!(m:^#:), <$stream>);
+    my @files = grep !(m:^#:), <$stream>;
     close($stream);
-
-    # --------------------
-    # Chomp lines
-    # --------------------
+    chomp(@files);
     
-    map { chomp $_ } @files;
-
-    my $res = [];
-
     # --------------------
     # Loop over each line
     # --------------------
+
+    my $index = 1;
     
-    for my $f (@files)
-    {
-	my $path = catfile($e->{base}, $e->{dir}, $f);
+    $m3u->{files} = [ map {
+	my $file = catfile($path, $_);
 	my $st = stat($path) || die;
 	my $meta = {
-	    file => $f,
+	    file => $_,
+	    index => $index++,
 	    mtime => $st->mtime,
 	};
 
@@ -133,7 +135,7 @@ sub m3u_check {
 	# Use ffprobe to get meta information
 	# --------------------
 	
-	my $ffprobe = qx(ffprobe -v error -show_streams -show_format -print_format json $path);
+	my $ffprobe = qx(ffprobe -v error -show_streams -show_format -print_format json $file);
 	my $probe = decode_json(encode_utf8($ffprobe));
 
 	# --------------------
@@ -158,14 +160,10 @@ sub m3u_check {
 	{
 	    $meta->{tags}->{$k} = $tags->{$k};
 	}
-	push(@$res, $meta);
-    }
+	$meta;
+    } @files ];
 
-    # --------------------
-    # Update HASH with list of media files
-    # --------------------
-    
-    $e->{files} = $res;
+    return $m3u;
 }
 
 # ----------------------------------------------------------------------
@@ -181,16 +179,26 @@ sub m3u_check {
 binmode(STDOUT, ":utf8");
 
 # --------------------
+# Options processing
+# --------------------
+
+my $opts = {};
+GetOptions(
+    'in=s@' => \$opts->{in},
+    'out=s' => \$opts->{out}
+    );
+
+# --------------------
 # Find all m3u files
 # --------------------
 
 my $res = [];
 
-for my $dir ('/locker/opus')
+for my $dir (@{$opts->{in} || []})
 {
     push(@$res, {
 	dir => $dir,
-	m3u => [map { m3u_check(entry => $_); } @{m3u_find($dir)}]
+	m3u => [map { m3u_check($_); } @{m3u_find($dir)}]
 	 });
 }
 
@@ -198,7 +206,10 @@ for my $dir ('/locker/opus')
 # Write out as JSON.  This will be in utf8 format
 # --------------------
 
-my $stream;
-open($stream, ">", "media.js");
-print $stream to_json($res, { pretty => 1 });
-close($stream);
+if (defined($opts->{out}))
+{
+    my $stream;
+    open($stream, ">", $opts->{out});
+    print $stream to_json($res, { pretty => 1 });
+    close($stream);
+}

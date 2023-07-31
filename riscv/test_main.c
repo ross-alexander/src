@@ -81,6 +81,11 @@ static inline fdt64_t cpu_to_fdt64(uint64_t x)
 
 #include "printf/printf.h"
 
+typedef struct fdt_bits {
+  char *memory;
+} fdt_bits;
+
+
 /* --------------------
 -- Wait For Interrupt
 -------------------- */
@@ -94,7 +99,6 @@ static inline fdt64_t cpu_to_fdt64(uint64_t x)
 /* --------------------
 Not required as passed to test_main as parameters
 -------------------- */
-
 
 // extern long _boot_a0;
 // extern long _boot_a1;
@@ -115,11 +119,15 @@ int test_strcmp(const char *a, const char *b)
 
 int test_strncmp(const char *a, const char *b, size_t count)
 {
-  /* search first diff or end of string */
-  for (; count > 0 && *a == *b && *a != '\0'; a++, b++, count--)
-    ;
-  
-  return *a - *b;
+  if(count == 0)
+    return (0);
+  do {
+    if (*a != *b++)
+      return (*(unsigned char *)a - *(unsigned char *)--b);
+    if (*a++ == 0)
+      break;
+  } while (--count != 0);
+  return (0);
 }
 
 size_t test_strlen(const char *str)
@@ -135,11 +143,32 @@ size_t test_strlen(const char *str)
 
 /* ----------------------------------------------------------------------
 --
+--
+---------------------------------------------------------------------- */
+
+struct heisen_fdt_base {
+  int32_t version;
+  size_t size;
+  uint8_t *strings;
+  fdt32_t *root;
+};
+
+void heisen_fdt_base_create(struct fdt_header *fdt, struct heisen_fdt_base *base)
+{
+  base->version = fdt32_to_cpu(fdt->version);
+  base->size = fdt32_to_cpu(fdt->totalsize);
+  base->strings = (uint8_t*)((uint8_t*)fdt + fdt32_to_cpu(fdt->off_dt_strings));
+  base->root = (fdt32_t*)((uint8_t*)fdt + fdt32_to_cpu(fdt->off_dt_struct));
+}
+
+
+/* ----------------------------------------------------------------------
+--
 -- fdt_dump
 --
 ---------------------------------------------------------------------- */
 
-void fdt_dump(struct fdt_header *fdt)
+void fdt_dump(struct fdt_header *fdt, fdt_bits *bits)
 {
   printf("version: %d\n", fdt32_to_cpu(fdt->version));
   size_t totalsize = fdt32_to_cpu(fdt->totalsize);
@@ -153,8 +182,9 @@ void fdt_dump(struct fdt_header *fdt)
 
   while((!fin) && ((index * sizeof(fdt32_t)) < totalsize))
     {
-      fdt32_t nodetype = fdt32_to_cpu(nodeptr[index++]);
-      //      printf("[%d] %d\n", index, nodetype);
+      fdt32_t nodetype = fdt32_to_cpu(nodeptr[index]);
+      printf("[%d] %d\n", index, nodetype);
+      index++;
       for (int j = 0; j < (level * indent); j++) printf(" ");
       switch(nodetype)
 	{
@@ -162,12 +192,18 @@ void fdt_dump(struct fdt_header *fdt)
 	  {
 	    char *name = (char*)&(nodeptr[index]);
 	    size_t len = test_strlen(name);
-	    printf("%s {\n", name);
+	    printf("|%s| {\n", name);
 
+	    index += ((len + 1 + 3) >> 2);
+
+	    if(test_strncmp(name, "memory", test_strlen("memory")) == 0)
+	      {
+		bits->memory = (char*)&(nodeptr[index]);
+	      }
+	    
 /* len is actually len+1 because the string is nul terminated.
    Because nodetype is aligned len(+1)+3 is divided by 4 (>>2).
 */
-	    index += ((len + 1 + 3) >> 2);
 	    level++;
 	    break;
 	  }
@@ -179,10 +215,15 @@ void fdt_dump(struct fdt_header *fdt)
 	    printf("%s [%d]", prop, len);
 
 	    /* --------------------
-	       Nieve code for checking sring properties
+	       Naive code for checking sring properties
 	       -------------------- */
 
 	    if (test_strcmp(prop, "compatible") == 0)
+	      {
+		char *value = (char*)&(nodeptr[index]);
+		printf(" %s", value);
+	      }
+	    if (test_strcmp(prop, "device_type") == 0)
 	      {
 		char *value = (char*)&(nodeptr[index]);
 		printf(" %s", value);
@@ -224,6 +265,9 @@ void test_main(unsigned long a0, unsigned long a1)
      a1 is start of the FDT passed by SBI
      -------------------- */
 
+  fdt_bits bits;
+  bits.memory = 0;
+  
   printf("\nTest payload running %s %s\n", __DATE__, __TIME__);
 
   printf("FDT@%08lx HART %08lx\n", a1, a0);
@@ -233,7 +277,30 @@ void test_main(unsigned long a0, unsigned long a1)
   if (fdt32_to_cpu(header->magic) == FDT_MAGIC)
     {
       printf("Found FDT match magic [%04x]\n", FDT_MAGIC);
-      fdt_dump(header);
+      fdt_dump(header, &bits);
     }
+
+  if (bits.memory)
+    {
+      fdt32_t *nodeptr = (fdt32_t*)bits.memory;
+      printf("Found memory at %x\n", bits.memory);
+      uint32_t index = 0;
+      fdt32_t nodetype;
+      uint8_t *strings = (uint8_t*)((uint8_t*)header + fdt32_to_cpu(header->off_dt_strings));
+      for (nodetype = fdt32_to_cpu(nodeptr[index]) ; nodetype != FDT_END_NODE ; nodetype = fdt32_to_cpu(nodeptr[index]))
+	{
+	  printf("[%d] %d\n", index, nodetype);
+	  index++;
+	  fdt32_t len = fdt32_to_cpu(nodeptr[index++]);
+	  fdt32_t off = fdt32_to_cpu(nodeptr[index++]);
+	  const char *prop = (const char*)strings + off;
+	  printf("%s [%d]\n", prop, len);
+	  index += ((len+3) >> 2);
+	}
+    }
+  
+  struct heisen_fdt_base base;
+  heisen_fdt_base_create(header, &base);
+  
   shutdown();
 }

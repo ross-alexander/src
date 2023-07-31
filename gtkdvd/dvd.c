@@ -416,9 +416,9 @@ dvd_info_t* lsdvd_read_dvd(const char *dvd_device)
   dvd_info->title_count = titles;
   dvd_info->titles = calloc(titles, sizeof(*dvd_info->titles));
 
-  for (int j=0; j < titles; j++)
+  for (unsigned int j = 0; j < titles; j++)
     {     
-      if (opt_t == j+1 || opt_t == 0 )
+      if ((opt_t == j+1) || (opt_t == 0))
 	{
 	  // GENERAL
 	  if (ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat)
@@ -427,11 +427,11 @@ dvd_info_t* lsdvd_read_dvd(const char *dvd_device)
 	      dvd_title_t *t = &dvd_info->titles[j];
 	      t->num = j+1;
 
-	      vtsi_mat   = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat;
-	      vts_pgcit  = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vts_pgcit;
-	      video_attr = &vtsi_mat->vts_video_attr;
-	      vts_ttn = ifo_zero->tt_srpt->title[j].vts_ttn;
-	      vmgi_mat = ifo_zero->vmgi_mat;
+	      vtsi_mat     = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat;
+	      vts_pgcit    = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vts_pgcit;
+	      video_attr   = &vtsi_mat->vts_video_attr;
+	      vts_ttn      = ifo_zero->tt_srpt->title[j].vts_ttn;
+	      vmgi_mat     = ifo_zero->vmgi_mat;
 	      title_set_nr = ifo_zero->tt_srpt->title[j].title_set_nr;
 	      pgc = vts_pgcit->pgci_srp[ifo[title_set_nr]->vts_ptt_srpt->title[vts_ttn - 1].ptt[0].pgcn - 1].pgc;
 	      

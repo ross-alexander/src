@@ -6,6 +6,56 @@ date: December 16, 2021
 
 # Working Notes
 
+## 2022-01-04
+
+1. Having got struck with trying to understand what the code was doing
+I discovered luajit was able to dump out the compiled bytecode.  There
+is a reasonable amount of documentation for this online.  I've started
+a quick and dirty C program to decode this bytecode.  The bytecode
+is very compact but it a little fragile.
+
+## 2021-12-27
+
+1. Looking at vm_arm64.dasc the CFRAME needs to be sorted.  For RV64I
+there are 12 integer and 12 floating point save registers (s0-s11 and
+fs0-fs11 respectively).  The register s0 is designated as the fp so
+that doesn't need to be saved separately.  Each register set takes up
+12*8=96 bytes, starting at 48(sp), so the FPs are from 48(sp) to
+136(sp) and GP from 144(sp) to 232(sp).  The RA also needs to be saved
+at 240(sp) giving a total of 248 bytes, 40 bytes larger than ARM64
+frame (due to 5 additional save registers).
+
+~~~
+|.define CFRAME_SPACE,	248
+|//----- 16 byte aligned, <-- sp entering interpreter
+|.define SAVE_RA_,	240
+|.define SAVE_GPR_,	136		// 112+10*8: 64 bit GPR saves
+|.define SAVE_FPR_,	48		// 48+12*8: 64 bit FPR saves
+|// Unused		44(sp)          // 32 bit values
+|.define SAVE_NRES,	40(sp)
+|.define SAVE_ERRF,	36(sp)
+|.define SAVE_MULTRES,	32(sp)
+|.define TMPD,		24(sp)		// 64 bit values
+|.define SAVE_L,	16(sp)
+|.define SAVE_PC,	8(sp)
+|.define SAVE_CFRAME,	0(sp)
+|//----- 16 byte aligned, <-- sp while in interpreter.
+~~~
+
+2. The save_ and rest_ macros won't work correctly because the RV64I
+save registers are not contiguous.  I also find switching from ABI
+registers to ISA registers potentially confusing it would be cleaner
+to explicitly save each register.  Looking at the macros it looks like
+two general and two FP registers are saved each macro call.  I presume
+this it to improve performance where the FP and GP L/S can be super
+scalar.
+
+3. Started looking at the instruction decode macros but need to spend
+a lot more time understanding how it works on an existing ISA.
+
+4. Need to implement FP LOAD/SAVE, shifts and masks as assuming
+bitmanip is not available.
+
 ## 2021-12-23
 
 1. Refactor load/save parsing into a single function (parse_load_save)
@@ -160,11 +210,11 @@ One of the specific design criteria of the RISCV ISA was that the
 registers are always in the same place in the instruction and that any
 immediates are swirled around them as necessary.
 
-| Code | Description |
+| Code | Description         |
 | ---- | ------------------- |
-| D    | rd (bits [11:7]) |
-| N    | rs1 (bits [19:15]) |
-| M    | rs2 (bits [24:20]) |
+| D    | rd (bits [11:7])    |
+| N    | rs1 (bits [19:15])  |
+| M    | rs2 (bits [24:20])  |
 | I    | 12-bit immediate (I-type instruction) |
 
 Additionally the dynasm instruction IMM_I and STOP needed to be implemented

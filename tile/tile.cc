@@ -97,6 +97,7 @@ int main(int argc, char *argv[])
   luaopen_tile_surface_t(L);
   luaopen_tile_format_t(L);
   luaopen_tile_pixbuf_t(L);
+  luaopen_scanner_t(L);
   
   /* --------------------
      -- Add args to lua
@@ -112,19 +113,21 @@ int main(int argc, char *argv[])
     }
   lua_setfield(L, -2, "args");
 
-  lua_pushglobaltable(L);
-  luaopen_scanner_t(L);
-  lua_setfield(L, -2, "scanner_t");
+  /* --------------------
+     Load lua script
+     -------------------- */
   
-  if (luafile)
+  int ret = luaL_dofile(L, luafile);
+  if (ret != 0)
     {
-      int ret = luaL_dofile(L, luafile);
-      if (ret != 0)
-	{
-	  fprintf(stderr, "%s\n", lua_tostring(L, -1));
-	  exit(1);
-	}
+      fprintf(stderr, "%s\n", lua_tostring(L, -1));
+      exit(1);
     }
+
+  /* --------------------
+     Call the "background" function
+     -------------------- */
+  
   lua_pushglobaltable(L);
   lua_getfield(L, -2, "background");
   if (lua_isfunction(L, -1))

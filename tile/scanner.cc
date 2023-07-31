@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <string>
+#include <ctime>
 #include <algorithm>
 
 struct scanner_t {

@@ -4,6 +4,12 @@
 #
 # qemu-run
 
+# 2023-07-21: Ross Alexander
+#  Add multidev=remap to 9p fsdev
+
+# 2022-07-12: Ross Alexander
+#   Add file key to image configuration
+
 # 2021-09-07: Ross Alexander
 #   Add cpu to riscv to enable setting extentions such as rv64,x-v=true,x-k=true,vlen=256,elen=64,vext_spec=v1.0
 
@@ -31,7 +37,7 @@
 
 use 5.28.0;
 use Getopt::Long;
-use File::Spec::Functions qw(rel2abs catfile);
+use File::Spec::Functions qw(rel2abs catfile file_name_is_absolute);
 use Carp;
 use YAML qw(LoadFile);
 use JSON;
@@ -77,6 +83,7 @@ sub model_riscv64 {
     push(@cmd, '-cpu', $run->{vm}->{cpu}) if ($run->{vm}->{cpu});
     push(@cmd, '-bios', $run->{vm}->{bios}) if ($run->{vm}->{bios});
     push(@cmd, '-kernel', $run->{vm}->{kernel}) if ($run->{vm}->{kernel});
+    push(@cmd, '--accel', 'tcg,thread=multi');
     push(@cmd, '-object', 'rng-random,filename=/dev/urandom,id=rng0', '-device', 'virtio-rng-device,rng=rng0');
     return [@cmd];
 };
@@ -127,7 +134,8 @@ sub model_x86_64 {
 	push(@cmd, '-kernel', $run->{vm}->{kernel}) if ($run->{vm}->{kernel});
     }
     my @append = ("console=ttyS0");
-    return ([@cmd], [@append]);
+    my $append = $run->{vm}->{kernel} ? [@append] : [];
+    return ([@cmd], $append);
 }
 
 # ----------------------------------------------------------------------
@@ -237,15 +245,19 @@ sub qemu_run {
 	$root_dev = "sda";
     }
 
-    if ($run->{partition})
-    {
-	push(@append, sprintf("root=/dev/%s%d", $root_dev, $run->{partition}));
-    }
-    else
-    {
-	push(@append, sprintf("root=/dev/%s", $root_dev));
-    }
+#    say to_json($run->{vm}, {pretty=>1});
     
+    if ($run->{vm}->{kernel})
+    {
+    	if ($run->{partition})
+	{
+	    push(@append, sprintf("root=/dev/%s%d", $root_dev, $run->{partition}));
+	}
+	else
+	{
+	    push(@append, sprintf("root=/dev/%s", $root_dev));
+	}
+    }
     # --------------------
     # Add extra disks
     # --------------------
@@ -300,6 +312,18 @@ sub qemu_run {
     }
 
     # --------------------
+    # Add 9p mounts
+    # --------------------
+
+    for my $mount (@{$vm->{mounts} || []})
+    {
+	next if $mount->{type} ne "9p";
+	printf("Found 9p mount %s\n", $mount->{name});
+	push(@cmd, "-fsdev", sprintf("local,path=%s,security_model=passthrough,multidevs=remap,id=%s", $mount->{path}, $mount->{name}));
+	push(@cmd, "-device", sprintf("virtio-9p-pci,fsdev=%s,mount_tag=%s", $mount->{name}, $mount->{name}));
+    }
+
+    # --------------------
     # Add extra append lines from defintion file
     # --------------------
     
@@ -320,7 +344,24 @@ sub qemu_run {
 	push(@cmd, "-display", "none");
     }
     push(@cmd, "-daemonize") if ($run->{daemon});
-    say join(" ", @cmd), "\n";
+
+    # --------------------
+    # Dump details
+    # --------------------
+    
+    printf(STDOUT "--------------------\n");
+    printf(STDOUT "basedir: %s\n", $run->{basedir});
+    printf(STDOUT "confdir: %s\n", $run->{confdir});
+    printf(STDOUT "yamlfile: %s\n", $run->{yamlfile});
+    printf(STDOUT "image: %s\n", $run->{image});
+    printf(STDOUT "netdb: %s\n", $run->{netdb});
+    printf(STDOUT "qemu-cli: %s\n", join(" ", @cmd));
+    printf(STDOUT "--------------------\n\n");
+
+    # --------------------
+    # Run qemu
+    # --------------------
+    
     exec(@cmd) || croak;
 }
 
@@ -357,10 +398,10 @@ sub main()
 	'vga' => \$opts->{vga}
 	);
 
-    if (scalar(@ARGV) < 0)
+    if (!$opts->{vmname})
     {
-	croak "$0: vmname missing";
-	exit 1;
+	printf STDOUT "$0: --vmname=<name> --yaml=<YAML file> --basedir=<directory of image file> --confdir=<network scripts directory>\n";
+	exit 0;
     }
 
     # --------------------
@@ -436,14 +477,23 @@ sub main()
     {
 	$basedir = catfile(rel2abs("."), $name);
     }
-    croak "$0: image base directory $basedir missing" if (!-d $basedir);
+    # --------------------
+    # Check if basedir exists
+    # --------------------
+    
+    if (!-d $basedir)
+    {
+	printf(STDERR "$0: image base directory $basedir missing\n");
+	exit(1);
+    }
 
     # --------------------
     # Check image exists
     # --------------------
     
     my $format => $run->{format} = $run->{vm}->{image}->{format};
-    my $image = catfile($basedir, $image_key->{file} // sprintf("%s.%s", $name, $run->{format}));
+    my $image = $image_key->{file} // sprintf("%s.%s", $name, $run->{format});
+    $image = file_name_is_absolute($image) ? $image : catfile($basedir, $image);
     croak "$0: image file $image missing" if (! -f $image);
 
     # --------------------
@@ -471,19 +521,8 @@ sub main()
     $run->{daemon} = $opts->{daemon};
     $run->{systemd} = $opts->{systemd};
     $run->{vga} = $opts->{vga} if ($opts->{vga});
-    
-    # --------------------
-    # Dump details
-    # --------------------
-    
-    printf(STDOUT "--------------------\n");
-    printf(STDOUT "basedir: %s\n", $run->{basedir});
-    printf(STDOUT "confdir: %s\n", $run->{confdir});
-    printf(STDOUT "yaml: %s\n", $opts->{yamlfile});
-    printf(STDOUT "image: %s\n", $run->{image});
-    printf(STDOUT "netdb: %s\n", $run->{netdb});
-    printf(STDOUT "--------------------\n\n");
-    
+    $run->{yamlfile} = $opts->{yamlfile};
+        
     &qemu_run($run);
 }
 

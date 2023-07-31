@@ -50,6 +50,12 @@ int eject(const char *device)
   close(fd);
 }
 
+/* ----------------------------------------------------------------------
+--
+-- info_read_title
+--
+---------------------------------------------------------------------- */
+ 
 int info_read_title(dvd_info_t *info, int title, const char *file)
 {
   printf("Device = %s\n", info->discinfo.device);
@@ -57,9 +63,7 @@ int info_read_title(dvd_info_t *info, int title, const char *file)
 
   FILE *stream;
   if ((stream = fopen(file, "wb")) == 0)
-    {
-      return 0;
-    }
+    return 0;
 
   unsigned char *readdata = malloc(1024 * DVD_VIDEO_LB_LEN);
   for (int j = 1; j <= n_chapters; j++)
@@ -73,6 +77,11 @@ int info_read_title(dvd_info_t *info, int title, const char *file)
   return 1;
 }
 
+/* ----------------------------------------------------------------------
+--
+-- dvd_info_table
+--
+---------------------------------------------------------------------- */
 
 int dvd_info_table(lua_State *L)
 {
@@ -139,6 +148,35 @@ int dvd_info_table(lua_State *L)
   lua_setfield(L, -2, "titles");
   return 1;
 }
+
+  /* ----------------------------------------------------------------------
+   --
+   -- cli_options
+   --
+   ---------------------------------------------------------------------- */
+
+int cli_options(lua_State *L)
+{
+  assert(lua_gettop(L) > 0);
+  assert(lua_istable(L, 1));
+  int t = 1;
+  
+  /* table is in the stack at index 't' */
+  lua_pushnil(L);  /* first key */
+  while (lua_next(L, t) != 0)
+    {
+       /* uses 'key' (at index -2) and 'value' (at index -1) */
+      printf("%s - %s\n",
+	     lua_typename(L, lua_type(L, -2)),
+	     lua_typename(L, lua_type(L, -1)));
+      printf("%d - %s\n",  lua_tointeger(L, -2), lua_tostring(L, -1));
+      /* removes 'value'; keeps 'key' for next iteration */
+      lua_pop(L, 1);
+    }  
+  exit(1);
+}
+
+
 %}
 
 
@@ -217,6 +255,7 @@ char* title_print(dvd_title_t*);
 int eject(const char*);
 
 %native(dvd_info_table) int dvd_info_table(lua_State *L);
+%native(cli_options) int cli_options(lua_State *L);
 
 /* Local Variables:  */
 /* mode: c           */

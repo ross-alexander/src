@@ -1,19 +1,33 @@
+/* ----------------------------------------------------------------------
+--
+-- original source is https://github.com/eyelash/tutorials/blob/master/drm-gbm.c
+--
+-- 2022-02-03: Ross Alexander
+--   Added extra bits to find additional crtc
+--
+---------------------------------------------------------------------- */
+
 // gcc -o drm-gbm drm-gbm.c -ldrm -lgbm -lEGL -lGL -I/usr/include/libdrm
 
 // general documentation: man drm
 
-#include <assert.h>
-#include <xf86drm.h>
-#include <xf86drmMode.h>
-#include <drm_fourcc.h>
-#include <gbm.h>
-#include <EGL/egl.h>
-#include <GL/gl.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include <assert.h>
+
+#include <xf86drm.h>
+#include <xf86drmMode.h>
+
+#include <drm_fourcc.h>
+#include <gbm.h>
+
+#include <EGL/egl.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
+#include <GL/glut.h>
 
 #define EXIT(msg) { fputs (msg, stderr); exit (EXIT_FAILURE); }
 
@@ -119,10 +133,9 @@ static void find_display_configuration(example_t *example)
     }
   assert(crtc_id >= 0);
   example->crtc = drmModeGetCrtc(example->device, crtc_id);
-  printf("Get crtc\n");
-  drmModeFreeEncoder (encoder);
-  drmModeFreeConnector (connector);
-  drmModeFreeResources (resources);
+  drmModeFreeEncoder(encoder);
+  drmModeFreeConnector(connector);
+  drmModeFreeResources(resources);
 }
 
 /* ----------------------------------------------------------------------
@@ -134,14 +147,16 @@ static void find_display_configuration(example_t *example)
 static void setup_opengl (example_t *example)
 {
   example->gbm_device = gbm_create_device(example->device);
+  assert(example->gbm_device);
+
   printf("%s\n", gbm_device_get_backend_name(example->gbm_device));
   
-  assert(example->gbm_device);
   example->display = eglGetDisplay(example->gbm_device);
   assert(example->display);
+
   eglInitialize(example->display, NULL, NULL);
   
-	// create an OpenGL context
+  // create an OpenGL context
   eglBindAPI(EGL_OPENGL_API);
 
   EGLint attributes[] = {
@@ -174,13 +189,39 @@ static void setup_opengl (example_t *example)
 
 /* ----------------------------------------------------------------------
 --
+-- clean_up
+--
+---------------------------------------------------------------------- */
+
+static void clean_up (example_t *example)
+{
+  // set the previous crtc
+  drmModeSetCrtc (example->device, example->crtc->crtc_id, example->crtc->buffer_id, example->crtc->x, example->crtc->y, &example->connector_id, 1, &example->crtc->mode);
+  drmModeFreeCrtc (example->crtc);
+  
+  if (example->previous_bo)
+    {
+      drmModeRmFB (example->device, example->previous_fb);
+      gbm_surface_release_buffer (example->gbm_surface, example->previous_bo);
+    }
+  
+  eglDestroySurface (example->display, example->egl_surface);
+  gbm_surface_destroy (example->gbm_surface);
+  eglDestroyContext (example->display, example->context);
+  eglTerminate (example->display);
+  gbm_device_destroy (example->gbm_device);
+}
+
+
+/* ----------------------------------------------------------------------
+--
 -- swap_buffers
 --
 ---------------------------------------------------------------------- */
 
 static void swap_buffers (example_t *example)
 {
-  eglSwapBuffers (example->display, example->egl_surface);
+  eglSwapBuffers(example->display, example->egl_surface);
   struct gbm_bo *bo = gbm_surface_lock_front_buffer(example->gbm_surface);
 
   uint32_t handle = gbm_bo_get_handle (bo).u32;
@@ -202,28 +243,24 @@ static void swap_buffers (example_t *example)
 
 static void draw (example_t *example, float progress)
 {
-  glClearColor(1.0f-progress, progress, 0.0, 1.0);
-  glClear(GL_COLOR_BUFFER_BIT);
-  swap_buffers (example);
-}
+  //  glClearColor(1.0f-progress, progress, 0.0, 1.0);
+  //  glClear(GL_COLOR_BUFFER_BIT);
 
-static void clean_up (example_t *example)
-{
-  // set the previous crtc
-  drmModeSetCrtc (example->device, example->crtc->crtc_id, example->crtc->buffer_id, example->crtc->x, example->crtc->y, &example->connector_id, 1, &example->crtc->mode);
-  drmModeFreeCrtc (example->crtc);
-  
-  if (example->previous_bo)
-    {
-      drmModeRmFB (example->device, example->previous_fb);
-      gbm_surface_release_buffer (example->gbm_surface, example->previous_bo);
-    }
-  
-  eglDestroySurface (example->display, example->egl_surface);
-  gbm_surface_destroy (example->gbm_surface);
-  eglDestroyContext (example->display, example->context);
-  eglTerminate (example->display);
-  gbm_device_destroy (example->gbm_device);
+     glClear (GL_COLOR_BUFFER_BIT);
+   glBegin (GL_TRIANGLES);
+   glColor3f (1.0, 0.0, 0.0);
+   glVertex2f (5.0, 5.0);
+   glColor3f (0.0, 1.0, 0.0);
+   glVertex2f (25.0, 5.0);
+   glColor3f (0.0, 0.0, 1.0);
+   glVertex2f (5.0, 25.0);
+   glEnd();
+   glFlush ();
+   sleep(10);
+
+
+
+  swap_buffers (example);
 }
 
 /* ----------------------------------------------------------------------
@@ -245,6 +282,20 @@ int main ()
   find_display_configuration(example);
   setup_opengl(example);
 
+  int w = example->mode_info.hdisplay;
+  int h = example->mode_info.vdisplay;
+  
+   glClearColor (0.0, 0.0, 0.0, 0.0);
+   glShadeModel (GL_SMOOTH);
+   glViewport (0, 0, (GLsizei) w, (GLsizei) h);
+   glMatrixMode (GL_PROJECTION);
+   glLoadIdentity ();
+   if (w <= h)
+      gluOrtho2D (0.0, 30.0, 0.0, 30.0 * (GLfloat) h/(GLfloat) w);
+   else
+      gluOrtho2D (0.0, 30.0 * (GLfloat) w/(GLfloat) h, 0.0, 30.0);
+   glMatrixMode(GL_MODELVIEW);
+  
   for (int i = 0; i < 600; i++)
     draw (example, i / 600.0f);
   

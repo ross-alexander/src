@@ -207,11 +207,7 @@ static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
   if ((strncmp(name[0], "video/x-raw-rgb", 15) == 0) || (strncmp(name[0], "video/x-raw-yuv", 15) == 0) || (strncmp(name[0], "video/x-raw", strlen("video/x-raw")) == 0))
     {
       bin	= gst_bin_new(0);
-#ifdef UNSTABLE
-      GstElement *conv	= gst_element_factory_make ("videoconvert",  "video-converter");
-#else
-      GstElement *conv	= gst_element_factory_make ("ffmpegcolorspace",  "video-converter");
-#endif
+      GstElement *conv	= gst_element_factory_make ("videoconvertscale",  "video-converter");
       assert(conv);
 
       GstElement *sink	= gst_element_factory_make ("xvimagesink", "video-output");
@@ -383,8 +379,8 @@ int main(int argc, char *argv[])
 
   g_signal_connect(decodebin, "pad-added", G_CALLBACK(on_pad_added), pipe);
 
-  // g_signal_connect(decodebin, "autoplug-continue", G_CALLBACK(auto_cont), pipe);
-  // g_signal_connect(decodebin, "autoplug-select", G_CALLBACK(auto_sel), pipe);
+  g_signal_connect(decodebin, "autoplug-continue", G_CALLBACK(auto_cont), pipe);
+  g_signal_connect(decodebin, "autoplug-select", G_CALLBACK(auto_sel), pipe);
 
 
   gst_bin_add_many(GST_BIN(pipe), source, decodebin, 0);

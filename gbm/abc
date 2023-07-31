@@ -1,0 +1,784 @@
+execve("./example-4", ["./example-4"], 0x7ffebc902ff0 /* 30 vars */) = 0
+brk(NULL)                               = 0xdd7000
+access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=140031, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 140031, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f5a1b13f000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libdrm.so.2", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\0V\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 71488) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=261384, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f5a1b13d000
+mmap(NULL, 81136, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1b129000
+mmap(0x7f5a1b12e000, 36864, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x5000) = 0x7f5a1b12e000
+mmap(0x7f5a1b137000, 16384, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xe000) = 0x7f5a1b137000
+mmap(0x7f5a1b13b000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x11000) = 0x7f5a1b13b000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libEGL.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\0004\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 104456) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=129400, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 112488, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1b10d000
+mmap(0x7f5a1b110000, 73728, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a1b110000
+mmap(0x7f5a1b122000, 20480, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x15000) = 0x7f5a1b122000
+mmap(0x7f5a1b127000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x19000) = 0x7f5a1b127000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libGL.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0p\221\4\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 511232) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=742384, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 579888, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1b07f000
+mprotect(0x7f5a1b0c8000, 217088, PROT_NONE) = 0
+mmap(0x7f5a1b0c8000, 131072, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x49000) = 0x7f5a1b0c8000
+mmap(0x7f5a1b0e8000, 81920, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x69000) = 0x7f5a1b0e8000
+mmap(0x7f5a1b0fd000, 61440, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x7d000) = 0x7f5a1b0fd000
+mmap(0x7f5a1b10c000, 2352, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f5a1b10c000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libgbm.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\2004\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 56408) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=343608, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 66592, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1b06e000
+mprotect(0x7f5a1b071000, 49152, PROT_NONE) = 0
+mmap(0x7f5a1b071000, 28672, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a1b071000
+mmap(0x7f5a1b078000, 16384, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xa000) = 0x7f5a1b078000
+mmap(0x7f5a1b07d000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xe000) = 0x7f5a1b07d000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\3\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0 \225\2\0\0\0\0\0"..., 832) = 832
+pread64(3, "\6\0\0\0\4\0\0\0@\0\0\0\0\0\0\0@\0\0\0\0\0\0\0@\0\0\0\0\0\0\0"..., 784, 64) = 784
+pread64(3, "\4\0\0\0000\0\0\0\5\0\0\0GNU\0\2\200\0\300\4\0\0\0\1\0\0\0\0\0\0\0"..., 64, 848) = 64
+pread64(3, "\4\0\0\0\20\0\0\0\1\0\0\0GNU\0\0\0\0\0\5\0\0\0\n\0\0\0\0\0\0\0", 32, 912) = 32
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=12543696, ...}, AT_EMPTY_PATH) = 0
+pread64(3, "\6\0\0\0\4\0\0\0@\0\0\0\0\0\0\0@\0\0\0\0\0\0\0@\0\0\0\0\0\0\0"..., 784, 64) = 784
+mmap(NULL, 2092592, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1ae6f000
+mmap(0x7f5a1ae97000, 1486848, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x28000) = 0x7f5a1ae97000
+mmap(0x7f5a1b002000, 364544, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x193000) = 0x7f5a1b002000
+mmap(0x7f5a1b05b000, 24576, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1eb000) = 0x7f5a1b05b000
+mmap(0x7f5a1b061000, 52784, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f5a1b061000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/glibc-hwcaps/x86-64-v3/libm.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/glibc-hwcaps/x86-64-v3", 0x7fffa7911b20, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/glibc-hwcaps/x86-64-v2/libm.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/glibc-hwcaps/x86-64-v2", 0x7fffa7911b20, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/tls/x86_64/x86_64/libm.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/tls/x86_64/x86_64", 0x7fffa7911b20, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/tls/x86_64/libm.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/tls/x86_64", 0x7fffa7911b20, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/tls/x86_64/libm.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/tls/x86_64", 0x7fffa7911b20, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/tls/libm.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/tls", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib64/x86_64/x86_64/libm.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/x86_64/x86_64", 0x7fffa7911b20, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/x86_64/libm.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/x86_64", 0x7fffa7911b20, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/x86_64/libm.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/x86_64", 0x7fffa7911b20, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libm.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\3\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\320\321\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=3189088, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 876792, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1ad98000
+mmap(0x7f5a1ada5000, 442368, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xd000) = 0x7f5a1ada5000
+mmap(0x7f5a1ae11000, 376832, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x79000) = 0x7f5a1ae11000
+mmap(0x7f5a1ae6d000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xd4000) = 0x7f5a1ae6d000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libGLdispatch.so.0", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libGLdispatch.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\320\21\4\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 607016) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=1037200, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f5a1ad96000
+mmap(NULL, 758736, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1acdc000
+mmap(0x7f5a1ad1d000, 262144, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x41000) = 0x7f5a1ad1d000
+mmap(0x7f5a1ad5d000, 81920, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x81000) = 0x7f5a1ad5d000
+mmap(0x7f5a1ad71000, 118784, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x94000) = 0x7f5a1ad71000
+mmap(0x7f5a1ad8e000, 29648, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f5a1ad8e000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libGLX.so.0", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libGLX.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\2603\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 171280) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=392928, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 247232, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1ac9f000
+mprotect(0x7f5a1aca2000, 163840, PROT_NONE) = 0
+mmap(0x7f5a1aca2000, 147456, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a1aca2000
+mmap(0x7f5a1acc6000, 12288, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x27000) = 0x7f5a1acc6000
+mmap(0x7f5a1acca000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2a000) = 0x7f5a1acca000
+mmap(0x7f5a1accc000, 62912, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f5a1accc000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libXext.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libXext.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\300C\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=680808, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 80152, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1ac8b000
+mmap(0x7f5a1ac8f000, 40960, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x4000) = 0x7f5a1ac8f000
+mmap(0x7f5a1ac99000, 16384, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xe000) = 0x7f5a1ac99000
+mmap(0x7f5a1ac9d000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x11000) = 0x7f5a1ac9d000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libX11.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libX11.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\360\10\2\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 1285480) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=12459392, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 1314056, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1ab4a000
+mprotect(0x7f5a1ab68000, 1167360, PROT_NONE) = 0
+mmap(0x7f5a1ab68000, 552960, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1e000) = 0x7f5a1ab68000
+mmap(0x7f5a1abef000, 610304, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xa5000) = 0x7f5a1abef000
+mmap(0x7f5a1ac85000, 24576, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x13a000) = 0x7f5a1ac85000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libxcb.so.1", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libxcb.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0 \327\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 153040) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=598096, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 160936, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1ab22000
+mmap(0x7f5a1ab2f000, 65536, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xd000) = 0x7f5a1ab2f000
+mmap(0x7f5a1ab3f000, 36864, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1d000) = 0x7f5a1ab3f000
+mmap(0x7f5a1ab48000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x25000) = 0x7f5a1ab48000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libXau.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libXau.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\360\21\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=57352, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 16664, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1ab1d000
+mmap(0x7f5a1ab1e000, 4096, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1000) = 0x7f5a1ab1e000
+mmap(0x7f5a1ab1f000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a1ab1f000
+mmap(0x7f5a1ab20000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a1ab20000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libXdmcp.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libXdmcp.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\0\"\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=87864, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f5a1ab1b000
+mmap(NULL, 28936, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1ab13000
+mmap(0x7f5a1ab15000, 8192, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a1ab15000
+mmap(0x7f5a1ab17000, 8192, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x4000) = 0x7f5a1ab17000
+mmap(0x7f5a1ab19000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x5000) = 0x7f5a1ab19000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libdl.so.2", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libdl.so.2", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0@\20\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=21176, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 16424, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1ab0e000
+mmap(0x7f5a1ab0f000, 4096, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1000) = 0x7f5a1ab0f000
+mmap(0x7f5a1ab10000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a1ab10000
+mmap(0x7f5a1ab11000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a1ab11000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libwayland-server.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0000v\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 72832) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=253144, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 87848, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1aaf8000
+mprotect(0x7f5a1aaff000, 49152, PROT_NONE) = 0
+mmap(0x7f5a1aaff000, 28672, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x7000) = 0x7f5a1aaff000
+mmap(0x7f5a1ab06000, 16384, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xe000) = 0x7f5a1ab06000
+mmap(0x7f5a1ab0b000, 12288, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x12000) = 0x7f5a1ab0b000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libexpat.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\220A\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 180472) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=557200, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 192720, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1aac8000
+mmap(0x7f5a1aacc000, 122880, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x4000) = 0x7f5a1aacc000
+mmap(0x7f5a1aaea000, 45056, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x22000) = 0x7f5a1aaea000
+mmap(0x7f5a1aaf5000, 12288, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2c000) = 0x7f5a1aaf5000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libstdc++.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\3\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0PQ\n\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\v\0\0\0\0\0\0\0"..., 48, 2104560) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=17928568, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 2177152, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1a8b4000
+mprotect(0x7f5a1a955000, 1449984, PROT_NONE) = 0
+mmap(0x7f5a1a955000, 1003520, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xa1000) = 0x7f5a1a955000
+mmap(0x7f5a1aa4a000, 442368, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x196000) = 0x7f5a1aa4a000
+mmap(0x7f5a1aab7000, 57344, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x202000) = 0x7f5a1aab7000
+mmap(0x7f5a1aac5000, 10368, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f5a1aac5000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/../lib64/glibc-hwcaps/x86-64-v3/libffi.so.7", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/../lib64/glibc-hwcaps/x86-64-v3", 0x7fffa79118b0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/../lib64/glibc-hwcaps/x86-64-v2/libffi.so.7", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/../lib64/glibc-hwcaps/x86-64-v2", 0x7fffa79118b0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/../lib64/tls/x86_64/x86_64/libffi.so.7", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/../lib64/tls/x86_64/x86_64", 0x7fffa79118b0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/../lib64/tls/x86_64/libffi.so.7", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/../lib64/tls/x86_64", 0x7fffa79118b0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/../lib64/tls/x86_64/libffi.so.7", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/../lib64/tls/x86_64", 0x7fffa79118b0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/../lib64/tls/libffi.so.7", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/../lib64/tls", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib64/../lib64/x86_64/x86_64/libffi.so.7", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/../lib64/x86_64/x86_64", 0x7fffa79118b0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/../lib64/x86_64/libffi.so.7", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/../lib64/x86_64", 0x7fffa79118b0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/../lib64/x86_64/libffi.so.7", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib64/../lib64/x86_64", 0x7fffa79118b0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/../lib64/libffi.so.7", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\300\"\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=55816, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f5a1a8b2000
+mmap(NULL, 50792, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1a8a5000
+mmap(0x7f5a1a8a7000, 28672, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a1a8a7000
+mmap(0x7f5a1a8ae000, 8192, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x9000) = 0x7f5a1a8ae000
+mmap(0x7f5a1a8b0000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xa000) = 0x7f5a1a8b0000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/../lib64/tls/libpthread.so.0", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/../lib64/libpthread.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0@\20\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=20880, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 16424, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1a8a0000
+mmap(0x7f5a1a8a1000, 4096, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1000) = 0x7f5a1a8a1000
+mmap(0x7f5a1a8a2000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a1a8a2000
+mmap(0x7f5a1a8a3000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a1a8a3000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libgcc_s.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\0203\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\v\0\0\0\0\0\0\0"..., 48, 97560) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=474240, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 103496, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1a886000
+mmap(0x7f5a1a889000, 73728, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a1a889000
+mmap(0x7f5a1a89b000, 12288, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x15000) = 0x7f5a1a89b000
+mmap(0x7f5a1a89e000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x17000) = 0x7f5a1a89e000
+close(3)                                = 0
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f5a1a884000
+mmap(NULL, 12288, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f5a1a881000
+arch_prctl(ARCH_SET_FS, 0x7f5a1a881740) = 0
+set_tid_address(0x7f5a1a881a10)         = 719139
+set_robust_list(0x7f5a1a881a20, 24)     = 0
+mprotect(0x7f5a1b05b000, 16384, PROT_READ) = 0
+mprotect(0x7f5a1a89e000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1a8a3000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1a8b0000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1ae6d000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1aab7000, 45056, PROT_READ) = 0
+mprotect(0x7f5a1aaf5000, 8192, PROT_READ) = 0
+mprotect(0x7f5a1ab0b000, 8192, PROT_READ) = 0
+mprotect(0x7f5a1ab11000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1ab19000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1ab20000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1ab48000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1ac85000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1ac9d000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1ad71000, 114688, PROT_READ) = 0
+mprotect(0x7f5a1acca000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1b13b000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1b07d000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1b0fd000, 57344, PROT_READ) = 0
+mprotect(0x7f5a1b127000, 4096, PROT_READ) = 0
+mprotect(0x404000, 4096, PROT_READ)     = 0
+mprotect(0x7f5a1b192000, 8192, PROT_READ) = 0
+prlimit64(0, RLIMIT_STACK, NULL, {rlim_cur=8192*1024, rlim_max=RLIM64_INFINITY}) = 0
+munmap(0x7f5a1b13f000, 140031)          = 0
+getrandom("\xb3\x02\x96\x70\x96\x3a\xc7\xbb", 8, GRND_NONBLOCK) = 8
+brk(NULL)                               = 0xdd7000
+brk(0xdf8000)                           = 0xdf8000
+getpid()                                = 719139
+getuid()                                = 1000
+geteuid()                               = 1000
+getgid()                                = 1000
+getegid()                               = 1000
+getuid()                                = 1000
+geteuid()                               = 1000
+getgid()                                = 1000
+getegid()                               = 1000
+openat(AT_FDCWD, "/usr/etc/glvnd/egl_vendor.d", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/share/glvnd/egl_vendor.d", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 3
+newfstatat(3, "", {st_mode=S_IFDIR|0755, st_size=4096, ...}, AT_EMPTY_PATH) = 0
+getdents64(3, 0xdea510 /* 4 entries */, 32768) = 120
+getdents64(3, 0xdea510 /* 0 entries */, 32768) = 0
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/share/glvnd/egl_vendor.d/10_nvidia.json", O_RDONLY) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=107, ...}, AT_EMPTY_PATH) = 0
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=107, ...}, AT_EMPTY_PATH) = 0
+read(3, "{\n    \"file_format_version\" : \"1"..., 4096) = 107
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libEGL_nvidia.so.0", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libEGL_nvidia.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0@1\3\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=1316880, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 3435280, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1a53a000
+mprotect(0x7f5a1a61a000, 2093056, PROT_NONE) = 0
+mmap(0x7f5a1a819000, 405504, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xdf000) = 0x7f5a1a819000
+mmap(0x7f5a1a87c000, 19216, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f5a1a87c000
+close(3)                                = 0
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=140031, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 140031, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f5a1b13f000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/librt.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0`\20\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=26288, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 16440, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1a535000
+mmap(0x7f5a1a536000, 4096, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1000) = 0x7f5a1a536000
+mmap(0x7f5a1a537000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a1a537000
+mmap(0x7f5a1a538000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a1a538000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libnvidia-glsi.so.495.46", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\220\4\1\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=631656, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 2756568, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1a294000
+mprotect(0x7f5a1a304000, 2097152, PROT_NONE) = 0
+mmap(0x7f5a1a504000, 172032, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x70000) = 0x7f5a1a504000
+mmap(0x7f5a1a52e000, 28632, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f5a1a52e000
+close(3)                                = 0
+mprotect(0x7f5a1a538000, 4096, PROT_READ) = 0
+mprotect(0x7f5a1a504000, 167936, PROT_READ) = 0
+mprotect(0x7f5a1a819000, 315392, PROT_READ) = 0
+futex(0x7fffa79120bc, FUTEX_UNLOCK_PI_PRIVATE) = -1 EPERM (Operation not permitted)
+munmap(0x7f5a1b13f000, 140031)          = 0
+getuid()                                = 1000
+geteuid()                               = 1000
+getgid()                                = 1000
+getegid()                               = 1000
+getuid()                                = 1000
+geteuid()                               = 1000
+getgid()                                = 1000
+getegid()                               = 1000
+openat(AT_FDCWD, "/etc/egl/egl_external_platform.d", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/share/egl/egl_external_platform.d", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 3
+newfstatat(3, "", {st_mode=S_IFDIR|0755, st_size=4096, ...}, AT_EMPTY_PATH) = 0
+brk(0xe1b000)                           = 0xe1b000
+getdents64(3, 0xdf2610 /* 4 entries */, 32768) = 136
+getdents64(3, 0xdf2610 /* 0 entries */, 32768) = 0
+brk(0xe13000)                           = 0xe13000
+close(3)                                = 0
+stat("/usr/share/egl/egl_external_platform.d/10_nvidia_wayland.json", {st_mode=S_IFREG|0644, st_size=115, ...}) = 0
+openat(AT_FDCWD, "/usr/share/egl/egl_external_platform.d/10_nvidia_wayland.json", O_RDONLY) = 3
+fstat(3, {st_mode=S_IFREG|0644, st_size=115, ...}) = 0
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=115, ...}, AT_EMPTY_PATH) = 0
+read(3, "{\n    \"file_format_version\" : \"1"..., 4096) = 115
+close(3)                                = 0
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=140031, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 140031, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f5a1b13f000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/local/lib/libnvidia-egl-wayland.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\2205\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 62496) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=84784, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 71024, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1a282000
+mmap(0x7f5a1a285000, 40960, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a1a285000
+mmap(0x7f5a1a28f000, 12288, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xd000) = 0x7f5a1a28f000
+mmap(0x7f5a1a292000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xf000) = 0x7f5a1a292000
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libwayland-client.so.0", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libwayland-client.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0@d\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 54728) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=177472, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 66888, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a1a271000
+mmap(0x7f5a1a277000, 20480, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x6000) = 0x7f5a1a277000
+mmap(0x7f5a1a27c000, 12288, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xb000) = 0x7f5a1a27c000
+mmap(0x7f5a1a27f000, 12288, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xd000) = 0x7f5a1a27f000
+close(3)                                = 0
+mprotect(0x7f5a1a27f000, 8192, PROT_READ) = 0
+mprotect(0x7f5a1a292000, 4096, PROT_READ) = 0
+munmap(0x7f5a1b13f000, 140031)          = 0
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=140031, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 140031, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f5a1b13f000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libnvidia-eglcore.so.495.46", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\0f%\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=31924144, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 34125384, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a181e5000
+mprotect(0x7f5a1999f000, 2093056, PROT_NONE) = 0
+mmap(0x7f5a19b9e000, 7049216, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x17b9000) = 0x7f5a19b9e000
+mmap(0x7f5a1a257000, 104008, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f5a1a257000
+close(3)                                = 0
+mprotect(0x7f5a19b9e000, 5615616, PROT_READ) = 0
+munmap(0x7f5a1b13f000, 140031)          = 0
+openat(AT_FDCWD, "/home/ralexand/.nv/nvidia-application-profile-globals-rc", O_RDONLY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/home/ralexand/.nv/nvidia-application-profiles-rc", O_RDONLY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/home/ralexand/.nv/nvidia-application-profiles-rc.d", O_RDONLY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/etc/nvidia/nvidia-application-profiles-rc", O_RDONLY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/etc/nvidia/nvidia-application-profiles-rc.d/", O_RDONLY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/share/nvidia/nvidia-application-profiles-495.46-rc", O_RDONLY) = 3
+fstat(3, {st_mode=S_IFREG|0444, st_size=9279, ...}) = 0
+newfstatat(3, "", {st_mode=S_IFREG|0444, st_size=9279, ...}, AT_EMPTY_PATH) = 0
+read(3, "# Application profiles for the N"..., 8192) = 8192
+read(3, "    { \"pattern\": \"RocketLeague\","..., 4096) = 1087
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/share/nvidia/nvidia-application-profiles-rc", O_RDONLY) = -1 ENOENT (No such file or directory)
+brk(0xe34000)                           = 0xe34000
+getpid()                                = 719139
+readlink("/proc/719139/exe", "/home/ralexand/src/gbm/example-4", 4095) = 32
+openat(AT_FDCWD, "/proc/self/comm", O_RDONLY) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=0, ...}, AT_EMPTY_PATH) = 0
+read(3, "example-4\n", 4096)            = 10
+read(3, "", 3072)                       = 0
+close(3)                                = 0
+getpid()                                = 719139
+readlink("/proc/719139/exe", "/home/ralexand/src/gbm/example-4", 4095) = 32
+getpid()                                = 719139
+mmap(NULL, 307200, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f5a1819a000
+stat("/usr/share/egl/egl_external_platform.d/15_nvidia_gbm.json", {st_mode=S_IFREG|0644, st_size=96, ...}) = 0
+openat(AT_FDCWD, "/usr/share/egl/egl_external_platform.d/15_nvidia_gbm.json", O_RDONLY) = 3
+fstat(3, {st_mode=S_IFREG|0644, st_size=96, ...}) = 0
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=96, ...}, AT_EMPTY_PATH) = 0
+read(3, "{\n\t\"file_format_version\" : \"1.0."..., 4096) = 96
+close(3)                                = 0
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=140031, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 140031, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f5a1b13f000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libnvidia-egl-gbm.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0000\21\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=22648, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 2118040, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a17f94000
+mprotect(0x7f5a17f98000, 2097152, PROT_NONE) = 0
+mmap(0x7f5a18198000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x4000) = 0x7f5a18198000
+close(3)                                = 0
+mprotect(0x7f5a18198000, 4096, PROT_READ) = 0
+munmap(0x7f5a1b13f000, 140031)          = 0
+futex(0x7f5a1a880468, FUTEX_WAKE_PRIVATE, 2147483647) = 0
+openat(AT_FDCWD, "/usr/share/glvnd/egl_vendor.d/50_mesa.json", O_RDONLY) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=105, ...}, AT_EMPTY_PATH) = 0
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=105, ...}, AT_EMPTY_PATH) = 0
+read(3, "{\n    \"file_format_version\" : \"1"..., 4096) = 105
+close(3)                                = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libEGL_mesa.so.0", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libEGL_mesa.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0000\257\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 262056) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=1497504, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 282640, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a17f4e000
+mprotect(0x7f5a17f58000, 225280, PROT_NONE) = 0
+mmap(0x7f5a17f58000, 155648, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xa000) = 0x7f5a17f58000
+mmap(0x7f5a17f7e000, 65536, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x30000) = 0x7f5a17f7e000
+mmap(0x7f5a17f8f000, 16384, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x40000) = 0x7f5a17f8f000
+mmap(0x7f5a17f93000, 16, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f5a17f93000
+close(3)                                = 0
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=140031, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 140031, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f5a1b13f000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libglapi.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\0\321\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\t\0\0\0\0\0\0\0"..., 48, 211752) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=343520, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 239912, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a17f13000
+mprotect(0x7f5a17f20000, 163840, PROT_NONE) = 0
+mmap(0x7f5a17f20000, 57344, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xd000) = 0x7f5a17f20000
+mmap(0x7f5a17f2e000, 102400, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1b000) = 0x7f5a17f2e000
+mmap(0x7f5a17f48000, 20480, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x34000) = 0x7f5a17f48000
+mmap(0x7f5a17f4d000, 2344, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f5a17f4d000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libX11-xcb.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0@\20\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\1\0\0\0\0\0\0\0"..., 48, 8192) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=47840, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 16424, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a17f0e000
+mmap(0x7f5a17f0f000, 4096, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1000) = 0x7f5a17f0f000
+mmap(0x7f5a17f10000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a17f10000
+mmap(0x7f5a17f11000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a17f11000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libxcb-dri2.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\200 \0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\1\0\0\0\0\0\0\0"..., 48, 14280) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=52976, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 20584, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a17f08000
+mmap(0x7f5a17f0a000, 4096, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a17f0a000
+mmap(0x7f5a17f0b000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a17f0b000
+mmap(0x7f5a17f0c000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a17f0c000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libxcb-xfixes.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0p0\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\1\0\0\0\0\0\0\0"..., 48, 24120) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=92600, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 32856, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a17eff000
+mprotect(0x7f5a17f02000, 16384, PROT_NONE) = 0
+mmap(0x7f5a17f02000, 8192, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a17f02000
+mmap(0x7f5a17f04000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x5000) = 0x7f5a17f04000
+mmap(0x7f5a17f06000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x6000) = 0x7f5a17f06000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libxcb-dri3.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\260 \0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\1\0\0\0\0\0\0\0"..., 48, 13832) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=48040, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 20600, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a17ef9000
+mmap(0x7f5a17efb000, 4096, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a17efb000
+mmap(0x7f5a17efc000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a17efc000
+mmap(0x7f5a17efd000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a17efd000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libxcb-present.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0`\20\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\1\0\0\0\0\0\0\0"..., 48, 9056) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=32112, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 16472, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a17ef4000
+mmap(0x7f5a17ef5000, 4096, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1000) = 0x7f5a17ef5000
+mmap(0x7f5a17ef6000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a17ef6000
+mmap(0x7f5a17ef7000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a17ef7000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libxcb-sync.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\0201\0\0\0\0\0\0"..., 832) = 832
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\1\0\1\300\4\0\0\0\1\0\0\0\0\0\0\0"..., 48, 23536) = 48
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=80464, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 32936, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a17eeb000
+mprotect(0x7f5a17eee000, 16384, PROT_NONE) = 0
+mmap(0x7f5a17eee000, 8192, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3000) = 0x7f5a17eee000
+mmap(0x7f5a17ef0000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x5000) = 0x7f5a17ef0000
+mmap(0x7f5a17ef2000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x6000) = 0x7f5a17ef2000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib64/libxshmfence.so.1", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\320\20\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=23672, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 16496, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f5a17ee6000
+mmap(0x7f5a17ee7000, 4096, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1000) = 0x7f5a17ee7000
+mmap(0x7f5a17ee8000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a17ee8000
+mmap(0x7f5a17ee9000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f5a17ee9000
+close(3)                                = 0
+mprotect(0x7f5a17ee9000, 4096, PROT_READ) = 0
+mprotect(0x7f5a17ef2000, 4096, PROT_READ) = 0
+mprotect(0x7f5a17ef7000, 4096, PROT_READ) = 0
+mprotect(0x7f5a17efd000, 4096, PROT_READ) = 0
+mprotect(0x7f5a17f06000, 4096, PROT_READ) = 0
+mprotect(0x7f5a17f0c000, 4096, PROT_READ) = 0
+mprotect(0x7f5a17f11000, 4096, PROT_READ) = 0
+mprotect(0x7f5a17f48000, 16384, PROT_READ) = 0
+mprotect(0x7f5a17f8f000, 12288, PROT_READ) = 0
+munmap(0x7f5a1b13f000, 140031)          = 0
+futex(0x7f5a1b128420, FUTEX_WAKE_PRIVATE, 2147483647) = 0
+pipe([3, 4])                            = 0
+fcntl(4, F_SETFL, O_RDONLY|O_NONBLOCK)  = 0
+write(4, NULL, 8)                       = -1 EFAULT (Bad address)
+close(3)                                = 0
+close(4)                                = 0
+openat(AT_FDCWD, "/proc/modules", O_RDONLY) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0444, st_size=0, ...}, AT_EMPTY_PATH) = 0
+read(3, "nvidia_drm 61440 0 - Live 0x0000"..., 1024) = 1024
+close(3)                                = 0
+openat(AT_FDCWD, "/proc/driver/nvidia/params", O_RDONLY) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0444, st_size=0, ...}, AT_EMPTY_PATH) = 0
+read(3, "ResmanDebugLevel: 4294967295\nRmL"..., 1024) = 804
+close(3)                                = 0
+stat("/dev/nvidiactl", {st_mode=S_IFCHR|0666, st_rdev=makedev(0xc3, 0xff), ...}) = 0
+openat(AT_FDCWD, "/dev/nvidiactl", O_RDWR) = 3
+fcntl(3, F_SETFD, FD_CLOEXEC)           = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0xd2, 0x48), 0x7fffa7912370) = 0
+openat(AT_FDCWD, "/sys/devices/system/memory/block_size_bytes", O_RDONLY) = -1 ENOENT (No such file or directory)
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0xc8, 0x900), 0x7f5a1a533a00) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2b, 0x20), 0x7fffa79124d0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79124a0) = 0
+openat(AT_FDCWD, "/home/ralexand/.nv/nvidia-application-profile-globals-rc", O_RDONLY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/home/ralexand/.nv/nvidia-application-profiles-rc", O_RDONLY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/home/ralexand/.nv/nvidia-application-profiles-rc.d", O_RDONLY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/etc/nvidia/nvidia-application-profiles-rc", O_RDONLY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/etc/nvidia/nvidia-application-profiles-rc.d/", O_RDONLY) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/share/nvidia/nvidia-application-profiles-495.46-rc", O_RDONLY) = 4
+fstat(4, {st_mode=S_IFREG|0444, st_size=9279, ...}) = 0
+newfstatat(4, "", {st_mode=S_IFREG|0444, st_size=9279, ...}, AT_EMPTY_PATH) = 0
+read(4, "# Application profiles for the N"..., 8192) = 8192
+read(4, "    { \"pattern\": \"RocketLeague\","..., 4096) = 1087
+brk(0xe55000)                           = 0xe55000
+close(4)                                = 0
+openat(AT_FDCWD, "/usr/share/nvidia/nvidia-application-profiles-rc", O_RDONLY) = -1 ENOENT (No such file or directory)
+getpid()                                = 719139
+readlink("/proc/719139/exe", "/home/ralexand/src/gbm/example-4", 4095) = 32
+openat(AT_FDCWD, "/proc/self/comm", O_RDONLY) = 4
+newfstatat(4, "", {st_mode=S_IFREG|0644, st_size=0, ...}, AT_EMPTY_PATH) = 0
+read(4, "example-4\n", 4096)            = 10
+read(4, "", 3072)                       = 0
+close(4)                                = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79124a0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79124a0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912550) = 0
+openat(AT_FDCWD, "/proc/driver/nvidia/params", O_RDONLY) = 4
+newfstatat(4, "", {st_mode=S_IFREG|0444, st_size=0, ...}, AT_EMPTY_PATH) = 0
+read(4, "ResmanDebugLevel: 4294967295\nRmL"..., 1024) = 804
+close(4)                                = 0
+stat("/dev/nvidia0", {st_mode=S_IFCHR|0666, st_rdev=makedev(0xc3, 0), ...}) = 0
+openat(AT_FDCWD, "/dev/nvidia0", O_RDWR|O_CLOEXEC) = 4
+fcntl(4, F_GETFD)                       = 0x1 (flags FD_CLOEXEC)
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912550) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912380) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912380) = 0
+openat(AT_FDCWD, "/proc/driver/nvidia/params", O_RDONLY) = 5
+newfstatat(5, "", {st_mode=S_IFREG|0444, st_size=0, ...}, AT_EMPTY_PATH) = 0
+read(5, "ResmanDebugLevel: 4294967295\nRmL"..., 1024) = 804
+close(5)                                = 0
+stat("/dev/nvidia0", {st_mode=S_IFCHR|0666, st_rdev=makedev(0xc3, 0), ...}) = 0
+openat(AT_FDCWD, "/dev/nvidia0", O_RDWR|O_CLOEXEC) = 5
+fcntl(5, F_GETFD)                       = 0x1 (flags FD_CLOEXEC)
+ioctl(5, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0xc9, 0x4), 0x7fffa791247c) = 0
+ioctl(5, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0xd7, 0x228), 0x7fffa7912240) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2b, 0x28), 0x7fffa7912530) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912440) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912340) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912340) = 0
+openat(AT_FDCWD, "/proc/driver/nvidia/params", O_RDONLY) = 6
+newfstatat(6, "", {st_mode=S_IFREG|0444, st_size=0, ...}, AT_EMPTY_PATH) = 0
+read(6, "ResmanDebugLevel: 4294967295\nRmL"..., 1024) = 804
+close(6)                                = 0
+stat("/dev/nvidia0", {st_mode=S_IFCHR|0666, st_rdev=makedev(0xc3, 0), ...}) = 0
+openat(AT_FDCWD, "/dev/nvidia0", O_RDWR|O_CLOEXEC) = 6
+fcntl(6, F_GETFD)                       = 0x1 (flags FD_CLOEXEC)
+ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0xc9, 0x4), 0x7fffa791243c) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2b, 0x28), 0x7fffa79124c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912510) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x29, 0x10), 0x7fffa7912510) = 0
+close(6)                                = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79123c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79122c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79122c0) = 0
+openat(AT_FDCWD, "/proc/driver/nvidia/params", O_RDONLY) = 6
+newfstatat(6, "", {st_mode=S_IFREG|0444, st_size=0, ...}, AT_EMPTY_PATH) = 0
+read(6, "ResmanDebugLevel: 4294967295\nRmL"..., 1024) = 804
+close(6)                                = 0
+stat("/dev/nvidia0", {st_mode=S_IFCHR|0666, st_rdev=makedev(0xc3, 0), ...}) = 0
+openat(AT_FDCWD, "/dev/nvidia0", O_RDWR|O_CLOEXEC) = 6
+fcntl(6, F_GETFD)                       = 0x1 (flags FD_CLOEXEC)
+ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0xc9, 0x4), 0x7fffa79123bc) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2b, 0x28), 0x7fffa7912440) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79124a0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x29, 0x10), 0x7fffa7912490) = 0
+close(6)                                = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912590) = 0
+futex(0x7f5a1a88047c, FUTEX_WAKE_PRIVATE, 2147483647) = 0
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 6
+newfstatat(6, "", {st_mode=S_IFREG|0644, st_size=140031, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 140031, PROT_READ, MAP_PRIVATE, 6, 0) = 0x7f5a1b13f000
+close(6)                                = 0
+openat(AT_FDCWD, "/lib64/glibc-hwcaps/x86-64-v3/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/lib64/glibc-hwcaps/x86-64-v3", 0x7fffa7911e40, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/lib64/glibc-hwcaps/x86-64-v2/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/lib64/glibc-hwcaps/x86-64-v2", 0x7fffa7911e40, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/lib64/tls/x86_64/x86_64/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/lib64/tls/x86_64/x86_64", 0x7fffa7911e40, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/lib64/tls/x86_64/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/lib64/tls/x86_64", 0x7fffa7911e40, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/lib64/tls/x86_64/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/lib64/tls/x86_64", 0x7fffa7911e40, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/lib64/tls/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/lib64/tls", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+openat(AT_FDCWD, "/lib64/x86_64/x86_64/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/lib64/x86_64/x86_64", 0x7fffa7911e40, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/lib64/x86_64/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/lib64/x86_64", 0x7fffa7911e40, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/lib64/x86_64/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/lib64/x86_64", 0x7fffa7911e40, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/lib64/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/lib64", {st_mode=S_IFDIR|0755, st_size=303104, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib64/tls/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib64/libnvtegrahv.so", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+munmap(0x7f5a1b13f000, 140031)          = 0
+getpid()                                = 719139
+getpid()                                = 719139
+ioctl(5, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x27, 0x38), 0x7fffa79126e0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x54, 0x38), 0x7fffa7912720) = 0
+mmap(NULL, 561152, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f5a17e5d000
+mmap(NULL, 184320, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f5a17e30000
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2b, 0x20), 0x7fffa7911170) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7910f60) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7910f60) = 0
+openat(AT_FDCWD, "/proc/driver/nvidia/params", O_RDONLY) = 6
+newfstatat(6, "", {st_mode=S_IFREG|0444, st_size=0, ...}, AT_EMPTY_PATH) = 0
+read(6, "ResmanDebugLevel: 4294967295\nRmL"..., 1024) = 804
+close(6)                                = 0
+stat("/dev/nvidia0", {st_mode=S_IFCHR|0666, st_rdev=makedev(0xc3, 0), ...}) = 0
+openat(AT_FDCWD, "/dev/nvidia0", O_RDWR|O_CLOEXEC) = 6
+fcntl(6, F_GETFD)                       = 0x1 (flags FD_CLOEXEC)
+ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0xc9, 0x4), 0x7fffa791105c) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2b, 0x28), 0x7fffa7911110) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7911140) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7911060) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7910f60) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7910f60) = 0
+openat(AT_FDCWD, "/proc/driver/nvidia/params", O_RDONLY) = 7
+newfstatat(7, "", {st_mode=S_IFREG|0444, st_size=0, ...}, AT_EMPTY_PATH) = 0
+read(7, "ResmanDebugLevel: 4294967295\nRmL"..., 1024) = 804
+close(7)                                = 0
+stat("/dev/nvidia0", {st_mode=S_IFCHR|0666, st_rdev=makedev(0xc3, 0), ...}) = 0
+openat(AT_FDCWD, "/dev/nvidia0", O_RDWR|O_CLOEXEC) = 7
+fcntl(7, F_GETFD)                       = 0x1 (flags FD_CLOEXEC)
+ioctl(7, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0xc9, 0x4), 0x7fffa791105c) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2b, 0x28), 0x7fffa79110e0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7911140) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7911140) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7911140) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2b, 0x28), 0x7fffa7911110) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7911140) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2b, 0x28), 0x7fffa79110d0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2b, 0x28), 0x7fffa7911110) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79112c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79113d0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79113d0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79113d0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79113d0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79113d0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79113c0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7911360) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa79113d0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7911840) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7911850) = 0
+getpid()                                = 719139
+newfstatat(1, "", {st_mode=S_IFCHR|0620, st_rdev=makedev(0x88, 0), ...}, AT_EMPTY_PATH) = 0
+write(1, "*************EGL 1.5 when eglGet"..., 75) = 75
+getpid()                                = 719139
+write(1, " EGL_CLIENT_APIS: OpenGL_ES Open"..., 35) = 35
+getpid()                                = 719139
+write(1, " EGL_VENDOR: NVIDIA\n", 20)   = 20
+getpid()                                = 719139
+write(1, " EGL_VERSION: 1.5\n", 18)     = 18
+getpid()                                = 719139
+write(1, " EGL_EXTENSIONS: EGL_EXT_buffer_"..., 1024) = 1024
+write(1, "L_NV_quadruple_buffer EGL_NV_str"..., 651) = 651
+getpid()                                = 719139
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x29, 0x10), 0x7fffa79127f0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x29, 0x10), 0x7fffa7912810) = 0
+getpid()                                = 719139
+write(1, "\n", 1)                       = 1
+write(1, "************/dev/dri/card0******"..., 39) = 39
+openat(AT_FDCWD, "/dev/dri/card0", O_RDWR|O_NOCTTY|O_NONBLOCK|O_CLOEXEC) = 8
+ioctl(8, DRM_IOCTL_MODE_GETRESOURCES, 0x7fffa7912920) = 0
+ioctl(8, DRM_IOCTL_MODE_GETRESOURCES, 0x7fffa7912920) = 0
+ioctl(8, DRM_IOCTL_MODE_GETCONNECTOR, 0x7fffa7912910) = 0
+ioctl(8, DRM_IOCTL_MODE_GETCONNECTOR, 0x7fffa7912910) = 0
+ioctl(8, DRM_IOCTL_MODE_GETCONNECTOR, 0x7fffa7912910) = 0
+ioctl(8, DRM_IOCTL_MODE_GETCONNECTOR, 0x7fffa7912910) = 0
+write(1, "resolution: 2560x1440\n", 22) = 22
+write(2, "no encoder found\n", 17)      = 17
+sched_yield()                           = 0
+munmap(0x7f5a1819a000, 307200)          = 0
+munmap(0x7f5a181e5000, 34125384)        = 0
+munmap(0x7f5a17f94000, 2118040)         = 0
+futex(0x7f5a1a293568, FUTEX_WAKE_PRIVATE, 2147483647) = 0
+munmap(0x7f5a1a282000, 71024)           = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x41, 0x38), 0x7fffa79126a0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912700) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x29, 0x10), 0x7fffa7912740) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x29, 0x10), 0x7fffa7912740) = 0
+close(7)                                = 0
+close(6)                                = 0
+munmap(0x7f5a17e5d000, 561152)          = 0
+munmap(0x7f5a17e30000, 184320)          = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x29, 0x10), 0x7fffa79127f0) = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x29, 0x10), 0x7fffa7912760) = 0
+close(5)                                = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x2a, 0x20), 0x7fffa7912740) = 0
+close(4)                                = 0
+ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x46, 0x29, 0x10), 0x7fffa7912820) = 0
+close(3)                                = 0
+getpid()                                = 719139
+getpid()                                = 719139
+exit_group(1)                           = ?
++++ exited with 1 +++

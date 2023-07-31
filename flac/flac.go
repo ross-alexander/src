@@ -1,3 +1,11 @@
+/* ----------------------------------------------------------------------
+--
+-- flac.go
+--
+-- 2021-11-01: Ross Alexander
+--
+---------------------------------------------------------------------- */
+
 package main
 
 import "io/ioutil"
@@ -13,7 +21,7 @@ func scandir(dir string) {
 	}
 	for _, file := range files {
 		path := filepath.Join(dir, file.Name())
-
+		
 		if match, err := filepath.Match("*.m3u", file.Name()); err == nil && match {
 			fmt.Println(path)
 		}

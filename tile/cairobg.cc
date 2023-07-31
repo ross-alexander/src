@@ -474,7 +474,7 @@ int main(int argc, char* const argv[])
   lua_getfield(L, -2, "init");
   if (lua_isfunction(L, -1))
     {
-      printf("%s: calling lufunction init\n", argv[0]);
+      printf("%s: calling luafunction init\n", argv[0]);
       lua_call(L, 0, 0);
     }
   else
