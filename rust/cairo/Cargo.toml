@@ -1,0 +1,19 @@
+[package]
+name = "cairo_gdk"
+version = "0.0.1"
+authors = ["Ross"]
+edition = "2021"
+
+[profile.release]
+opt-level = 'z'     # Optimize for size.
+codegen-units = 1   # Reduce number of codegen units to increase optimizations.
+# lto = true          # Enable Link Time Optimization
+# panic = 'abort'     # Abort on panic
+
+[dependencies]
+rand = "0.8.4"
+png = "0.11.0"
+cairo-rs = { git = "https://github.com/gtk-rs/gtk-rs-core.git", package = "cairo-rs", features = ["png"] }
+gdk = { git = "https://github.com/gtk-rs/gtk3-rs.git", package = "gdk" }
+gtk = { git = "https://github.com/gtk-rs/gtk3-rs.git", package = "gtk" }
+gdk-pixbuf = { git = "https://github.com/gtk-rs/gtk-rs-core.git", package = "gdk-pixbuf" }
