@@ -157,20 +157,48 @@ static void setup_opengl (example_t *example)
   eglInitialize(example->display, NULL, NULL);
   
   // create an OpenGL context
-  eglBindAPI(EGL_OPENGL_API);
+  assert(eglBindAPI(EGL_OPENGL_API) == EGL_TRUE);
 
   EGLint attributes[] = {
     EGL_RED_SIZE, 8,
     EGL_GREEN_SIZE, 8,
     EGL_BLUE_SIZE, 8,
-    EGL_NONE};
-  EGLConfig config;
-  EGLint num_config;
-  eglChooseConfig (example->display, attributes, &config, 1, &num_config);
-  assert(num_config > 0);
-  example->context = eglCreateContext (example->display, config, EGL_NO_CONTEXT, NULL);
+    EGL_NONE}
+    ;
+  EGLConfig* configs;
+  EGLint valid_config = -1, num_config = 0;
   
-  if (!gbm_device_is_format_supported(example->gbm_device, DRM_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT|GBM_BO_USE_RENDERING))
+  eglChooseConfig(example->display, attributes, 0, 0, &num_config);
+  printf("%d EGL configurations found.\n", num_config);
+
+  configs = calloc(sizeof(EGLConfig), num_config);
+  eglChooseConfig(example->display, attributes, configs, num_config, &num_config);
+
+  printf("%d EGL configurations found.\n", num_config);
+
+  for (int i = 0; i < num_config; i++)
+    {
+      EGLint gbm_format;
+      if (!eglGetConfigAttrib(example->display, configs[i], EGL_NATIVE_VISUAL_ID, &gbm_format))
+	{
+	  abort();
+	}
+      
+      if (gbm_format == GBM_FORMAT_ARGB8888)
+	{
+	  valid_config = i;
+	  continue;
+	}
+    }
+  if (valid_config < 0)
+    {
+      printf("No valid configuration found.\n");
+      abort();
+    }
+
+  example->context = eglCreateContext (example->display, configs[valid_config], EGL_NO_CONTEXT, NULL);
+  
+  if (!gbm_device_is_format_supported(example->gbm_device, DRM_FORMAT_ARGB8888, GBM_BO_USE_SCANOUT|GBM_BO_USE_RENDERING))
     {
       fprintf(stderr, "Format not supported\n");
       exit(1);
@@ -180,9 +208,9 @@ static void setup_opengl (example_t *example)
   
   // create the GBM and EGL surface
   
-  example->gbm_surface = gbm_surface_create_with_modifiers(example->gbm_device, example->mode_info.hdisplay, example->mode_info.vdisplay, GBM_FORMAT_XRGB8888, &modifier, 1);
+  example->gbm_surface = gbm_surface_create_with_modifiers(example->gbm_device, example->mode_info.hdisplay, example->mode_info.vdisplay, GBM_FORMAT_ARGB8888, &modifier, 1);
   assert(example->gbm_surface);
-  example->egl_surface = eglCreateWindowSurface (example->display, config, example->gbm_surface, NULL);
+  example->egl_surface = eglCreateWindowSurface (example->display, configs[valid_config], example->gbm_surface, NULL);
   assert(example->egl_surface);
   eglMakeCurrent (example->display, example->egl_surface, example->egl_surface, example->context);
 }
@@ -246,21 +274,18 @@ static void draw (example_t *example, float progress)
   //  glClearColor(1.0f-progress, progress, 0.0, 1.0);
   //  glClear(GL_COLOR_BUFFER_BIT);
 
-     glClear (GL_COLOR_BUFFER_BIT);
-   glBegin (GL_TRIANGLES);
-   glColor3f (1.0, 0.0, 0.0);
-   glVertex2f (5.0, 5.0);
-   glColor3f (0.0, 1.0, 0.0);
-   glVertex2f (25.0, 5.0);
-   glColor3f (0.0, 0.0, 1.0);
-   glVertex2f (5.0, 25.0);
-   glEnd();
-   glFlush ();
-   sleep(10);
-
-
-
+  glClear (GL_COLOR_BUFFER_BIT);
+  glBegin (GL_TRIANGLES);
+  glColor3f (1.0, 0.0, 0.0);
+  glVertex2f (5.0, 5.0);
+  glColor3f (0.0, 1.0, 0.0);
+  glVertex2f (25.0, 5.0);
+  glColor3f (0.0, 0.0, 1.0);
+  glVertex2f (5.0, 25.0);
+  glEnd();
+  glFlush ();
   swap_buffers (example);
+  sleep(10);
 }
 
 /* ----------------------------------------------------------------------
@@ -296,10 +321,12 @@ int main ()
       gluOrtho2D (0.0, 30.0 * (GLfloat) w/(GLfloat) h, 0.0, 30.0);
    glMatrixMode(GL_MODELVIEW);
   
-  for (int i = 0; i < 600; i++)
-    draw (example, i / 600.0f);
-  
-  clean_up (example);
+   //  for (int i = 0; i < 600; i++)
+   //    draw (example, i / 600.0f);
+
+   draw(example, 0 / 600.0f);
+   
+  clean_up(example);
   close (example->device);
   return 0;
 }
