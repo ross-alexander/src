@@ -149,7 +149,7 @@ static void setup_opengl (example_t *example)
   example->gbm_device = gbm_create_device(example->device);
   assert(example->gbm_device);
 
-  printf("%s\n", gbm_device_get_backend_name(example->gbm_device));
+  printf("Using GBM backend device %s\n", gbm_device_get_backend_name(example->gbm_device));
   
   example->display = eglGetDisplay(example->gbm_device);
   assert(example->display);
@@ -197,6 +197,8 @@ static void setup_opengl (example_t *example)
     }
 
   example->context = eglCreateContext (example->display, configs[valid_config], EGL_NO_CONTEXT, NULL);
+
+  assert(example->context);
   
   if (!gbm_device_is_format_supported(example->gbm_device, DRM_FORMAT_ARGB8888, GBM_BO_USE_SCANOUT|GBM_BO_USE_RENDERING))
     {
@@ -210,9 +212,11 @@ static void setup_opengl (example_t *example)
   
   example->gbm_surface = gbm_surface_create_with_modifiers(example->gbm_device, example->mode_info.hdisplay, example->mode_info.vdisplay, GBM_FORMAT_ARGB8888, &modifier, 1);
   assert(example->gbm_surface);
+
   example->egl_surface = eglCreateWindowSurface (example->display, configs[valid_config], example->gbm_surface, NULL);
   assert(example->egl_surface);
-  eglMakeCurrent (example->display, example->egl_surface, example->egl_surface, example->context);
+
+  eglMakeCurrent(example->display, example->egl_surface, example->egl_surface, example->context);
 }
 
 /* ----------------------------------------------------------------------
@@ -224,8 +228,8 @@ static void setup_opengl (example_t *example)
 static void clean_up (example_t *example)
 {
   // set the previous crtc
-  drmModeSetCrtc (example->device, example->crtc->crtc_id, example->crtc->buffer_id, example->crtc->x, example->crtc->y, &example->connector_id, 1, &example->crtc->mode);
-  drmModeFreeCrtc (example->crtc);
+  drmModeSetCrtc(example->device, example->crtc->crtc_id, example->crtc->buffer_id, example->crtc->x, example->crtc->y, &example->connector_id, 1, &example->crtc->mode);
+  drmModeFreeCrtc(example->crtc);
   
   if (example->previous_bo)
     {
@@ -250,6 +254,7 @@ static void clean_up (example_t *example)
 static void swap_buffers (example_t *example)
 {
   eglSwapBuffers(example->display, example->egl_surface);
+
   struct gbm_bo *bo = gbm_surface_lock_front_buffer(example->gbm_surface);
 
   uint32_t handle = gbm_bo_get_handle (bo).u32;
@@ -262,19 +267,27 @@ static void swap_buffers (example_t *example)
   
   if (example->previous_bo)
     {
-      drmModeRmFB (example->device, example->previous_fb);
-      gbm_surface_release_buffer (example->gbm_surface, example->previous_bo);
+      drmModeRmFB(example->device, example->previous_fb);
+      gbm_surface_release_buffer(example->gbm_surface, example->previous_bo);
     }
   example->previous_bo = bo;
   example->previous_fb = fb;
 }
 
+/* ----------------------------------------------------------------------
+   --
+   -- draw
+   --
+   ---------------------------------------------------------------------- */
+
 static void draw (example_t *example, float progress)
 {
-  //  glClearColor(1.0f-progress, progress, 0.0, 1.0);
-  //  glClear(GL_COLOR_BUFFER_BIT);
+  glClearColor(1.0f-progress, progress, 0.0, 1.0);
+  glClear(GL_COLOR_BUFFER_BIT);
 
-  glClear (GL_COLOR_BUFFER_BIT);
+  //  glRotatef(progress, 0, 0, 0);
+  
+  //  glClear (GL_COLOR_BUFFER_BIT);
   glBegin (GL_TRIANGLES);
   glColor3f (1.0, 0.0, 0.0);
   glVertex2f (5.0, 5.0);
@@ -283,9 +296,9 @@ static void draw (example_t *example, float progress)
   glColor3f (0.0, 0.0, 1.0);
   glVertex2f (5.0, 25.0);
   glEnd();
-  glFlush ();
-  swap_buffers (example);
-  sleep(10);
+  //  glFlush ();
+  swap_buffers(example);
+  //  sleep(1);
 }
 
 /* ----------------------------------------------------------------------
@@ -294,7 +307,7 @@ static void draw (example_t *example, float progress)
 --
 ---------------------------------------------------------------------- */
 
-int main ()
+int main(int argc, char *argv[])
 {
   const char *path = "/dev/dri/card0";
   example_t *example = calloc(sizeof(example_t), 1);
@@ -304,6 +317,7 @@ int main ()
       fprintf(stderr, "cannot open %s\n", path);
       exit(1);
     }
+
   find_display_configuration(example);
   setup_opengl(example);
 
@@ -321,10 +335,8 @@ int main ()
       gluOrtho2D (0.0, 30.0 * (GLfloat) w/(GLfloat) h, 0.0, 30.0);
    glMatrixMode(GL_MODELVIEW);
   
-   //  for (int i = 0; i < 600; i++)
-   //    draw (example, i / 600.0f);
-
-   draw(example, 0 / 600.0f);
+   for (int i = 0; i < 600; i++)
+     draw (example, i / 600.0f);
    
   clean_up(example);
   close (example->device);
