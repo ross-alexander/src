@@ -1,12 +1,77 @@
 #include <stdio.h>
 #include <gbm.h>
 
+#define show_format(x) printf("%s: %d\n", #x, x)
+
 int main()
 {
-  printf("RGB888: %d\n", GBM_FORMAT_RGB888);
-  printf("XRGB888: %d\n", GBM_FORMAT_XRGB8888);
-  printf("ARGB888: %d\n", GBM_FORMAT_ARGB8888);
-  printf("BO_XRGB888: %d\n", GBM_BO_FORMAT_XRGB8888);
-  printf("BO_ARGB888: %d\n", GBM_BO_FORMAT_ARGB8888);
+show_format(GBM_FORMAT_BIG_ENDIAN);
+show_format(GBM_FORMAT_C8);
+show_format(GBM_FORMAT_R8);
+show_format(GBM_FORMAT_R16);
+show_format(GBM_FORMAT_GR88);
+show_format(GBM_FORMAT_RG1616);
+show_format(GBM_FORMAT_GR1616);
+show_format(GBM_FORMAT_RGB332);
+show_format(GBM_FORMAT_BGR233);
+show_format(GBM_FORMAT_XRGB4444);
+show_format(GBM_FORMAT_XBGR4444);
+show_format(GBM_FORMAT_RGBX4444);
+show_format(GBM_FORMAT_BGRX4444);
+show_format(GBM_FORMAT_ARGB4444);
+show_format(GBM_FORMAT_ABGR4444);
+show_format(GBM_FORMAT_RGBA4444);
+show_format(GBM_FORMAT_BGRA4444);
+show_format(GBM_FORMAT_XRGB1555);
+show_format(GBM_FORMAT_XBGR1555);
+show_format(GBM_FORMAT_RGBX5551);
+show_format(GBM_FORMAT_BGRX5551);
+show_format(GBM_FORMAT_ARGB1555);
+show_format(GBM_FORMAT_ABGR1555);
+show_format(GBM_FORMAT_RGBA5551);
+show_format(GBM_FORMAT_BGRA5551);
+show_format(GBM_FORMAT_RGB565);
+show_format(GBM_FORMAT_BGR565);
+show_format(GBM_FORMAT_RGB888);
+show_format(GBM_FORMAT_BGR888);
+show_format(GBM_FORMAT_XRGB8888);
+show_format(GBM_FORMAT_XBGR8888);
+show_format(GBM_FORMAT_RGBX8888);
+show_format(GBM_FORMAT_BGRX8888);
+show_format(GBM_FORMAT_ARGB8888);
+show_format(GBM_FORMAT_ABGR8888);
+show_format(GBM_FORMAT_RGBA8888);
+show_format(GBM_FORMAT_BGRA8888);
+show_format(GBM_FORMAT_XRGB2101010);
+show_format(GBM_FORMAT_XBGR2101010);
+show_format(GBM_FORMAT_RGBX1010102);
+show_format(GBM_FORMAT_BGRX1010102);
+show_format(GBM_FORMAT_ARGB2101010);
+show_format(GBM_FORMAT_ABGR2101010);
+show_format(GBM_FORMAT_RGBA1010102);
+show_format(GBM_FORMAT_BGRA1010102);
+show_format(GBM_FORMAT_XBGR16161616);
+show_format(GBM_FORMAT_ABGR16161616);
+show_format(GBM_FORMAT_XBGR16161616F);
+show_format(GBM_FORMAT_ABGR16161616F);
+show_format(GBM_FORMAT_YUYV);
+show_format(GBM_FORMAT_YVYU);
+show_format(GBM_FORMAT_UYVY);
+show_format(GBM_FORMAT_VYUY);
+show_format(GBM_FORMAT_AYUV);
+show_format(GBM_FORMAT_NV12);
+show_format(GBM_FORMAT_NV21);
+show_format(GBM_FORMAT_NV16);
+show_format(GBM_FORMAT_NV61);
+show_format(GBM_FORMAT_YUV410);
+show_format(GBM_FORMAT_YVU410);
+show_format(GBM_FORMAT_YUV411);
+show_format(GBM_FORMAT_YVU411);
+show_format(GBM_FORMAT_YUV420);
+show_format(GBM_FORMAT_YVU420);
+show_format(GBM_FORMAT_YUV422);
+show_format(GBM_FORMAT_YVU422);
+show_format(GBM_FORMAT_YUV444);
+show_format(GBM_FORMAT_YVU444);
   return(0);
 }
