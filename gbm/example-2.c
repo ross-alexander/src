@@ -209,7 +209,7 @@ static void setup_opengl (example_t *example)
   uint64_t modifier = DRM_FORMAT_MOD_LINEAR;
   
   // create the GBM and EGL surface
-  
+
   example->gbm_surface = gbm_surface_create_with_modifiers(example->gbm_device, example->mode_info.hdisplay, example->mode_info.vdisplay, GBM_FORMAT_ARGB8888, &modifier, 1);
   assert(example->gbm_surface);
 
