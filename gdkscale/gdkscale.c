@@ -71,6 +71,9 @@ char *format_filename(const char *path, const char* suffix, int w, int h)
 int scale(const char* file, int size, const char *format)
 {
   GError *error = 0;
+
+  /* Get pixbuf */
+  
   GdkPixbuf *px = gdk_pixbuf_new_from_file(file, &error);
   assert(px != 0);
   
