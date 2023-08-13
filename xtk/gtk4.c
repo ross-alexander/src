@@ -35,14 +35,15 @@ static void resize_cb (GtkWidget *widget,
       cairo_surface_destroy (gtk4->surface);
       gtk4->surface = NULL;
     }
-  
-  if (gtk_native_get_surface (gtk_widget_get_native (widget)))
-    {
-      gtk4->surface = gdk_surface_create_similar_surface (gtk_native_get_surface (gtk_widget_get_native (widget)),
-							  CAIRO_CONTENT_COLOR,
-							  gtk_widget_get_width (widget),
-							  gtk_widget_get_height (widget));
 
+  printf("resize to %d %d\n", width, height);
+  
+  GtkNative *native = gtk_widget_get_native(widget);
+  
+  if (native)
+    {
+      gtk4->surface = gdk_surface_create_similar_surface(gtk_native_get_surface(native), CAIRO_CONTENT_COLOR, gtk_widget_get_width(widget), gtk_widget_get_height(widget));
+      
       /* --------------------
 	 Center image
 	 -------------------- */
@@ -52,8 +53,8 @@ static void resize_cb (GtkWidget *widget,
 
       cairo_t *cr = cairo_create(gtk4->surface);
       cairo_translate(cr, -x_off, -y_off);
-      cairo_set_source_surface (cr, gtk4->xtk->surface, 0, 0);
-      cairo_paint (cr);
+      cairo_set_source_surface(cr, gtk4->xtk->surface, 0, 0);
+      cairo_paint(cr);
       cairo_destroy(cr);
     }
 }
@@ -71,8 +72,11 @@ static void draw_cb (GtkDrawingArea *drawing_area,
 		     gpointer        data)
 {
   xtk_gtk4_t *gtk4 = (xtk_gtk4_t*)data;
-  cairo_set_source_surface (cr, gtk4->surface, 0, 0);
-  cairo_paint (cr);
+  printf("draw_cb\n");
+  xtk_draw_cairo(gtk4->xtk, cr);
+  //  cairo_set_source_surface(cr, gtk4->xtk->surface, 0, 0);
+  //  cairo_set_source_rgb(cr, 1, 0, 0);
+  //  cairo_paint (cr);
 }
 
 
@@ -95,7 +99,8 @@ static void activate (GtkApplication *app, gpointer user_data)
 
       // gtk_window_set_default_size (GTK_WINDOW (gtk4->window), xtk->width, xtk->height);
 
-      gtk_widget_show (gtk4->window);
+      gtk_widget_set_visible(gtk4->window, 1);
+      //      gtk_widget_show (gtk4->window);
 
       // Get monitor size to allow drawing to be clipped
       
@@ -114,8 +119,8 @@ static void activate (GtkApplication *app, gpointer user_data)
       gtk_widget_set_size_request (gtk4->drawing, xtk->width, xtk->height);
       gtk_window_set_child(GTK_WINDOW(gtk4->window), gtk4->drawing);
 
-      gtk_drawing_area_set_draw_func (GTK_DRAWING_AREA (gtk4->drawing), draw_cb, gtk4, NULL);
-      g_signal_connect_after (gtk4->drawing, "resize", G_CALLBACK (resize_cb), gtk4);
+      gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA (gtk4->drawing), draw_cb, gtk4, NULL);
+      g_signal_connect_after(gtk4->drawing, "resize", G_CALLBACK (resize_cb), gtk4);
       
       
 
@@ -127,7 +132,7 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
   int status;
 
   GtkApplication *app;
-  app = gtk_application_new ("net.hepazulian.xtk", G_APPLICATION_FLAGS_NONE);
+  app = gtk_application_new ("net.hepazulian.xtk", G_APPLICATION_DEFAULT_FLAGS);
   g_signal_connect (app, "activate", G_CALLBACK (activate), xtk);
   status = g_application_run (G_APPLICATION(app), 0, argv);
   g_object_unref(app);
