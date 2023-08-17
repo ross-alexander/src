@@ -9,7 +9,6 @@
 #include <GLES3/gl31.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include "define.h"
 
 #define MAX_DEVICES 16
 #define _EXIT(str, n) {printf(str);exit(n);}

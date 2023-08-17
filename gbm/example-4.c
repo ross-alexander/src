@@ -19,11 +19,6 @@
  *
  * *****************************************************************************************/
  
-#include <xf86drm.h>
-#include <xf86drmMode.h>
-#include <gbm.h>
-#include <EGL/egl.h>
-#include <GL/gl.h>
 #include <stdlib.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -31,7 +26,18 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
- 
+
+#include <xf86drm.h>
+#include <xf86drmMode.h>
+#include <gbm.h>
+#include <EGL/egl.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
+
+typedef struct {
+  uint32_t hdisplay, vdisplay;
+} display_t;
+
 #define EXIT(msg) { fputs (msg, stderr); exit (EXIT_FAILURE); }
  
 void assertEGLError(const char *msg)
@@ -79,7 +85,7 @@ static void swap_buffers ()
 static void draw (float progress)
 {
   glClearColor (1.0f-progress, progress, 0.0, 1.0);
-  glClear (GL_COLOR_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT);
   swap_buffers ();
 }
  
@@ -120,7 +126,7 @@ void print_default_display_info()
   printf("\n");
 }
  
-static void find_display_configuration ()
+static void find_display_configuration (display_t *display)
 {
   drmModeRes *resources = drmModeGetResources (g_device_fd);
     /* It will crash if GPU driver doesn't support DRM/DRI. */
@@ -146,6 +152,8 @@ static void find_display_configuration ()
   // save the first mode
   mode_info = connector->modes[0];
   printf ("resolution: %ix%i\n", mode_info.hdisplay, mode_info.vdisplay);
+  display->hdisplay = mode_info.hdisplay;
+  display->vdisplay = mode_info.vdisplay;
   
   // find an encoder
   drmModeEncoder *encoder = NULL;
@@ -175,8 +183,10 @@ int main ()
   /* Off-Screen Rendering */
   printf("**** /dev/dri/card0 ****\n");
   g_device_fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
+
+  display_t example_display;
   
-  find_display_configuration ();
+  find_display_configuration (&example_display);
    
     /* Create EGL Context using GBM */
   int major, minor;
@@ -242,12 +252,45 @@ int main ()
   
   egl_surface = eglCreateWindowSurface (display, configs[valid_config], gbm_surface, NULL);
   assert(egl_surface);
-  eglMakeCurrent (display, egl_surface, egl_surface, context);
+  eglMakeCurrent(display, egl_surface, egl_surface, context);
   
-    /* Rendering using OpenGL... */
-  int i;
-  for (i = 0; i < 600; i++)
-    draw (i / 600.0f);
+
+  int w = example_display.hdisplay;
+  int h = example_display.vdisplay;
+  
+   glClearColor (0.0, 0.0, 0.0, 0.0);
+   glShadeModel (GL_SMOOTH);
+   glViewport (0, 0, (GLsizei) w, (GLsizei) h);
+   glMatrixMode (GL_PROJECTION);
+   glLoadIdentity ();
+   if (w <= h)
+      gluOrtho2D (0.0, 30.0, 0.0, 30.0 * (GLfloat) h/(GLfloat) w);
+   else
+      gluOrtho2D (0.0, 30.0 * (GLfloat) w/(GLfloat) h, 0.0, 30.0);
+   glMatrixMode(GL_MODELVIEW);
+
+  /* Rendering using OpenGL... */
+  for (int i = 0; i < 600; i++)
+    {
+      //    draw (i / 600.0f);
+      float progress = i / 600.0f;
+      glClearColor (1.0f-progress, progress, 0.0, 1.0);
+      glClear(GL_COLOR_BUFFER_BIT);
+
+      glBegin (GL_TRIANGLES);
+      glColor3f (1.0, 0.0, 0.0);
+      glVertex2f (5.0, 5.0);
+      glColor3f (0.0, 1.0, 0.0);
+      glVertex2f (25.0, 5.0);
+      glColor3f (0.0, 0.0, 1.0);
+      glVertex2f (5.0, 25.0);
+#ifdef TRI
+#endif
+      glEnd();
+      //      glFlush();
+      
+      swap_buffers ();
+    }
   clean_up ();
   close (g_device_fd);
   return 0;
