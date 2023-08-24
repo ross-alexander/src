@@ -108,7 +108,10 @@ int main(int argc, char *argv[])
 	break;
       }
 
-  void **display = load_dynlib("display");
+  /* --------------------
+     Match render library
+     -------------------- */
+  
   void **render = load_dynlib("render");
   
   for (int j = 0; render[j]; j++)
@@ -132,7 +135,6 @@ int main(int argc, char *argv[])
       fprintf(stderr, "%s: Render %s not found\n", argv[0], render_lib);
       exit(1);
     }
-  
 
   /* --------------------
      If cli options passed treat as file paths
@@ -152,7 +154,12 @@ int main(int argc, char *argv[])
       xtk = calloc(nwin + 1, sizeof(xtk_t*));
       xtk[0] = (*create)(width, height, 0);
     }
+
+  /* --------------------
+     Use dynamic display library
+     -------------------- */
   
+  void **display = load_dynlib("display");
   for (int j = 0; display[j]; j++)
     {
       if (!dlsym(display[j], "id"))

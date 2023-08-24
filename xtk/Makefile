@@ -26,7 +26,7 @@ LDLIBS_GTK4	= `pkg-config --libs gtk4`
 LDLIBS_XTK	= `pkg-config --libs gegl-0.4 cairo`
 
 RENDER = render/gegl.so render/gdk.so render/cairo.so 
-DISPLAY = display/xcb.so display/xlib.so display/xaw.so display/gtk2.so display/gtk3.so display/gtk4.so
+DISPLAY = display/xcb.so display/xlib.so display/xaw.so display/gtk3.so display/gtk4.so # display/gtk2.so
 
 ALL	= xtk $(RENDER) $(DISPLAY)
 
@@ -49,37 +49,37 @@ draw.o	: draw.c common.h
 
 # Display libraries
 
-display/gtk2.so	: gtk2.o
+display/gtk2.so	: gtk2.o | display
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_GTK2) -o $@
 
 gtk2.o	: gtk2.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_GTK2) -c $< -o $@
 
-display/gtk3.so	: gtk3.o
+display/gtk3.so	: gtk3.o | display
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_GTK3) -o $@
 
 gtk3.o	: gtk3.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_GTK3) -c $< -o $@
 
-display/gtk4.so	: gtk4.o
+display/gtk4.so	: gtk4.o | display
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_GTK4) -o $@
 
 gtk4.o	: gtk4.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_GTK4) -c $< -o $@
 
-display/xaw.so	: visual.o xaw.o
+display/xaw.so	: visual.o xaw.o | display
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_XAW) -o $@
 
 xaw.o	: xaw.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_XAW) -c $< -o $@
 
-display/xlib.so	: visual.o xlib.o
+display/xlib.so	: visual.o xlib.o | display
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_XLIB) -o $@
 
 xlib.o	: xlib.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_XLIB) -c $< -o $@
 
-display/xcb.so	: xcb.o
+display/xcb.so	: xcb.o | display
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_XCB) -o $@
 
 xcb.o	: xcb.c common.h
@@ -91,7 +91,7 @@ xm.so	: visual.o xm.o
 xm.o	: xm.c
 	$(CC) $(CFLAGS) $(CFLAGS_XM) -c $< -o $@
 
-display/glx.so	: pbinfo.o pbutil.o glx.o
+display/glx.so	: pbinfo.o pbutil.o glx.o | display
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_GLX) -o $@
 
 glx.o	: glx.c common.h
@@ -100,26 +100,31 @@ glx.o	: glx.c common.h
 visual.o	: visual.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_XLIB) -c $< -o $@
 
+display:
+	mkdir -p $@
+
 # Render libraries
 
 cairo.o: cairo.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_CAIRO) -c $< -o $@
 
-render/cairo.so : cairo.o
+render/cairo.so : cairo.o | render
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_XTK) -o $@
 
 gdk.o : gdk.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_GDK) -c $< -o $@
 
-render/gdk.so : gdk.o
+render/gdk.so : gdk.o | render
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_GDK) -o $@
 
 gegl.o : gegl.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_GEGL) -c $< -o $@
 
-render/gegl.so : gegl.o
+render/gegl.so : gegl.o | render
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_GEGL) -o $@
 
+render:
+	mkdir -p $@
 
 clean:
 	rm -f *.o *~ $(ALL)

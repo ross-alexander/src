@@ -4,8 +4,6 @@
 #include <string.h>
 #include <assert.h>
 
-// #include <X11/Xlib.h>
-
 #include <xcb/xcb.h>
 #include <xcb/render.h>
 #include <xcb/xcb_atom.h>
@@ -150,8 +148,8 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 				     mask, &params);                /* masks and params    */
 
       xcb_change_property(connection, XCB_PROP_MODE_REPLACE, t->window, atom->atom, XCB_ATOM_INTEGER, 32, 1, &i);
-      xcb_map_window (connection, t->window);
-      xcb_flush (connection);
+      xcb_map_window(connection, t->window);
+      xcb_flush(connection);
     }
 
   /* --------------------
@@ -171,20 +169,22 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 	    int id = do_xcb_get_xtkid(connection, notify->window, atom->atom);
 	    struct xtk_xcb_t *x = xtkxcb + id;
 	    if (x->mapped)
-	      xtk_draw_surface(x->xtk, x->surface);
-	    xcb_flush(connection);
+	      {
+		xtk_draw_surface(x->xtk, x->surface);
+		xcb_flush(connection);
+	      }
 	    break;
 	  }
 	case XCB_CONFIGURE_NOTIFY:
 	  {
-	    printf("XCB-event: ConfigureNotify\n");
 	    xcb_configure_notify_event_t *notify = (xcb_configure_notify_event_t*)ev;
 	    int id = do_xcb_get_xtkid(connection, notify->window, atom->atom);
-	    struct xtk_xcb_t *x = xtkxcb + id;
+	    struct xtk_xcb_t *x = &xtkxcb[id];
 	    if (x->mapped)
 	      {
-		x->width = notify->width;
-		x->height = notify->height;
+		x->xtk->width = x->width = notify->width;
+		x->xtk->height = x->height = notify->height;
+		printf("XCB-event: ConfigureNotify %d × %d\n", x->width, x->height);
 		cairo_xcb_surface_set_size(x->surface, x->width, x->height);
 	      }
 	    break;

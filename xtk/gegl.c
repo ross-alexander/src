@@ -64,6 +64,6 @@ xtk_t* create(int w, int h, char *path)
 
   xtk->width = size.width;
   xtk->height = size.height;
-  xtk->surface = image;
+  xtk->source = image;
   return xtk;
 }

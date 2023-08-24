@@ -41,16 +41,12 @@ void do_configure(Widget w, XtPointer client_data, XEvent *ev, Boolean *cont)
   Dimension width, height;
   xtk_xaw_t *x = (xtk_xaw_t*)client_data;
 
-  XtVaGetValues(w,
-		XtNwidth, &width,
-		XtNheight, &height,
-		NULL);
+  XtVaGetValues(w, XtNwidth, &width, XtNheight, &height, NULL);
 
-
-  x->width = width;
-  x->height = height;
+  x->xtk->width = x->width = width;
+  x->xtk->height = x->height = height;
   cairo_xlib_surface_set_size(x->surface, x->width, x->height);
-  printf("Xaw: Configure %d %d\n", width, height);
+  printf("Xaw: Configure %d × %d\n", width, height);
 }
 
 /* ----------------------------------------------------------------------

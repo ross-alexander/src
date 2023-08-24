@@ -54,7 +54,7 @@ xtk_t* create(int w, int h, char *path)
       cairo_paint(cr);
       cairo_destroy(cr);
       g_object_unref(pb);
-      xtk->surface = surface;
+      xtk->source = surface;
     }
   return xtk;
 }

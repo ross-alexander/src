@@ -53,7 +53,7 @@ static void resize_cb (GtkWidget *widget,
 
       cairo_t *cr = cairo_create(gtk4->surface);
       cairo_translate(cr, -x_off, -y_off);
-      cairo_set_source_surface(cr, gtk4->xtk->surface, 0, 0);
+      cairo_set_source_surface(cr, gtk4->xtk->source, 0, 0);
       cairo_paint(cr);
       cairo_destroy(cr);
     }

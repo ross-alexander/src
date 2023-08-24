@@ -10,8 +10,8 @@ typedef struct xtk_t {
   int height;
   int depth;
   int visual;
-  cairo_surface_t *surface;
+  cairo_surface_t *source;
 } xtk_t;
 
-void xtk_draw_cairo(struct xtk_t*, cairo_t*);
-void xtk_draw_surface(struct xtk_t*, cairo_surface_t*);
+extern void xtk_draw_cairo(struct xtk_t*, cairo_t*);
+extern void xtk_draw_surface(struct xtk_t*, cairo_surface_t*);

@@ -161,9 +161,9 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 	      break;
 	    case ConfigureNotify:
 	      {
-		t->width = event.xconfigure.width;
-		t->height = event.xconfigure.height;
-		printf("Xlib-event: ConfigureNotify (%d x %d) - mapped %d\n", t->xtk->width, t->xtk->height, t->mapped);
+		t->xtk->width = t->width = event.xconfigure.width;
+		t->xtk->height = t->height = event.xconfigure.height;
+		printf("Xlib-event: ConfigureNotify (%d × %d) - mapped %d\n", t->xtk->width, t->xtk->height, t->mapped);
 		if (t->mapped)
 		  cairo_xlib_surface_set_size(t->surface, t->width, t->height);
 		break;
@@ -184,7 +184,9 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 	      {
 		printf("Xlib-event: Expose\n");
 		if (t->mapped)
-		  xtk_draw_surface(t->xtk, t->surface);
+		  {
+		    xtk_draw_surface(t->xtk, t->surface);
+		  }
 		break;
 	      }
 	    default:

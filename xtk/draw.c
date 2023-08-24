@@ -11,17 +11,29 @@
 --
 ---------------------------------------------------------------------- */
 
-void xtk_draw_cairo(xtk_t *xtk, cairo_t* cr)
+void xtk_draw_cairo(xtk_t *xtk, cairo_t *cr)
 {
-  if (xtk->surface)
+  if (xtk->source)
     {
-      cairo_set_source_surface(cr, xtk->surface, 0, 0);
+      double width = cairo_image_surface_get_width(xtk->source);
+      double height = cairo_image_surface_get_height(xtk->source);
+
+      printf("src: %d × %d  dst:  %d × %d\n", (int)width, (int)height, xtk->width, xtk->height);
+
+      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+      //      cairo_set_source_surface(cr, xtk->source, 0, 0);
+      cairo_rectangle(cr, 0, 0, xtk->width, xtk->height);
+      cairo_fill(cr);
+      
+      cairo_set_source_surface(cr, xtk->source, 0, 0);
       cairo_rectangle(cr, 0, 0, xtk->width, xtk->height);
       cairo_fill(cr);
     }
   else
     {
       cairo_pattern_t *p = cairo_pattern_create_linear(0, 0, xtk->width, xtk->height);
+
+      /* offset, red, green, blue, alpha */
       cairo_pattern_add_color_stop_rgba(p, 0, 1, 0, 0, 0.1);
       cairo_pattern_add_color_stop_rgba(p, 1, 0, 1, 0, 0.9);
       
@@ -50,9 +62,9 @@ void xtk_draw_cairo(xtk_t *xtk, cairo_t* cr)
 --
 ---------------------------------------------------------------------- */
 
-void xtk_draw_surface(xtk_t *xtk, cairo_surface_t *surface)
+void xtk_draw_surface(xtk_t *xtk, cairo_surface_t *target)
 {
-  cairo_t *cr = cairo_create(surface);
+  cairo_t *cr = cairo_create(target);
   xtk_draw_cairo(xtk, cr);
   cairo_destroy(cr);
 }

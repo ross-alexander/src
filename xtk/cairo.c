@@ -23,7 +23,7 @@ xtk_t* create(int w, int h, char *path)
 	{
 	  xtk->width = cairo_image_surface_get_width(image);
 	  xtk->height = cairo_image_surface_get_height(image);
-	  xtk->surface = image;
+	  xtk->source = image;
 	  xtk->title = strdup(path);
 	  printf("cairo: %s [%d × %d]\n", path, xtk->width, xtk->height);
 	}
