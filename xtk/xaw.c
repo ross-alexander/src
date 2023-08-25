@@ -21,6 +21,7 @@ String fallback_resources[] = { "*Label.Label:    Hello, World", NULL };
 
 typedef struct xtk_xaw_t {
   xtk_t *xtk;
+  Display *display;
   Colormap cm;
   Widget toplevel, form, draw;
   Visual *vis;
@@ -45,7 +46,7 @@ void do_configure(Widget w, XtPointer client_data, XEvent *ev, Boolean *cont)
 
   x->xtk->width = x->width = width;
   x->xtk->height = x->height = height;
-  cairo_xlib_surface_set_size(x->surface, x->width, x->height);
+  //  cairo_xlib_surface_set_size(x->surface, x->width, x->height);
   printf("Xaw: Configure %d × %d\n", width, height);
 }
 
@@ -59,7 +60,10 @@ void do_expose(Widget w, XtPointer client_data, XEvent *ev, Boolean *cont)
 {
   xtk_xaw_t *x = (xtk_xaw_t*)client_data;
   printf("Xaw: Expose\n");
+  x->surface = cairo_xlib_surface_create(x->display, XtWindow(x->draw), x->vis, x->xtk->width, x->xtk->height);
+  assert(cairo_surface_status(x->surface) == CAIRO_STATUS_SUCCESS);
   xtk_draw_surface(x->xtk, x->surface);
+  cairo_surface_destroy(x->surface);
 }
 
 /* ----------------------------------------------------------------------
@@ -82,6 +86,7 @@ int do_xtk(int argc, char *argv[], unsigned nwin, xtk_t **xtk)
   for (int i = 0; i < nwin; i++)
     {
       struct xtk_xaw_t* t = xaw + i;
+      t->display = dpy;
       t->xtk = xtk[i];
       t->vis = get_visual(dpy, t->xtk);
       t->cm = XCreateColormap(dpy, root, t->vis, AllocNone);
@@ -119,8 +124,8 @@ int do_xtk(int argc, char *argv[], unsigned nwin, xtk_t **xtk)
       XtAddEventHandler(t->draw, ExposureMask, 0, do_expose, (void*)t);
       XtAddEventHandler(t->draw, StructureNotifyMask, 0, (XtEventHandler)do_configure, (void*)t);
       XtRealizeWidget(t->toplevel);
-      t->surface = cairo_xlib_surface_create(dpy, XtWindow(t->draw), t->vis, t->xtk->width, t->xtk->height);
-      assert(cairo_surface_status(t->surface) == CAIRO_STATUS_SUCCESS);
+      //      t->surface = cairo_xlib_surface_create(dpy, XtWindow(t->draw), t->vis, t->xtk->width, t->xtk->height);
+      //      assert(cairo_surface_status(t->surface) == CAIRO_STATUS_SUCCESS);
     }
   XtAppMainLoop(appContext);
   return 1;

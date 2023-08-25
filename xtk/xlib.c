@@ -163,9 +163,11 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 	      {
 		t->xtk->width = t->width = event.xconfigure.width;
 		t->xtk->height = t->height = event.xconfigure.height;
-		printf("Xlib-event: ConfigureNotify (%d × %d) - mapped %d\n", t->xtk->width, t->xtk->height, t->mapped);
 		if (t->mapped)
-		  cairo_xlib_surface_set_size(t->surface, t->width, t->height);
+		  {
+		    printf("Xlib-event: ConfigureNotify (%d × %d)\n", t->xtk->width, t->xtk->height);
+		    //		    cairo_xlib_surface_set_size(t->surface, t->width, t->height);
+		  }
 		break;
 	      }
 	    case NoExpose:
@@ -174,8 +176,8 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 	    case MapNotify:
 	      printf("Xlib-event: MapNotify\n");
 	      t->mapped = 1;
-	      t->surface = cairo_xlib_surface_create(dpy, t->window, t->visual, t->width, t->height);
-	      assert(cairo_surface_status(t->surface) == CAIRO_STATUS_SUCCESS);
+	      //	      t->surface = cairo_xlib_surface_create(dpy, t->window, t->visual, t->width, t->height);
+	      //	      assert(cairo_surface_status(t->surface) == CAIRO_STATUS_SUCCESS);
 	      break;
 	    case ReparentNotify:
 	      printf("Xlib-event: Reparent\n");
@@ -185,7 +187,10 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 		printf("Xlib-event: Expose\n");
 		if (t->mapped)
 		  {
+		    t->surface = cairo_xlib_surface_create(dpy, t->window, t->visual, t->width, t->height);
+		    assert(cairo_surface_status(t->surface) == CAIRO_STATUS_SUCCESS);
 		    xtk_draw_surface(t->xtk, t->surface);
+		    cairo_surface_destroy(t->surface);
 		  }
 		break;
 	      }

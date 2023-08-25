@@ -14,7 +14,7 @@
 
 typedef struct xtk_gtk4_t {
   GtkWidget *window, *drawing;
-  cairo_surface_t *surface;
+  //  cairo_surface_t *surface;
   xtk_t *xtk;
 } xtk_gtk4_t;
 
@@ -30,13 +30,19 @@ static void resize_cb (GtkWidget *widget,
            gpointer   data)
 {
   xtk_gtk4_t *gtk4 = (xtk_gtk4_t*)data;
+
+  printf("gtk4: resize to %d × %d\n", width, height);
+  gtk4->xtk->width = width;
+  gtk4->xtk->height = height;
+
+#ifdef RESIZE
+  
   if (gtk4->surface)
     {
       cairo_surface_destroy (gtk4->surface);
       gtk4->surface = NULL;
     }
 
-  printf("resize to %d %d\n", width, height);
   
   GtkNative *native = gtk_widget_get_native(widget);
   
@@ -57,6 +63,8 @@ static void resize_cb (GtkWidget *widget,
       cairo_paint(cr);
       cairo_destroy(cr);
     }
+
+#endif
 }
 
 /* ----------------------------------------------------------------------
@@ -72,11 +80,8 @@ static void draw_cb (GtkDrawingArea *drawing_area,
 		     gpointer        data)
 {
   xtk_gtk4_t *gtk4 = (xtk_gtk4_t*)data;
-  printf("draw_cb\n");
+  printf("GTK4: draw_cb\n");
   xtk_draw_cairo(gtk4->xtk, cr);
-  //  cairo_set_source_surface(cr, gtk4->xtk->surface, 0, 0);
-  //  cairo_set_source_rgb(cr, 1, 0, 0);
-  //  cairo_paint (cr);
 }
 
 
@@ -116,14 +121,14 @@ static void activate (GtkApplication *app, gpointer user_data)
       //      printf("gtk4: Monitor [%d × %d]\n", geometry.width, geometry.height);
       
       gtk4->drawing = gtk_drawing_area_new();
-      gtk_widget_set_size_request (gtk4->drawing, xtk->width, xtk->height);
+      gtk_drawing_area_set_content_width(GTK_DRAWING_AREA(gtk4->drawing), xtk->width);
+      gtk_drawing_area_set_content_height(GTK_DRAWING_AREA(gtk4->drawing), xtk->height);
+      
+      //      gtk_widget_set_size_request (gtk4->drawing, xtk->width, xtk->height);
       gtk_window_set_child(GTK_WINDOW(gtk4->window), gtk4->drawing);
 
       gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA (gtk4->drawing), draw_cb, gtk4, NULL);
       g_signal_connect_after(gtk4->drawing, "resize", G_CALLBACK (resize_cb), gtk4);
-      
-      
-
     }
 }
 
