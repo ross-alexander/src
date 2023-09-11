@@ -772,7 +772,15 @@ sub install_pkg {
 	    my $path = $pkg->{path};
 	    my $now = Time::Piece->new();
 	    printf("+ %s [%s] @ %s\n", $name, $pkg->{path}, $now->cdate());
-	    my $cmd = "tar -C $path -cf - . | tar -C $dst --skip-old-files -xhf -";
+	    my $cmd;
+	    if ($force)
+	    {
+		$cmd = "tar -C $path -cf - . | tar -C $dst -xhf -";
+	    }
+	    else
+	    {
+		$cmd = "tar -C $path -cf - . | tar -C $dst --skip-old-files -xhf -";
+	    }
 	    `$cmd`;
 	    my $t = {
 		name => $name,
@@ -1221,10 +1229,11 @@ sub yaml_file_read {
 my $opts = {
     qemu => 1,
     pkg_base => '/locker/pkg/x86',
-    conf_base => '/locker/vm',
+    conf_base => '/locker/vm/',
+    vmdef_base => '/locker/vm/vmdef',
     ovmf_base => '/locker/vm/uefi',
     install_base => undef,
-    forace => 0,
+    force => 0,
 };
 
 # my $confpath = 'build.js';
@@ -1255,7 +1264,7 @@ if (!$opts->{name})
 # Check for YAML file
 # --------------------
 
-my $yaml_conf_file = $opts->{yaml} // catfile($opts->{conf_base}, sprintf("%s.yaml", $opts->{name}));
+my $yaml_conf_file = $opts->{yaml} // catfile($opts->{vmdef_base}, sprintf("%s.yaml", $opts->{name}));
 my $vm_file = QemuVmFile->new($yaml_conf_file);
 
 printf(STDOUT "Using YAML file %s\n", $yaml_conf_file);
@@ -1271,7 +1280,7 @@ my $vm_config = $vm->configuration_get();
 
 if (!exists($vm_config->{model}))
 {
-    printf(STDERR "VM %s required arch to be set\n", $vm_config->{name});
+    printf(STDERR "VM %s required model to be set\n", $vm_config->{name});
     exit(1);
 }
 

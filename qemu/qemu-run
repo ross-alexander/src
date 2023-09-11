@@ -378,7 +378,8 @@ sub main()
     # --------------------
     
     my $opts = {
-	confdir => '/locker/vm',
+	confdir => '/locker/vm/',
+	vmdefdir => '/locker/vm/vmdef',
 	yamlfile => undef,
 	demon => 0,
 	systemd => 0,
@@ -411,7 +412,13 @@ sub main()
     my $confdir = rel2abs($opts->{confdir});
     if (! -d $confdir)
     {
-	croak "$0: Configuration direction $confdir missing";
+	croak "$0: Configuration directory $confdir missing";
+    }
+
+    my $vmdefdir = rel2abs($opts->{vmdefdir});
+    if (! -d $vmdefdir)
+    {
+	croak "$0: VM definition directory $vmdefdir missing";
     }
 
     # --------------------
@@ -419,9 +426,9 @@ sub main()
     # --------------------
     
     my $name = $opts->{vmname};
-    if (! $opts->{yamlfile})
+    if (!$opts->{yamlfile})
     {
-	$opts->{yamlfile} = catfile($confdir, sprintf("%s.yaml", $name));
+	$opts->{yamlfile} = catfile($vmdefdir, sprintf("%s.yaml", $name));
     }
     
     if (! -f $opts->{yamlfile})
