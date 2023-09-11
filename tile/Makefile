@@ -1,9 +1,9 @@
 CXXFLAGS	= -std=c++2a -I. -fPIC -D_DEFAULT_SOURCE -DHAVE_CONFIG_H `pkg-config --cflags x11 xcb xcb-aux cairo gdk-3.0 lua-5.4`
 LDLIBS		= `pkg-config --libs x11 xcb xcb-aux cairo gdk-3.0 lua-5.4` -llua -ldl -lm
 
-LUA_LIB_DIR	= /usr/lib64/lua/5.3
+LUA_LIB_DIR	= /usr/lib64/lua/5.4
 
-ALL = Scanner.so dt cairobg tile 
+ALL = Scanner.so cairobg tile # dt
 
 all:  $(ALL)
 
