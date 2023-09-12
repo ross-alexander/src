@@ -62,7 +62,6 @@
 #include <vector>
 #include <string>
 #include <algorithm>
-#include <lua.hpp>
 
 /* ----------------------------------------------------------------------
 --
