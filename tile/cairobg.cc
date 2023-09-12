@@ -275,6 +275,7 @@ void surface_render(std::vector<std::string>& args, cairo_surface_t* surface, in
 	}
       s.rescan();
       const char* path = s.random();
+      
       if (!bg_gdk(surface, width, height, path))
 	{
 	  fprintf(stderr, "GDK load failed, using default\n");
@@ -328,9 +329,9 @@ void render_xlib_root(std::vector<std::string> &args)
 void render_xcb(std::vector<std::string> &args, int use_root)
 {
   cairo_surface_t *surface = 0;
-  unsigned int width = 0;
-  unsigned int height = 0;
-  unsigned int depth = 0;
+  unsigned int root_width = 0;
+  unsigned int root_height = 0;
+  unsigned int root_depth = 0;
   
   int screenNum;
   xcb_connection_t *connection;
@@ -353,68 +354,54 @@ void render_xcb(std::vector<std::string> &args, int use_root)
   //      xcb_visualtype_t* visual = xcb_aux_find_visual_by_id(screen, screen->root_visual);
   assert(visual);
       
-  width = screen->width_in_pixels;
-  height = screen->height_in_pixels;
-  depth = screen->root_depth;
+  root_width = screen->width_in_pixels;
+  root_height = screen->height_in_pixels;
+  root_depth = screen->root_depth;
   xcb_window_t root_window = screen->root;
-
-
+   
+  xcb_window_t pixmap_window;
+  uint32_t width, height, depth;
   if (use_root)
     {
-      xcb_pixmap_t background_pixmap = xcb_generate_id(connection);
-      xcb_create_pixmap(connection, depth, background_pixmap, root_window, width, height);
-      surface = cairo_xcb_surface_create(connection, background_pixmap, visual, width, height);
-      surface_render(args, surface, width, height);
-
-      printf("render_xcb_root\n");
-#ifdef UseGC
-      uint32_t values[2];
-      int gc_mask = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND;
-      values[0] = screen->black_pixel;
-      values[1] = screen->white_pixel;
-      
-      xcb_gc_t gc = xcb_generate_id(connection);
-      xcb_create_gc(connection, gc, xcb_pm, gc_mask, values);
-      xcb_copy_area(connection, xcb_pm, screen->root, gc, 0, 0, 0, 0, width, height);
-#else
-      xcb_params_cw_t cw;
-      cw.back_pixmap = background_pixmap;
-      xcb_aux_change_window_attributes(connection, screen->root, XCB_CW_BACK_PIXMAP, &cw);
-      xcb_void_cookie_t cookie = xcb_clear_area_checked(connection, 0, screen->root, 0, 0, width, height);
-      xcb_request_check(connection, cookie);
-#endif
-      xcb_flush(connection);
+      pixmap_window = root_window;
+      width = root_width;
+      height = root_height;
+      depth = root_depth;
     }
   else
     {
       printf("render_xcb_window\n");
-
-      int window_width = width/2;
-      int window_height = height/2;
+      width = root_width/2;
+      height = root_height/2;
+      depth = root_depth;
       
       uint32_t new_cw_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
       uint32_t new_cw_values[2];
       new_cw_values[0] = screen->white_pixel;
       new_cw_values[1] = XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_BUTTON_PRESS;
-      xcb_window_t window = xcb_generate_id (connection);
-      xcb_create_window (connection, XCB_COPY_FROM_PARENT, window, screen->root,
-			 10, 10, window_width, window_height, 1,
+      pixmap_window = xcb_generate_id (connection);
+      xcb_create_window (connection, XCB_COPY_FROM_PARENT, pixmap_window, screen->root,
+			 10, 10, width, height, 1,
 			 XCB_WINDOW_CLASS_INPUT_OUTPUT,
 			 visual->visual_id,
 			 new_cw_mask, new_cw_values);
+      xcb_map_window(connection, pixmap_window);
+    }
+      
+  xcb_pixmap_t background_pixmap = xcb_generate_id(connection);
+  xcb_create_pixmap(connection, depth, background_pixmap, pixmap_window, width, height);
+  surface = cairo_xcb_surface_create(connection, background_pixmap, visual, width, height);
+  surface_render(args, surface, width, height);
+  
+  xcb_params_cw_t cw;
+  cw.back_pixmap = background_pixmap;
+  xcb_aux_change_window_attributes(connection, pixmap_window, XCB_CW_BACK_PIXMAP, &cw);
+  xcb_void_cookie_t cookie = xcb_clear_area_checked(connection, 0, pixmap_window, 0, 0, width, height);
+  xcb_request_check(connection, cookie);
+  xcb_flush(connection);
 
-      xcb_pixmap_t background_pixmap = xcb_generate_id(connection);
-      xcb_create_pixmap(connection, depth, background_pixmap, window, window_width, window_height);
-      surface = cairo_xcb_surface_create(connection, background_pixmap, visual, window_width, window_height);
-      surface_render(args, surface, window_width, window_height);
-
-      xcb_map_window(connection, window);
-      xcb_params_cw_t cw;
-      cw.back_pixmap = background_pixmap;
-      xcb_aux_change_window_attributes(connection, window, XCB_CW_BACK_PIXMAP, &cw);
-      xcb_void_cookie_t cookie = xcb_clear_area_checked(connection, 0, window, 0, 0, window_width, window_height);
-      xcb_request_check(connection, cookie);
-      xcb_flush(connection);
+  if (!use_root)
+    {
       sleep(5);
     }
   cairo_surface_destroy(surface);
@@ -430,57 +417,19 @@ void render_xcb(std::vector<std::string> &args, int use_root)
 
 int main(int argc, char* const argv[])
 {
-  lua_State *L = luaL_newstate();
-  luaL_openlibs(L);
-  
   int use_xlib = 0;
-  int use_lua = 0;
   int use_root = 1;
   int ch;
-  while ((ch = getopt(argc, argv, "l:w")) != EOF)
+  while ((ch = getopt(argc, argv, "x:w")) != EOF)
     switch(ch)
       {
-      case 'l':
-	{
-	  printf("%s: calling lua file %s\n", argv[0], optarg);
-	  if (!luaL_dofile(L, optarg))
-	    {
-	      printf("%s: %s failed to load\n", argv[0], optarg);
-	      exit(1);
-	    }
-	  use_lua = 1;
-	  break;
-	}
+      case 'x':
+	use_xlib = 1;
+	break;
       case 'w':
 	use_root = 0;
 	break;
       }
-
-  /* --------------------
-     -- Add args to lua
-     -------------------- */
-
-  lua_pushglobaltable(L);
-  lua_newtable(L);
-  
-  for (int i = optind; i < argc; i++)
-    {
-      lua_pushstring(L, argv[i]);
-      lua_rawseti(L, -2, i - optind + 1);
-    }
-  lua_setfield(L, -2, "args");
-  
-  lua_pushglobaltable(L);
-  lua_getfield(L, -2, "init");
-  if (lua_isfunction(L, -1))
-    {
-      printf("%s: calling luafunction init\n", argv[0]);
-      lua_call(L, 0, 0);
-    }
-  else
-    {
-      lua_pop(L, 1);
-    }
 
   std::vector<std::string> args;
   for (int i = optind; i < argc; i++)
