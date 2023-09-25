@@ -19,7 +19,13 @@ shell: shell.c
 surface: surface.c
 	cc -o $@ $< -lwayland-client
 
-client: xdg-shell-client.c client.c
+xdg-shell-client.o: xdg-shell-client.c xdg-shell-client-protocol.h
+	cc -g -o $@ -c $<  $(CAIRO_FLAGS)
+
+client.o: client.c xdg-shell-client-protocol.h
+	cc -g -o $@ -c $<  $(CAIRO_FLAGS)
+
+client: xdg-shell-client.o client.o
 	cc -g -o $@ $^ $(CAIRO_FLAGS) -lwayland-client
 
 cairo: cairo.c
