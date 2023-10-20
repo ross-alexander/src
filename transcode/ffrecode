@@ -73,7 +73,7 @@ my $map = {
 	vp9 => {
 	    suffix => 'webm',
 	    format => 'webm',
-	    acodec => 'libopus',
+	    acodec => 'libvorbis',
 	    vcodec => 'vp9',
 	},
 	mpg => {
