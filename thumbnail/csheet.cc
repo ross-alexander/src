@@ -6,6 +6,10 @@
 -- horrible hack of creating an in-memory representation of the sheet as
 -- XML to allow libcroco to apply CSS styling.
 --
+--
+-- 2023-10-22: Ross Alexander
+--   Copy gegl_t from image.cc as image_t.
+
 -- 2021-08-22: Ross Alexander
 --  image_t changed enough that doesn't work well with this so use
 --  internal image_t class rather than image_t.h & image_t.cc
@@ -52,6 +56,140 @@ public:
   int is_valid();
   std::string description();
 };
+
+/* ----------------------------------------------------------------------
+--
+-- image_t
+--
+---------------------------------------------------------------------- */
+
+image_t::image_t()
+{
+  valid = 0;
+}
+
+image_t::image_t(fs::path p)
+{
+  path = p;
+  load();
+}
+
+image_t::image_t(int w, int h)
+{
+  GeglRectangle r;
+  r.x = bounds.x = 0;
+  r.y = bounds.y = 0;
+  r.width = bounds.width = w;
+  r.height = bounds.height = h;
+  valid = 1;
+}
+
+int image_t::width()
+{
+  return bounds.width;
+}
+
+int image_t::height()
+{
+  return bounds.height;
+}
+
+int image_t::is_valid()
+{
+  return valid;
+}
+
+std::string image_t::description()
+{
+  std::string s;
+  if (!is_valid())
+    {
+      return fmt::sprintf("%s: invalid", std::string(path));
+    }
+  return fmt::sprintf("[%s] %s: %d x %d %s", typeid(*this).name(), std::string(path), width(), height(), is_valid() ? "valid buffer" : "no buffer");
+}
+
+int image_t::load()
+{
+  if (path.empty())
+    {
+      valid = 0;
+      return valid;
+    }
+  g_autoptr(GeglNode) graph = gegl_node_new();
+  GeglNode* load = gegl_node_new_child(graph,
+				       "operation", "gegl:load",
+				       "path", path.c_str(),
+				       nullptr);
+  GeglNode* sink = gegl_node_new_child (graph,
+					"operation", "gegl:buffer-sink",
+					"buffer", &buffer,
+					nullptr);
+
+
+  gegl_node_link(load, sink);
+  GeglRectangle r = gegl_node_get_bounding_box(sink);
+  gegl_node_process(sink);
+  if (buffer == nullptr)
+    {
+      valid = 0;
+      return 0;
+    }
+  valid = 1;
+  bounds.x = r.x;
+  bounds.y = r.y;
+  bounds.width = r.width;
+  bounds.height = r.height;
+  return valid;
+}
+
+int image_t::save()
+{
+  return save(path);
+}
+
+int image_t::save(fs::path path)
+{
+  if (!buffer)
+    return 0;
+
+  std::cout << "save " << path << "\n";
+  
+  GeglNode *graph = gegl_node_new();
+  GeglNode *source = gegl_node_new_child(graph,
+					 "operation", "gegl:buffer-source",
+					 "buffer", buffer,
+					 nullptr);
+  GeglNode *save = gegl_node_new_child(graph,
+				       "operation", "gegl:save",
+				       "path", path.c_str(),
+				       nullptr);
+  
+  gegl_node_link_many(source, save, nullptr);
+  gegl_node_process(save);
+  return 1;
+}
+
+
+void image_t::fill(std::string color)
+{
+}
+
+image_t* image_t::scale(int)
+{
+  return new image_t();
+}
+
+image_t* image_t::scale(double)
+{
+  return new image_t();
+}
+
+void image_t::compose(image_t *i, int x, int y)
+{
+}
+
+
 
 /* ----------------------------------------------------------------------
 --
@@ -167,19 +305,20 @@ int csheet_t::dir_add(std::string s)
 
 static GeglNode *create_text_node(GeglNode *graph, std::string string, std::string font, double size)
 {
-  GeglColor *color = NULL;
   GeglNode *text;
+  GeglColor *color = gegl_color_new("black");
 
-  color = gegl_color_new ("black");
-  text = gegl_node_new_child (graph,
-                              "operation", "gegl:text",
-                              "color", color,
-                              "font", font.c_str(),
-                              "size", size,
-                              "string", string.c_str(),
-                              NULL);
+  printf("%s [ %s @ %4.2f ]\n", string.c_str(), font.c_str(), size);
 
-  g_object_unref (color);
+  text = gegl_node_new_child(graph,
+			     "operation", "gegl:text",
+			     "color", color,
+			     "font", font.c_str(),
+			     "size", size,
+			     "string", string.c_str(),
+			     0);
+
+  g_object_unref(color);
   return text;
 }
 
@@ -198,18 +337,16 @@ int csheet_t::dir_scan()
   
   for (auto &i : dir_table)
     {
-
       // Use std::filesystem::directory_iterator to get list of entries
-      
       for (auto &p : fs::directory_iterator(i.first))
 	{
 	  fs::file_status stat = fs::status(p);
-
-	  // Check a regular file and if so load into GEGL buffer
-	  
+	  // Check a regular file and if so load into GEGL buffer	  
 	  if (fs::is_regular_file(stat))
 	    {
-	      image_table[p.path()] = new image_t(p);
+	      image_t *image = new image_t(p);
+	      image_table[std::string(p.path())] = image;
+	      count++;
 	    }
 	}
     }
@@ -228,12 +365,12 @@ int csheet_t::image_load()
   for (auto &i : image_table)
     {
       image_t *image = i.second;
-      
       g_autoptr(GeglNode) graph = gegl_node_new();
       GeglNode* load = gegl_node_new_child(graph,
 					   "operation", "gegl:load",
 					   "path", image->path.c_str(),
 					   0);
+      
       GeglNode* sink = gegl_node_new_child (graph,
 					    "operation", "gegl:buffer-sink",
 					    "buffer", &image->buffer,
@@ -254,7 +391,7 @@ int csheet_t::image_load()
 --
 ---------------------------------------------------------------------- */
 
-std::map<std::string,std::string>  print_properties_real(CRPropList *proplist)
+std::map<std::string,std::string> print_properties_real(CRPropList *proplist)
 {
   std::map<std::string,std::string> res;
   for (CRPropList *cur_pair = proplist ; cur_pair; cur_pair= cr_prop_list_get_next (cur_pair))
@@ -267,16 +404,16 @@ std::map<std::string,std::string>  print_properties_real(CRPropList *proplist)
 	  std::string v = (char*)(cr_term_to_string(decl->value));
 	  res[k] = v;
 	  
-	  printf("%s\n", cr_string_peek_raw_str(decl->property));
-	  int count = 0;
-	  for (CRTerm* term = decl->value ; term != 0; term = term->next)
-	    {
-	      if (guchar *str = cr_term_to_string(term))
-		{
-		  printf ("++ %02d %s\n", count++, str) ;
-		  g_free (str);
-		}
-	    }
+ 	  // printf("%s\n", cr_string_peek_raw_str(decl->property));
+	  // int count = 0;
+	  // for (CRTerm* term = decl->value ; term != 0; term = term->next)
+	  //   {
+	  //     if (guchar *str = cr_term_to_string(term))
+	  // 	{
+	  // 	  printf("++ %02d %s\n", count++, str) ;
+	  // 	  g_free(str);
+	  // 	}
+	  //   }
 	}
     }
   return res;
@@ -304,6 +441,7 @@ image_t* csheet_t::image_thumbnail(std::string file)
   if (sel.contains("cols")) cols = stod(sel["cols"], 0);
   if (sel.contains("image-size")) size = stoi(sel["image-size"], 0, 10);
   if (sel.contains("background")) bg_color = sel["background"];
+  if (sel.contains("border-width")) linewidth = std::stod(sel["border-width"]);
 
   cr_prop_list_destroy(prop_list);
   cr_sel_eng_destroy(selector);
@@ -508,8 +646,6 @@ image_t* csheet_t::image_thumbnail(std::string file)
       GeglNode *image_over = gegl_node_new_child(graph, "operation", "gegl:over", NULL);
       gegl_node_connect(shift, "output", image_over, "aux");
 
-      
-
       if (!border_stroke)
 	border_stroke = gegl_color_new(fg_color.c_str());
       
@@ -527,7 +663,7 @@ image_t* csheet_t::image_thumbnail(std::string file)
 
       GeglRectangle bb = gegl_node_get_bounding_box(text);
       
-      std::cout << sel["font-family"] << " at " << sel["font-size"] << " " << bb.width << "\n";
+      //      std::cout << sel["font-family"] << " at " << sel["font-size"] << " " << bb.width << "\n";
      
       GeglNode *text_translate = gegl_node_new_child(graph,
 						     "operation", "gegl:translate",
@@ -594,6 +730,7 @@ int main(int argc, char* argv[])
     ("dst", po::value<std::string>(), "dst")
     ("fg", po::value<std::string>(), "fg")
     ("bg", po::value<std::string>(), "bg")
+    ("css", po::value<std::string>(), "css")
     ;
 
   po::variables_map vm;
@@ -605,9 +742,7 @@ int main(int argc, char* argv[])
   contact.add_css("sheet.css");
   
   if (vm.count("maximum"))
-    {
-      contact.max_set(vm["maximum"].as<int>());
-    }
+    contact.max_set(vm["maximum"].as<int>());
 
   if (vm.count("bg"))
     contact.bg_color_set(vm["bg"].as<std::string>());
