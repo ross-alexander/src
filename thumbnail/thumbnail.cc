@@ -62,18 +62,13 @@ int thumbnail_t::dir_scan()
   int count = 0;
 
   // Loop over each entry in the directory table
-  
-  for (auto &i : dir_table)
+    for (auto &i : dir_table)
     {
-
       // Use std::filesystem::directory_iterator to get list of entries
-      
       for (auto &p : fs::directory_iterator(i.first))
 	{
 	  fs::file_status stat = fs::status(p);
-
 	  // Check a regular file and if so load into GEGL buffer
-	  
 	  if (fs::is_regular_file(stat))
 	    {
 	      image_table[p.path()] = nullptr;

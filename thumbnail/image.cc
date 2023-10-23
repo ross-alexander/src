@@ -21,7 +21,7 @@ image_t::image_t()
 image_t::image_t(fs::path p)
 {
   path = p;
-  load();
+  valid = 0;
 }
 
 image_t::image_t(int w, int h)

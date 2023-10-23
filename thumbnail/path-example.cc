@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
      -------------------- */
   
   GeglNode *over = gegl_node_new_child(graph, "operation", "gegl:over", nullptr);
-  gegl_node_connect_to(stroke, "output", over, "aux");
+  gegl_node_connect(stroke, "output", over, "aux");
 
   /* --------------------
      Write back to existing buffer

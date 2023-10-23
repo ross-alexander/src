@@ -1,4 +1,4 @@
-CXXFLAGS = -std=c++2a `pkg-config --cflags gegl-0.4 gtkmm-3.0 cairomm-1.0 fmt libxml++-3.0 libcroco-0.6 lua-5.4`
+CXXFLAGS = -g -std=c++2a `pkg-config --cflags gegl-0.4 gtkmm-3.0 cairomm-1.0 fmt libxml++-3.0 libcroco-0.6 lua-5.4`
 CFLAGS =  -std=c18 `pkg-config --cflags gdk-pixbuf-2.0 gdk-3.0 gegl-0.4 cairo`
 LDLIBS = `pkg-config --libs gtkmm-3.0 cairomm-1.0 gegl-0.4 fmt libxml++-3.0 libcroco-0.6 lua-5.4` -lboost_program_options
 ALL = gegl-scale croco++ selection croco-stylesheet thumbnail path-example csheet croco-stylesheet gegl-scale path-example
@@ -20,7 +20,7 @@ lua.o: lua.cc image.h
 thumbnail.o: thumbnail.cc image.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-csheet: image.o csheet.o
+csheet: csheet.o
 	$(CXX) $^ $(LDLIBS) -o $@
 
 csheet.o : csheet.cc
