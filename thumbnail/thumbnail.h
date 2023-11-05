@@ -9,4 +9,5 @@ public:
   int dir_scan();
   void dst_set(std::string);
   void scale(int);
+  void validate();
 };
