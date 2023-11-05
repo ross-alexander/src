@@ -104,7 +104,7 @@ bounds_t image_t::frame(double x, double y, double w, double h, double l, const 
   return bb;
 }
 
-bounds_t image_t::text(double, double, double, int, const char*, const char*)
+bounds_t image_t::text(double, double, double, double, const char*, const char*)
 {
   bounds_t bb;
   return bb;
@@ -150,11 +150,19 @@ int pixbuf_t::load()
       return valid;
     }
   GError *error = 0;
+
+  gint width, height;
+  GdkPixbufFormat *format = gdk_pixbuf_get_file_info(path.c_str(), &width, &height);
+  if (format == nullptr)
+    {
+      valid = 0;
+      return valid;
+    }
+  
   GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file(path.c_str(), &error);
   if (error != nullptr)
     {
       valid = 0;
-      printf("** %s **\n", error->message);
       g_error_free(error);
       return valid;
     }
@@ -271,17 +279,21 @@ bounds_t pixbuf_t::frame(double x, double y, double w, double h, double l, const
   return bb;
 }
 
-bounds_t pixbuf_t::text(double x, double y, double size, int wrap, const char *family, const char *string)
+bounds_t pixbuf_t::text(double x, double y, double width, double fontsize, const char *family, const char *string)
 {
   cairo_t *cairo = cairo_create(surface);
 
   cairo_select_font_face(cairo, family, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-  cairo_set_font_size(cairo, size);
+  cairo_set_font_size(cairo, fontsize);
 
   cairo_text_extents_t extents;
   cairo_text_extents(cairo, string, &extents);
 
-  cairo_move_to(cairo, x, y + extents.height);
+  double offset = 0;
+  if (width > 0.0)
+    offset = (width - extents.width) / 2;
+
+  cairo_move_to(cairo, x + offset, y + extents.height);
   cairo_show_text(cairo, string);
   
   bounds_t bb;
@@ -424,7 +436,6 @@ int gegl_t::load()
 					"operation", "gegl:buffer-sink",
 					"buffer", &gbuffer,
 					nullptr);
-
 
   gegl_node_link(load, sink);
   GeglRectangle r = gegl_node_get_bounding_box(sink);
@@ -594,7 +605,7 @@ bounds_t gegl_t::frame(double x, double y, double w, double h, double l, const c
 ---------------------------------------------------------------------- */
 
 
-bounds_t gegl_t::text(double x, double y, double size, int wrap, const char *family, const char *string)
+bounds_t gegl_t::text(double x, double y, double wrap_width, double fontsize, const char *family, const char *string)
 {
   GeglColor *color = gegl_color_new("#000000");
   GeglNode *graph = gegl_node_new();
@@ -603,9 +614,9 @@ bounds_t gegl_t::text(double x, double y, double size, int wrap, const char *fam
   GeglNode *text = gegl_node_new_child (graph,
 					"operation", "gegl:text",
 					"font", family,
-					"size", size,
+					"size", fontsize,
 					"string", string,
-					"wrap", wrap,
+					"wrap", wrap_width,
 					"color", color,
 					"alignment", 1,
 					nullptr);
