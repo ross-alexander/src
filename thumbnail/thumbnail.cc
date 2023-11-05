@@ -32,7 +32,6 @@ thumbnail_t::thumbnail_t()
 {
 };
 
-
 void thumbnail_t::dst_set(std::string d)
 {
   dst_dir = d;
@@ -68,10 +67,10 @@ int thumbnail_t::dir_scan()
       for (auto &p : fs::directory_iterator(i.first))
 	{
 	  fs::file_status stat = fs::status(p);
-	  // Check a regular file and if so load into GEGL buffer
 	  if (fs::is_regular_file(stat))
 	    {
 	      image_table[p.path()] = nullptr;
+	      count++;
 	    }
 	}
     }
@@ -106,6 +105,9 @@ extern void thumbnail_lua_options(boost::program_options::variables_map);
 int main(int argc, char* argv[])
 {
   gegl_init(&argc, &argv);
+
+  // Use boost's program_options to parse arguments
+  
   namespace po = boost::program_options;
   po::options_description desc("Allowed options");
   desc.add_options()
@@ -125,7 +127,7 @@ int main(int argc, char* argv[])
 
   if (options.count("lua"))
     {
-      thumbnail_lua_options(options); // ["lua"].as<std::string>());
+      thumbnail_lua_options(options);
       exit(0);
     }
   
