@@ -412,21 +412,16 @@ int thumbnail_t_get_bounds(lua_State *L)
   return 1;
 }
 
+/* ----------------------------------------------------------------------
+   --
+   -- validate
+   --
+   ---------------------------------------------------------------------- */
 
 int thumbnail_t_validate(lua_State *L)
 {
   thumbnail_t* tn = *(thumbnail_t**)luaL_checkudata(L, 1, "thumbnail_t");
-  int index = 1;
-  lua_newtable(L);
-  image_table_t &table = tn->image_table;
-  for (auto &i : table)
-    {
-      image_t *image = i.second;
-      if ((image == nullptr) || (!(image->is_valid())))
-	{
-	  table.erase(i.first);
-	}
-    }
+  tn->validate();
   return 0;
 }
 
