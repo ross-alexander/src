@@ -24,6 +24,7 @@ end
 -- ----------------------------------------------------------------------
 
 function compose(tn, cols, size, border)
+
    -- Load the images into memory
 
    tn:load_images_pixbuf()
@@ -91,43 +92,45 @@ function thumbnail(src, dst, size, num)
    -- Run recursive scan on directory
    
    tn:dir_scan()
-   tn:load_images_pixbuf()
 
-   for path, image in pairs(tn.image_table) do
-      if (image.valid) then
-	 print("++", path)
-      else
-	 print("--", path)
-      end
-   end
-
+   -- Validate to remove any unloadable images.  This uses
+   -- gdk_pixbuf_get_file_info and does not load the image, just
+   -- return its dimension and if scalable.
+   
    tn:validate()
    
-   local bounds = tn:get_bounds()
-   for i,v in ipairs(bounds) do
-      print(i, v)
-   end
-   
---   local images = tn.image_table
---   for i,v in pairs(images) do
---      print(i,v)
---   end
-
-   -- Split into multiple thumbnail_t objects with a maximum of 32
-   -- images each
+   -- Split into multiple thumbnail_t objects with num images each
    
    local split = tn:split(num)
 
    -- Loop over table (indexed 1 .. n)
 
    for i,v in ipairs(split) do
-      -- Compose 8 images per row, 200 pixels image size, border 5 pixels wide
       result = compose(v, 6, size, 5)
       result:save(string.format("%s-%02d.jpg", dst, i))
    end
 end
 
+for i,v in pairs(options) do
+   print(i, v)
+end
+
+if (options.src == nil)
+then
+   print("--src missing.")
+   return -1
+end
+
+if (options.dst == nil)
+then
+   print("--dst missing.")
+   return -1
+end
+
 
 -- example()
-thumbnail("/locker/images", "res", 250, 18)
+
+-- Use ternary to set size
+
+thumbnail(options.src, options.dst, options.size == nil and 250 or options.size, 18)
 
