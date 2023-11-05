@@ -16,7 +16,6 @@
 #include "image.h"
 #include "thumbnail.h"
 
-
 typedef std::map<std::string, image_t*> image_table_t;
 
 /* ----------------------------------------------------------------------
@@ -191,12 +190,14 @@ int image_t_add_text(lua_State *L)
   image_t* i = *(image_t**)luaL_checkudata(L, 1, "image_t");
   double x = lua_tonumber(L, 2);
   double y = lua_tonumber(L, 3);
-  double size = lua_tonumber(L, 4);
-  int wrap = lua_tointeger(L, 5);
+  double width = lua_tonumber(L, 4);
+  double fontsize = lua_tonumber(L, 5);
   const char *family = lua_tostring(L, 6);
   const char *string = lua_tostring(L, 7);
 
-  bounds_t bb = i->text(x, y, size, wrap, family, string);
+  printf("add_text(%f %f %f %f %s %s\n", x, y, width, fontsize, family, string);
+  
+  bounds_t bb = i->text(x, y, width, fontsize, family, string);
   
   lua_newtable(L);
   lua_pushnumber(L, bb.x); lua_setfield(L, -2, "x");
@@ -234,13 +235,21 @@ int image_table_t___tostring(lua_State *L)
   return 1;
 }
 
+int image_table_t_remove(lua_State *L)
+{
+  image_table_t *t = *(image_table_t**)luaL_checkudata(L, 1, "image_table_t");
+  assert(lua_gettop(L) == 2);
+  const char *key = luaL_checkstring(L, 2);
+  t->erase(key);
+  return 0;
+}
+
 int image_table_t___len(lua_State *L)
 {
   image_table_t *t = *(image_table_t**)luaL_checkudata(L, 1, "image_table_t");
   lua_pushinteger(L, t->size());
   return 1;
 }
-
 
 int image_table_t___next(lua_State *L)
 {
@@ -367,13 +376,55 @@ int thumbnail_t_image_table_get(lua_State *L)
 int thumbnail_t_get_bounds(lua_State *L)
 {
   thumbnail_t* tn = *(thumbnail_t**)luaL_checkudata(L, 1, "thumbnail_t");
+  int index = 1;
+  lua_newtable(L);
   for (auto &i : tn->image_table)
     {
       if (i.second == nullptr)
 	{
-	  image_t *image = i.second = new image_t(i.first);
-	  bounds_t bb;
-	  image->get_bounds(bb);
+	  gint width, height;
+	  GdkPixbufFormat *format = gdk_pixbuf_get_file_info(i.first.c_str(), &width, &height);
+	  if (format)
+	    {
+	      bounds_t** bounds = (bounds_t**)lua_newuserdata(L, sizeof(bounds_t*));
+	      *bounds = new bounds_t();
+	      (*bounds)->x = (*bounds)->y = 0;
+	      (*bounds)->width = width;
+	      (*bounds)->height = height;
+	      lua_getfield(L, LUA_REGISTRYINDEX, "bounds_t");
+	      lua_setmetatable(L, -2);
+	      lua_rawseti(L, -2, index++);
+	    }
+	}
+      else
+	{
+	  image_t* image = i.second;
+	  bounds_t** bounds = (bounds_t**)lua_newuserdata(L, sizeof(bounds_t*));
+	  *bounds = new bounds_t();
+	  (*bounds)->x = (*bounds)->y = 0;
+	  (*bounds)->width = image->width();
+	  (*bounds)->height = image->height();
+	  lua_getfield(L, LUA_REGISTRYINDEX, "bounds_t");
+	  lua_setmetatable(L, -2);
+	  lua_rawseti(L, -2, index++);
+	}
+    }
+  return 1;
+}
+
+
+int thumbnail_t_validate(lua_State *L)
+{
+  thumbnail_t* tn = *(thumbnail_t**)luaL_checkudata(L, 1, "thumbnail_t");
+  int index = 1;
+  lua_newtable(L);
+  image_table_t &table = tn->image_table;
+  for (auto &i : table)
+    {
+      image_t *image = i.second;
+      if ((image == nullptr) || (!(image->is_valid())))
+	{
+	  table.erase(i.first);
 	}
     }
   return 0;
@@ -459,7 +510,107 @@ int image_t_get_file_info(lua_State *L)
   return 1;
 }
 
+/* ----------------------------------------------------------------------
+--
+-- bounds_t_new
+--
+---------------------------------------------------------------------- */
+
+int bounds_t_new(lua_State *L)
+{
+  bounds_t** bounds = (bounds_t**)lua_newuserdata(L, sizeof(bounds_t*));
+  *bounds = new bounds_t();
+  (*bounds)->x = (*bounds)->y = (*bounds)->width = (*bounds)->height = 0.0;
+  lua_getfield(L, LUA_REGISTRYINDEX, "bounds_t");
+  lua_setmetatable(L, -2);
+  return 1;
+}
+
+int bounds_t___tostring(lua_State *L)
+{
+  bounds_t *bounds = *(bounds_t**)lua_touserdata(L, 1);
+  std::string s = fmt::sprintf("[%s] %4.2f×%4.2f + %4.2f×%4.2f", typeid(*bounds).name(), bounds->x, bounds->y,bounds->width, bounds->height);
+  lua_pushstring(L, s.c_str());
+  return 1;
+}
+
+/* Getter function */
+
+int bounds_t___index(lua_State *L)
+{
+  assert(lua_gettop(L) == 2);
+  assert(luaL_checkudata(L, 1, "bounds_t"));
+  const char* key = luaL_checkstring(L, 2);
+
+  /* methods table */
   
+  lua_pushvalue(L, lua_upvalueindex(1));
+  lua_getfield(L, -1, key);
+  if(!lua_isnil(L, -1))
+    return 1;
+
+  /* getter table */
+  
+  lua_pushvalue(L, lua_upvalueindex(2));
+  lua_getfield(L, -1, key);
+  
+  if (!lua_isnil(L, -1))
+    {
+      lua_pushvalue(L, 1);
+      lua_call(L, 1, 1);
+    }
+  return 1;
+}
+
+int bounds_t___newindex(lua_State *L)
+{
+  assert(lua_gettop(L) == 3);
+  assert(luaL_checkudata(L, 1, "bounds_t"));
+  const char* key = luaL_checkstring(L, 2);
+
+  lua_pushvalue(L, lua_upvalueindex(1));
+  lua_getfield(L, -1, key);
+  if(!lua_isnil(L, -1))
+    {
+      lua_pushvalue(L, 1);
+      lua_pushvalue(L, 3);
+      lua_call(L, 2, 1);
+    }
+  return 0;
+}
+
+
+
+int bounds_t_width_get(lua_State *L)
+{
+  bounds_t* b = *(bounds_t**)luaL_checkudata(L, 1, "bounds_t");
+  lua_pushnumber(L, b->width);
+  return 1;
+}
+
+int bounds_t_height_get(lua_State *L)
+{
+  bounds_t* b = *(bounds_t**)luaL_checkudata(L, 1, "bounds_t");
+  lua_pushnumber(L, b->height);
+  return 1;
+}
+
+int bounds_t_width_set(lua_State *L)
+{
+  bounds_t* b = *(bounds_t**)luaL_checkudata(L, 1, "bounds_t");
+  double d = luaL_checknumber(L, 2);
+  b->width = d;
+  return 0;
+}
+
+int bounds_t_height_set(lua_State *L)
+{
+  bounds_t* b = *(bounds_t**)luaL_checkudata(L, 1, "bounds_t");
+  double d = luaL_checknumber(L, 2);
+  b->height = d;
+  return 0;
+}
+
 /* ----------------------------------------------------------------------
 --
 -- thumbnail_lua_options
@@ -490,6 +641,7 @@ void thumbnail_lua_options(boost::program_options::variables_map options)
   lua_pushcclosure(L, thumbnail_t_get_bounds, 0); lua_setfield(L, -2, "get_bounds");
   lua_pushcclosure(L, thumbnail_t_load_images, 0); lua_setfield(L, -2, "load_images");
   lua_pushcclosure(L, thumbnail_t_load_images_pixbuf, 0); lua_setfield(L, -2, "load_images_pixbuf");
+  lua_pushcclosure(L, thumbnail_t_validate, 0); lua_setfield(L, -2, "validate");
 
   /* Getters / Setters table */
 
@@ -508,7 +660,44 @@ void thumbnail_lua_options(boost::program_options::variables_map options)
   lua_pushcclosure(L, thumbnail_t_new, 0); lua_setfield(L, -2, "new");
   lua_setfield(L, -2, "thumbnail_t");
   lua_pop(L, 1);
+
+  /* --------------------
+     bounds_t
+     -------------------- */
+
+  luaL_newmetatable(L, "bounds_t");
+  lua_pushcclosure(L, bounds_t___tostring, 0); lua_setfield(L, -2, "__tostring");
+
+  /* instance methods - currently empty */
+  lua_newtable(L);
   
+  /* Getters table */
+  lua_newtable(L);
+  lua_pushcclosure(L, bounds_t_width_get, 0); lua_setfield(L, -2, "width");
+  lua_pushcclosure(L, bounds_t_height_get, 0); lua_setfield(L, -2, "height");
+
+  /* Set __index metamethod to function with two upvalues */
+
+  lua_pushcclosure(L, bounds_t___index, 2); lua_setfield(L, -2, "__index");
+
+  /* Setters table */
+
+  lua_newtable(L);
+  lua_pushcclosure(L, bounds_t_width_set, 0); lua_setfield(L, -2, "width");
+  lua_pushcclosure(L, bounds_t_height_set, 0); lua_setfield(L, -2, "height");
+  lua_pushcclosure(L, bounds_t___newindex, 1); lua_setfield(L, -2, "__newindex");
+  
+  lua_pop(L, 1);
+  
+  /* class methods */
+  
+  lua_pushglobaltable(L);
+  lua_newtable(L);
+  lua_pushcclosure(L, bounds_t_new, 0); lua_setfield(L, -2, "new");
+  lua_setfield(L, -2, "bounds_t");
+  lua_pop(L, 1);
+
+
   /* --------------------
      image_t
      -------------------- */
@@ -526,11 +715,11 @@ void thumbnail_lua_options(boost::program_options::variables_map options)
   lua_pushcclosure(L, image_t_compose, 0); lua_setfield(L, -2, "compose");
   lua_pushcclosure(L, image_t_frame, 0); lua_setfield(L, -2, "frame");
   lua_pushcclosure(L, image_t_add_text, 0); lua_setfield(L, -2, "add_text");
-  //   lua_pushcclosure(L, image_t_bounding_box, 0); lua_setfield(L, -2, "bounding_box");
   lua_pushcclosure(L, image_t_name, 0); lua_setfield(L, -2, "name");
   //   lua_pushcclosure(L, image_t_bounding_box, 0); lua_setfield(L, -2, "bounding_box");
+  //   lua_pushcclosure(L, image_t_bounding_box, 0); lua_setfield(L, -2, "bounding_box");
 
-  /* Getters / Setters table */
+  /* Getters table */
 
   lua_newtable(L);
   lua_pushcclosure(L, image_t_width_get, 0); lua_setfield(L, -2, "width");
@@ -564,6 +753,10 @@ void thumbnail_lua_options(boost::program_options::variables_map options)
   lua_pushcclosure(L, image_table_t___tostring, 0); lua_setfield(L, -2, "__tostring");
   lua_pushcclosure(L, image_table_t___pairs, 0); lua_setfield(L, -2, "__pairs");
   lua_pushcclosure(L, image_table_t___len, 0); lua_setfield(L, -2, "__len");
+
+  lua_newtable(L);
+  lua_pushcclosure(L, image_table_t_remove, 0); lua_setfield(L, -2, "remove");
+  lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
 
   path_t_init(L);
