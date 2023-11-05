@@ -93,6 +93,29 @@ void thumbnail_t::scale(int dimen)
     }
 }
 
+void thumbnail_t::validate()
+{
+  for (auto i = image_table.begin(); i != image_table.end(); )
+    {
+      const std::string path = i->first;
+      image_t *image = i->second;
+      i++;
+      if (image == nullptr)
+	{
+	  gint width, height;
+	  GdkPixbufFormat *format = gdk_pixbuf_get_file_info(path.c_str(), &width, &height);
+	  if (!format)
+	    image_table.erase(path);
+	}
+      else
+	{
+	  if (!(image->is_valid()))
+	    image_table.erase(path);
+	}
+    }
+}
+
+
 /* ----------------------------------------------------------------------
 --
 -- main
