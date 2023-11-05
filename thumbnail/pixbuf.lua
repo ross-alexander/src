@@ -19,11 +19,11 @@ end
 
 -- ----------------------------------------------------------------------
 --
--- compoase
+-- compose
 --
 -- ----------------------------------------------------------------------
 
-function compose(index, tn, cols, size, border)
+function compose(tn, cols, size, border)
    -- Load the images into memory
 
    tn:load_images_pixbuf()
@@ -32,8 +32,7 @@ function compose(index, tn, cols, size, border)
 
    local images = tn.image_table
    local rows = ((#images-1)//cols)+1
-   local fontsize = 16
-   print("rows ", rows)
+   local fontsize = 12
 
    -- Create result pixbuf
    
@@ -44,64 +43,91 @@ function compose(index, tn, cols, size, border)
    
    local count = 0
    for path, image in pairs(images) do
-      print("**", path, image)
-      local x = border + (border+size)*(count%cols)
-      local y = border + (border+size+fontsize)*(count//cols)
-
-      -- Scale image
+      if (image.valid) then
+	 local x = border + (border+size)*(count%cols)
+	 local y = border + (border+size+fontsize)*(count//cols)
+	 
+	 -- Scale image
       
-      local scale = image:scale_to(size)
-
-      -- Create black background and compose onto sheet
-
-      local bg = image_t.new_pixbuf(size, size)
-      bg:fill("#000000")
-      dst:compose(bg, x, y)
-
-      -- Compose scaled image in middle of background
-
-      local cx = x + (size - scale.width)/2
-      local cy = y + (size - scale.height)/2
-      dst:compose(scale, cx, cy)
-
-      -- Add frame
-      
-      dst:frame(x, y, size, size, 2.0, "#FF0000")
-
-      local name = image:name()
-      if (not (name == nil)) then
-	 local bb = dst:add_text(x, y + size, fontsize, size, "Linux Libertine O", name)
-      end      
-      count = count+1
+	 local scale = image:scale_to(size)
+	 
+	 -- Create black background and compose onto sheet
+	 
+	 local bg = image_t.new_pixbuf(size, size)
+	 bg:fill("#000000")
+	 dst:compose(bg, x, y)
+	 
+	 -- Compose scaled image in middle of background
+	 
+	 local cx = x + (size - scale.width)/2
+	 local cy = y + (size - scale.height)/2
+	 dst:compose(scale, cx, cy)
+	 
+	 -- Add frame
+	 
+	 dst:frame(x, y, size, size, 2.0, "#FF0000")
+	 
+	 local name = image:name()
+	 if (not (name == nil)) then
+	    local bb = dst:add_text(x, y + size, size, fontsize, "Linux Biolinum O", name)
+	 end      
+	 count = count+1
+      end
    end
-   dst:save(string.format("pixbuf-%02d.jpg", index))
+   return dst
 end   
 
-function thumbnail()
+-- ----------------------------------------------------------------------
+--
+-- thumbnail
+--
+-- ----------------------------------------------------------------------
+
+function thumbnail(src, dst, size, num)
    local tn = thumbnail_t.new()
 
-   -- Add local directory "test"
-   
-   tn:dir_add("test")
-   
-   -- Run recursive scan on directory
+   tn:dir_add(src)
 
+   -- Run recursive scan on directory
+   
    tn:dir_scan()
+   tn:load_images_pixbuf()
+
+   for path, image in pairs(tn.image_table) do
+      if (image.valid) then
+	 print("++", path)
+      else
+	 print("--", path)
+      end
+   end
+
+   tn:validate()
+   
+   local bounds = tn:get_bounds()
+   for i,v in ipairs(bounds) do
+      print(i, v)
+   end
+   
+--   local images = tn.image_table
+--   for i,v in pairs(images) do
+--      print(i,v)
+--   end
 
    -- Split into multiple thumbnail_t objects with a maximum of 32
    -- images each
    
-   local split = tn:split(32)
+   local split = tn:split(num)
 
    -- Loop over table (indexed 1 .. n)
 
    for i,v in ipairs(split) do
-      -- Compose 8 images per row, 200 pixels image size, bordre 5 pixels wide
-      compose(i, v, 8, 200, 5)
+      -- Compose 8 images per row, 200 pixels image size, border 5 pixels wide
+      result = compose(v, 6, size, 5)
+      result:save(string.format("%s-%02d.jpg", dst, i))
    end
 end
 
 
 -- example()
-thumbnail()
+thumbnail("/locker/images", "res", 250, 18)
 
