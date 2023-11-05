@@ -53,6 +53,7 @@ private:
   cairo_surface_t *surface;
 public:
   pixbuf_t();
+  ~pixbuf_t();
   pixbuf_t(int, int);
   pixbuf_t(fs::path);
   int load();

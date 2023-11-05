@@ -121,13 +121,13 @@ pixbuf_t::pixbuf_t()
 {
   valid = 0;
   surface = nullptr;
-  //  pixbuf = nullptr;
 }
 
 pixbuf_t::pixbuf_t(fs::path p)
 {
+  valid = 0;
+  surface = nullptr;
   path = p;
-  load();
 }
 
 pixbuf_t::pixbuf_t(int w, int h)
@@ -140,6 +140,11 @@ pixbuf_t::pixbuf_t(int w, int h)
   bounds.width = w;
   bounds.height = h;
   valid = 1;
+}
+
+pixbuf_t::~pixbuf_t()
+{
+  std::cout << "Destroying " << path << "\n";
 }
 
 int pixbuf_t::load()
@@ -155,6 +160,7 @@ int pixbuf_t::load()
   GdkPixbufFormat *format = gdk_pixbuf_get_file_info(path.c_str(), &width, &height);
   if (format == nullptr)
     {
+      //      std::cerr << "Failed to load " << path << "\n";
       valid = 0;
       return valid;
     }

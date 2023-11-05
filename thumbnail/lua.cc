@@ -195,7 +195,7 @@ int image_t_add_text(lua_State *L)
   const char *family = lua_tostring(L, 6);
   const char *string = lua_tostring(L, 7);
 
-  printf("add_text(%f %f %f %f %s %s\n", x, y, width, fontsize, family, string);
+  printf("add_text(%f %f %f %f %s %s)\n", x, y, width, fontsize, family, string);
   
   bounds_t bb = i->text(x, y, width, fontsize, family, string);
   
