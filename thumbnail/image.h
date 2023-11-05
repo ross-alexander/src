@@ -21,7 +21,7 @@ public:
   virtual image_t *scale(double);
   virtual void compose(image_t*, int, int);
   virtual bounds_t frame(double, double, double, double, double, const char*);
-  virtual bounds_t text(double, double, double, int, const char*, const char*);
+  virtual bounds_t text(double, double, double, double, const char*, const char*);
   virtual int get_bounds(bounds_t&);
   int width();
   int height();
@@ -44,7 +44,7 @@ public:
   image_t *scale(double);
   void compose(image_t*, int, int);
   bounds_t frame(double, double, double, double, double, const char*);
-  bounds_t text(double, double, double, int, const char*, const char*);
+  bounds_t text(double, double, double, double, const char*, const char*);
   bounds_t get_bounds(std::string);
 };
 
@@ -62,5 +62,5 @@ public:
   image_t *scale(int);
   void compose(image_t*, int, int);
   bounds_t frame(double, double, double, double, double, const char*);
-  bounds_t text(double, double, double, int, const char*, const char*);
+  bounds_t text(double, double, double, double, const char*, const char*);
 };
