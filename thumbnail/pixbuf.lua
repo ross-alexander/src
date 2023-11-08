@@ -23,7 +23,12 @@ end
 --
 -- ----------------------------------------------------------------------
 
-function compose(tn, cols, size, border)
+function compose(tn, settings)
+
+   local cols = settings.columns
+   local size = settings.size
+   local padding = settings.padding
+   local fontsize = settings.fontsize
 
    -- Load the images into memory
 
@@ -33,30 +38,29 @@ function compose(tn, cols, size, border)
 
    local images = tn.image_table
    local rows = ((#images-1)//cols)+1
-   local fontsize = 12
 
    -- Create result pixbuf
    
-   local width = (size+border)*cols + border
-   local height = (size+border+fontsize)*rows + border
+   local width = (size+padding)*cols + padding
+   local height = (size+padding+fontsize)*rows + padding
    local dst = image_t.new_pixbuf(width, height)
    dst:fill("#FFFFFF")
    
    local count = 0
    for path, image in pairs(images) do
       if (image.valid) then
-	 local x = border + (border+size)*(count%cols)
-	 local y = border + (border+size+fontsize)*(count//cols)
-	 
-	 -- Scale image
-      
-	 local scale = image:scale_to(size)
+	 local x = padding + (padding+size)*(count%cols)
+	 local y = padding + (padding+size+fontsize)*(count//cols)
 	 
 	 -- Create black background and compose onto sheet
 	 
 	 local bg = image_t.new_pixbuf(size, size)
 	 bg:fill("#000000")
 	 dst:compose(bg, x, y)
+	 
+	 -- Scale image
+      
+	 local scale = image:scale_to(size)
 	 
 	 -- Compose scaled image in middle of background
 	 
@@ -70,7 +74,7 @@ function compose(tn, cols, size, border)
 	 
 	 local name = image:name()
 	 if (not (name == nil)) then
-	    local bb = dst:add_text(x, y + size, size, fontsize, "Linux Biolinum O", name)
+	    local bb = dst:add_text(x, y + size, size, settings.fontsize, settings.fontname, name)
 	 end      
 	 count = count+1
       end
@@ -84,7 +88,7 @@ end
 --
 -- ----------------------------------------------------------------------
 
-function thumbnail(src, dst, size, num)
+function thumbnail(src, dst, settings)
    local tn = thumbnail_t.new()
 
    tn:dir_add(src)
@@ -101,19 +105,22 @@ function thumbnail(src, dst, size, num)
    
    -- Split into multiple thumbnail_t objects with num images each
    
-   local split = tn:split(num)
+   local split = tn:split(settings.rows * settings.columns)
 
    -- Loop over table (indexed 1 .. n)
 
    for i,v in ipairs(split) do
-      result = compose(v, 6, size, 5)
+      result = compose(v, settings)
       result:save(string.format("%s-%02d.jpg", dst, i))
    end
 end
 
-for i,v in pairs(options) do
-   print(i, v)
-end
+
+-- ----------------------------------------------------------------------
+--
+-- M A I N
+--
+-- ----------------------------------------------------------------------
 
 if (options.src == nil)
 then
@@ -132,5 +139,18 @@ end
 
 -- Use ternary to set size
 
-thumbnail(options.src, options.dst, options.size == nil and 250 or options.size, 18)
+local settings = {
+   fontname = "Linux Biolinum",
+   fontsize = 10,
+   columns = 6,
+   rows = 3,
+   padding = 5.0,
+   border = {
+      width = 1.0,
+      color = "#00ff00"
+   },
+   size = options.size == nil and 250 or options.size
+}
+
+thumbnail(options.src, options.dst, settings)
 
