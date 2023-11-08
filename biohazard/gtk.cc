@@ -10,14 +10,25 @@ double *theta;
 -- do_gtk_realise
 --
 ---------------------------------------------------------------------- */
-gboolean do_gtk_draw(GtkWidget *win, GdkEventExpose *event, void *client_data)
+gboolean do_gtk_draw(GtkWidget *widget, GdkEventExpose *event, void *client_data)
 {
   bio *v = (bio*)client_data;
-  cairo_t *cr = gdk_cairo_create(gtk_widget_get_window(win));
+
+  // "convert" the G*t*kWidget to G*d*kWindow (no, it's not a GtkWindow!)
+  GdkWindow* window = gtk_widget_get_window(widget);  
+
+  cairo_region_t * cairoRegion = cairo_region_create();
+  GdkDrawingContext * drawingContext;
+  drawingContext = gdk_window_begin_draw_frame(window, cairoRegion);
+  
+  //  cairo_t *cr = gdk_cairo_create(gtk_widget_get_window(win));
+
+  cairo_t * cr = gdk_drawing_context_get_cairo_context(drawingContext);
   v->cairo(cr);
-  cairo_destroy(cr);
-  (*theta)--;
-  gtk_widget_queue_draw(win);
+  gdk_window_end_draw_frame(window, drawingContext);
+  cairo_region_destroy(cairoRegion);
+  (*theta)--; 
+  gtk_widget_queue_draw(widget);
 
   return 0;
 }

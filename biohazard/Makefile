@@ -7,8 +7,8 @@ ALL	: bio.png bio.svg bio-gtk
 bio.png : bio.svg
 	rsvg-convert --format=png $< > $@
 
-bio.svg: bio-svg bio.js
-	./bio-svg bio.js
+bio.svg: bio-svg defaults.js
+	./bio-svg defaults.js # bio.js
 
 construct.svg: construct.pl
 	perl construct.pl
