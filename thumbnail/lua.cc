@@ -110,6 +110,14 @@ int image_t_save(lua_State *L)
   return 0;
 }
 
+int image_t_load(lua_State *L)
+{
+  image_t *image = *(image_t**)luaL_checkudata(L, 1, "image_t");
+  image->load();
+  lua_pushboolean(L, image->is_valid());
+  return 1;
+}
+
 int image_t_fill(lua_State *L)
 {
   image_t *image = *(image_t**)lua_touserdata(L, 1);
@@ -703,6 +711,7 @@ void thumbnail_lua_options(boost::program_options::variables_map options)
   /* Push methods table */
 
   lua_newtable(L);
+  lua_pushcclosure(L, image_t_load, 0); lua_setfield(L, -2, "load");
   lua_pushcclosure(L, image_t_save, 0); lua_setfield(L, -2, "save");
   lua_pushcclosure(L, image_t_scale, 0); lua_setfield(L, -2, "scale");
   lua_pushcclosure(L, image_t_scale_to, 0); lua_setfield(L, -2, "scale_to");
