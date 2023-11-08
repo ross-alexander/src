@@ -1,10 +1,12 @@
+#include <iostream>
+#include <string>
+#include <complex>
+
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
 #include <cairo-svg.h>
 #include <json-c/json.h>
-#include <string>
-#include <complex>
 #include "common.h"
 
 /* ----------------------------------------------------------------------
@@ -49,7 +51,7 @@ int circle_circle_intersection(double x0, double y0, double r0,
   
   //d = sqrt((dy*dy) + (dx*dx));
   
-  d = hypot(dx,dy); // Suggested by Keith Briggs
+  d = hypot(dx, dy); // Suggested by Keith Briggs
 
   assert(!(d > (r0 + r1)));
 
@@ -332,7 +334,7 @@ public:
 ---------------------------------------------------------------------- */
 
 
-void bio_cairo(cairo_t *cr, bio &v)
+void bio_cairo_2(cairo_t *cr, bio &v)
 {
   int w = v.width;
   int h = v.height;
@@ -513,7 +515,7 @@ void bio_cairo(cairo_t *cr, bio &v)
 
       cairo_pattern_t *p = cairo_pattern_create_linear(0, 0, v.width/2, v.height/2);
       cairo_pattern_add_color_stop_rgba(p, 0, 0, 1, 0, 1);
-      cairo_pattern_add_color_stop_rgba(p, 1, 1, 1, 0, 1);
+      cairo_pattern_add_color_stop_rgba(p, 1, 0, 0, 1, 1);
       cairo_set_source(cr, p);
 
       cairo_fill_preserve(cr);
@@ -525,7 +527,28 @@ void bio_cairo(cairo_t *cr, bio &v)
   cairo_restore(cr);
 
   return;
+}
 
+/* ----------------------------------------------------------------------
+   --
+   -- bio_cairo
+   --
+   ---------------------------------------------------------------------- */
+
+void bio_cairo(cairo_t *cr, bio &v)
+{
+  int w = v.width;
+  int h = v.height;
+
+  cairo_save(cr);
+
+  // Move center to middle of page
+  cairo_translate(cr, w/2, h/2);
+
+  // Y-Invert
+  cairo_scale(cr, 1.0, -1.0);
+
+  double scale = v.scale;
 
   /* The trefoil is made from three rotationally symetric parts.
      Each part has 7 points.
@@ -557,7 +580,6 @@ void bio_cairo(cairo_t *cr, bio &v)
 			u * cos(deg2rad(theta)) * v.inner_offset,
 			u * v.inner_radius);
     }
-  
   /* --------------------
      Intersect the circles (inner/outer) & (outer/outer)
      -------------------- */
@@ -574,7 +596,38 @@ void bio_cairo(cairo_t *cr, bio &v)
      -------------------- */
 
   cairo_set_line_width(cr, v.line_width);
-
+  
+  if (v.debug > 2)
+    {
+      cairo_set_line_width(cr, 1);
+      cairo_set_source_rgb(cr, 0, 0, 1);
+      for (int i = 0; i < 6; i++)
+	{
+	  cairo_save (cr);
+	  cairo_move_to(cr, 0, 0);
+	  cairo_rotate(cr, deg2rad(30 + i * 60));
+	  cairo_line_to(cr, u * (v.outer_offset + v.outer_radius), 0);
+	  cairo_stroke(cr);
+	  cairo_restore(cr);
+	}
+      for (int i = 0; i < 3; i++)
+	{
+	  int j = (i+1)%3;
+	  cairo_set_source_rgb(cr, 1, 0, 0);
+	  inner[i].draw(cr);
+	  inner[j].draw(cr);
+	  cairo_stroke(cr);
+	  Line(Point(0.0, 0.0), in_out[i][0]).draw(cr);
+	  Line(Point(0.0, 0.0), out_out[i][0]).draw(cr);
+	  Line(Point(0.0, 0.0), in_out[i][1]).draw(cr);
+	  cairo_set_source_rgb(cr, 1, 1, 0);
+	  outer[i].draw(cr);
+	  outer[j].draw(cr);
+	  cairo_stroke(cr);
+	}
+      cairo_restore(cr);
+    }
+    
   for (int i = 0; i < 3; i++)
     {
       int j = (i+1)%3;
@@ -597,6 +650,7 @@ void bio_cairo(cairo_t *cr, bio &v)
       Line l1; /* line_left_inner */
       inner[i].intersect(l0, l1.p[0], l1.p[1]);
 
+      
       double ang_inner_l_start = (l1.p[1] - inner[i].c).polar();
       double ang_inner_l_end = (in_out[i][1] - inner[i].c).polar();
 
@@ -606,10 +660,10 @@ void bio_cairo(cairo_t *cr, bio &v)
       double ang_outer_r_end = (in_out[j][0] - outer[j].c).polar();
       double ang_inner_r_start = (in_out[j][0] - inner[j].c).polar();
 
-
       Line l4; /* line_right_center_inner */
 
       inner[j].intersect(l3, l4.p[0], l4.p[1]);
+
       double ang_inner_r_end = (l4.p[1] - inner[j].c).polar();
 
       Line l5; /* center circle and right offset */
@@ -618,6 +672,7 @@ void bio_cairo(cairo_t *cr, bio &v)
 
       Line l2; /* center cirle and left offset */
       center.intersect(l0, l2.p[0], l2.p[1]);
+
       double center_end = l2.p[0].polar();
 
       cairo_new_path(cr);
@@ -652,8 +707,10 @@ void bio_cairo(cairo_t *cr, bio &v)
      -------------------- */
 
   if (v.debug)
-    printf(" ---- Ring ----\n");
-
+    {
+      printf(" ---- Ring ----\n");
+    }
+  
   for (int i = 0; i < 3; i++)
     {
       Circle inner_small = inner[i];
@@ -690,33 +747,6 @@ void bio_cairo(cairo_t *cr, bio &v)
       cairo_stroke(cr);
     }      
 
-  if (v.debug > 0)
-    {
-      cairo_set_line_width(cr, 1);
-      cairo_set_source_rgb(cr, 0, 0, 0);
-      for (int i = 0; i < 6; i++)
-	{
-	  cairo_save (cr);
-	  cairo_move_to(cr, 0, 0);
-	  cairo_rotate(cr, deg2rad(30 + i * 60));
-	  cairo_line_to(cr, u * (v.outer_offset + v.outer_radius), 0);
-	  cairo_stroke(cr);
-	  cairo_restore(cr);
-	}
-      for (int i = 0; i < 3; i++)
-	{
-	  int j = (i+1)%3;
-	  inner[i].draw(cr);
-	  inner[j].draw(cr);
-	  cairo_stroke(cr);
-	  Line(Point(0.0, 0.0), in_out[i][0]).draw(cr);
-	  Line(Point(0.0, 0.0), out_out[i][0]).draw(cr);
-	  Line(Point(0.0, 0.0), in_out[i][1]).draw(cr);
-	  outer[i].draw(cr);
-	  outer[j].draw(cr);
-	  cairo_stroke(cr);
-	}
-    }
   cairo_restore(cr);
 }
 
@@ -733,6 +763,12 @@ void bio_init(int argc, char *argv[], bio &v)
   v.outer_radius = 14.0;
   v.outer_offset = 15.0;
   v.center_radius = 4.0;
+  v.center_offset = 1.0;
+
+  v.ring_outer = 15.0;
+  v.ring_inner = 11.0;
+  v.ring_offset = 1.0;
+  
   v.fill[0] = 1.0;
   v.fill[1] = 1.0;
   v.fill[2] = 0.0;
@@ -809,5 +845,5 @@ bio::bio(int argc, char** argv)
 
 void bio::cairo(cairo_t *cr)
 {
-  bio_cairo(cr, *this);
+  bio_cairo_2(cr, *this);
 }
