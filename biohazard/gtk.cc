@@ -19,8 +19,6 @@ gboolean do_gtk_draw(GtkWidget *widget, cairo_t *cr, void *client_data)
   guint width = gtk_widget_get_allocated_width (widget);
   guint height = gtk_widget_get_allocated_height (widget);
 
-  //  fprintf(stdout, "draw(%d, %d)\n", width, height);
-  
   v->width = width;
   v->height = height;
 
@@ -29,7 +27,7 @@ gboolean do_gtk_draw(GtkWidget *widget, cairo_t *cr, void *client_data)
   drawingContext = gdk_window_begin_draw_frame(window, cairoRegion);
   cairo_t * cr_win = gdk_drawing_context_get_cairo_context(drawingContext);
 
-  v->cairo(cr_win);
+  v->cairo(cr);
   
   gdk_window_end_draw_frame(window, drawingContext);
   cairo_region_destroy(cairoRegion);
