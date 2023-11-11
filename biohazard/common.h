@@ -1,9 +1,8 @@
 #define real(x) x
 
-class bio {
+class bio_t {
 public:
   int debug;
-  double rotation;
   double inner_radius;
   double inner_offset;
   double outer_radius;
@@ -19,7 +18,8 @@ public:
   double ring_inner;
   double ring_outer;
   double ring_offset;
-  bio(int, char**);
+  double theta;
+  bio_t(int, char**);
   void cairo(cairo_t*);
   cairo_path_t *ring_path;
   cairo_path_t *horn_path;
