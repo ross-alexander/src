@@ -2,7 +2,7 @@ CXXFLAGS = -D_GNU_SOURCE `pkg-config --cflags gtk+-3.0 cairo freetype2 fontconfi
 CXX	= g++ -std=c++17
 LDLIBS	= `pkg-config --libs gtk+-3.0 cairo freetype2 fontconfig json-c`
 
-ALL	: bio.png bio.svg bio-gtk
+ALL	: bio.png bio.svg bio-gtk construct.svg
 
 bio.png : bio.svg
 	rsvg-convert --format=png $< > $@

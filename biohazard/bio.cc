@@ -603,7 +603,7 @@ void bio_cairo_2(cairo_t *cr, bio_t &v)
   for (int i = 0; i < 3; i++)
     {
       cairo_save(cr);
-      cairo_rotate(cr, deg2rad(120 * i + v.rotation));
+      cairo_rotate(cr, deg2rad(120 * i + v.theta));
       cairo_new_path(cr);
 
       cairo_append_path(cr, v.horn_path);
@@ -1094,7 +1094,6 @@ void bio_init(int argc, char *argv[], bio_t &v)
   v.height = 800;
   v.scale = 5.0;
   v.debug = 0;
-  v.rotation = 0;
   v.horn_path = 0;
   v.ring_path = 0;
 
