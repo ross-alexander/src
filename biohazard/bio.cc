@@ -427,12 +427,12 @@ double fy(double A, double B, double C, double y) {
 
 /* ----------------------------------------------------------------------
 --
--- bio_cairo
+-- bio_cairo_2
 --
 ---------------------------------------------------------------------- */
 
 
-void bio_cairo_2(cairo_t *cr, bio &v)
+void bio_cairo_2(cairo_t *cr, bio_t &v)
 {
   int w = v.width;
   int h = v.height;
@@ -633,7 +633,7 @@ void bio_cairo_2(cairo_t *cr, bio &v)
    --
    ---------------------------------------------------------------------- */
 
-void bio_cairo(cairo_t *cr, bio &v)
+void bio_cairo(cairo_t *cr, bio_t &v)
 {
   int w = v.width;
   int h = v.height;
@@ -849,125 +849,40 @@ void bio_cairo(cairo_t *cr, bio &v)
 }
 
 /* ----------------------------------------------------------------------
---
--- bio_init
---
----------------------------------------------------------------------- */
+   --
+   -- bio_cairo_3
+   --
+   ---------------------------------------------------------------------- */
 
-void bio_init(int argc, char *argv[], bio &v)
-{
-  v.inner_radius = 11.5;
-  v.inner_offset = 17.6;
-  v.outer_radius = 14.0;
-  v.outer_offset = 15.0;
-  v.center_radius = 4.0;
-  v.center_offset = 1.0;
-
-  v.ring_outer = 15.0;
-  v.ring_inner = 11.0;
-  v.ring_offset = 1.0;
-  
-  v.fill[0] = 1.0;
-  v.fill[1] = 1.0;
-  v.fill[2] = 0.0;
-  v.fill[3] = 1.0;
-  v.stroke[0] = 0.0;
-  v.stroke[1] = 0.0;
-  v.stroke[2] = 0.0;
-  v.stroke[3] = 1.0;
-  v.line_width = 0.5;
-  v.width = 800;
-  v.height = 800;
-  v.scale = 5.0;
-  v.debug = 0;
-  v.rotation = 0;
-  v.horn_path = 0;
-  v.ring_path = 0;
-
-  if (argc > 1)
-    {
-      const char *f = argv[1];
-      FILE *stream;
-      std::string ss;
-      if ((stream = fopen(f, "r")))
-	{
-	  char buf[1024];
-	  int len;
-	  while ((len = fread(buf, sizeof(char), sizeof(buf), stream)))
-	    ss.append(buf, len);
-	  fclose(stream);
-	}
-      json_object *js = json_tokener_parse(ss.c_str());
-      assert(js != 0);
-      assert(json_object_is_type(js, json_type_object));
-      
-      json_object *t;
-      if(json_object_object_get_ex(js, "line_width", &t)) v.line_width = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "scale", &t)) v.scale = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "width", &t)) v.width = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "height", &t)) v.height = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "inner_radius", &t)) v.inner_radius = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "inner_offset", &t)) v.inner_offset = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "outer_radius", &t)) v.outer_radius = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "outer_offset", &t)) v.outer_offset = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "center_radius", &t)) v.center_radius = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "center_offset", &t)) v.center_offset = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "ring_inner", &t)) v.ring_inner = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "ring_outer", &t)) v.ring_outer = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "ring_offset", &t)) v.ring_offset = json_object_get_double(t);
-      if(json_object_object_get_ex(js, "fill", &t))
-	{
-	  const char *str = json_object_get_string(t);
-	  unsigned char f[4];
-	  sscanf(str, "#%2x%2x%2x%2x", &f[0], &f[1], &f[2], &f[3]);
-	  for (int k = 0; k < 4; k++) {
-	    v.fill[k] = f[k]/256.0;
-	  }
-	}
-      if(json_object_object_get_ex(js, "stroke", &t))
-	{
-	  const char *str = json_object_get_string(t);
-	  unsigned char f[4];
-	  sscanf(str, "#%2x%2x%2x%2x", &f[0], &f[1], &f[2], &f[3]);
-	  for (int k = 0; k < 4; k++) {
-	    v.stroke[k] = f[k]/256.0;
-	  }
-	}
-    }
-}
-
-bio::bio(int argc, char** argv)
-{
-  bio_init(argc, argv, *this);
-}
-
-void bio::cairo(cairo_t *cr)
+void bio_cairo_3(cairo_t *cr, bio_t &bio)
 {
   // Fill background
-  cairo_rectangle(cr, 0, 0, width, height);
+  cairo_rectangle(cr, 0, 0, bio.width, bio.height);
   cairo_set_source_rgb(cr, 0, 1, 0);
   //  cairo_fill(cr);
 
   // Center, flip vertical axis and scale
   
-  cairo_translate(cr, width/2, height/2);
+  cairo_translate(cr, bio.width/2, bio.height/2);
   cairo_scale(cr, 1.0, -1.0);
-  cairo_scale(cr, 11.5, 11.55);
-
+  cairo_rotate(cr, deg2rad(bio.theta));
+  
   // Fix up line width to counter scale
   
-  cairo_set_line_width(cr, 0.2);
+  cairo_set_line_width(cr, 0.5);
 
   // Sizing based on "official" construction
+
+  double scale = bio.width > bio.height ? bio.height : bio.width / 60.0;
   
-  double a = 1.0;
-  double b = 3.5;
-  double c = 4.0;
-  double d = 6.0;
-  double e = 11.0;
-  double f = 15.0;
-  double g = 21.0;
-  double h = 30.0;
+  double a = scale;
+  double b = 3.5 * a;
+  double c = 4.0 * a;
+  double d = 6.0 * a;
+  double e = 11.0 * a;
+  double f = 15.0 * a;
+  double g = 21.0 * a;
+  double h = 30.0 * a;
 
   cairo_path_t *trefoil_path;
   cairo_path_t* ring_path;
@@ -1142,5 +1057,105 @@ void bio::cairo(cairo_t *cr)
       cairo_rotate(cr, deg2rad(120));
     }
   
-  //   bio_cairo_2(cr, *this);
+}  
+		  
+
+
+/* ----------------------------------------------------------------------
+--
+-- bio_init
+--
+---------------------------------------------------------------------- */
+
+void bio_init(int argc, char *argv[], bio_t &v)
+{
+  v.theta = 0.0;
+  v.inner_radius = 11.5;
+  v.inner_offset = 17.6;
+  v.outer_radius = 14.0;
+  v.outer_offset = 15.0;
+  v.center_radius = 4.0;
+  v.center_offset = 1.0;
+
+  v.ring_outer = 15.0;
+  v.ring_inner = 11.0;
+  v.ring_offset = 1.0;
+  
+  v.fill[0] = 1.0;
+  v.fill[1] = 1.0;
+  v.fill[2] = 0.0;
+  v.fill[3] = 1.0;
+  v.stroke[0] = 0.0;
+  v.stroke[1] = 0.0;
+  v.stroke[2] = 0.0;
+  v.stroke[3] = 1.0;
+  v.line_width = 0.5;
+  v.width = 800;
+  v.height = 800;
+  v.scale = 5.0;
+  v.debug = 0;
+  v.rotation = 0;
+  v.horn_path = 0;
+  v.ring_path = 0;
+
+  if (argc > 1)
+    {
+      const char *f = argv[1];
+      FILE *stream;
+      std::string ss;
+      if ((stream = fopen(f, "r")))
+	{
+	  char buf[1024];
+	  int len;
+	  while ((len = fread(buf, sizeof(char), sizeof(buf), stream)))
+	    ss.append(buf, len);
+	  fclose(stream);
+	}
+      json_object *js = json_tokener_parse(ss.c_str());
+      assert(js != 0);
+      assert(json_object_is_type(js, json_type_object));
+      
+      json_object *t;
+      if(json_object_object_get_ex(js, "line_width", &t)) v.line_width = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "scale", &t)) v.scale = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "width", &t)) v.width = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "height", &t)) v.height = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "inner_radius", &t)) v.inner_radius = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "inner_offset", &t)) v.inner_offset = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "outer_radius", &t)) v.outer_radius = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "outer_offset", &t)) v.outer_offset = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "center_radius", &t)) v.center_radius = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "center_offset", &t)) v.center_offset = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "ring_inner", &t)) v.ring_inner = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "ring_outer", &t)) v.ring_outer = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "ring_offset", &t)) v.ring_offset = json_object_get_double(t);
+      if(json_object_object_get_ex(js, "fill", &t))
+	{
+	  const char *str = json_object_get_string(t);
+	  unsigned char f[4];
+	  sscanf(str, "#%2x%2x%2x%2x", &f[0], &f[1], &f[2], &f[3]);
+	  for (int k = 0; k < 4; k++) {
+	    v.fill[k] = f[k]/256.0;
+	  }
+	}
+      if(json_object_object_get_ex(js, "stroke", &t))
+	{
+	  const char *str = json_object_get_string(t);
+	  unsigned char f[4];
+	  sscanf(str, "#%2x%2x%2x%2x", &f[0], &f[1], &f[2], &f[3]);
+	  for (int k = 0; k < 4; k++) {
+	    v.stroke[k] = f[k]/256.0;
+	  }
+	}
+    }
+}
+
+bio_t::bio_t(int argc, char** argv)
+{
+  bio_init(argc, argv, *this);
+}
+
+void bio_t::cairo(cairo_t *cr)
+{
+  bio_cairo_3(cr, *this);
 }
