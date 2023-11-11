@@ -18,15 +18,16 @@ void xtk_draw_cairo(xtk_t *xtk, cairo_t *cr)
       double width = cairo_image_surface_get_width(xtk->source);
       double height = cairo_image_surface_get_height(xtk->source);
 
-      printf("src: %d × %d  dst:  %d × %d\n", (int)width, (int)height, xtk->width, xtk->height);
+      printf("xtk_draw_cairo: src: %d × %d  dst:  %d × %d\n", (int)width, (int)height, xtk->width, xtk->height);
 
-      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
-      //      cairo_set_source_surface(cr, xtk->source, 0, 0);
+      cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.0);
       cairo_rectangle(cr, 0, 0, xtk->width, xtk->height);
       cairo_fill(cr);
+
+      cairo_translate(cr, (xtk->width - width)/2, (xtk->height - height)/2);
       
       cairo_set_source_surface(cr, xtk->source, 0, 0);
-      cairo_rectangle(cr, 0, 0, xtk->width, xtk->height);
+      cairo_rectangle(cr, 0, 0, width, height);
       cairo_fill(cr);
     }
   else
