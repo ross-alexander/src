@@ -1,5 +1,13 @@
 -- ----------------------------------------------------------------------
 --
+-- 2023-11-26: Fix ordering of add_text
+--
+-- ----------------------------------------------------------------------
+
+
+
+-- ----------------------------------------------------------------------
+--
 -- compose
 --
 -- ----------------------------------------------------------------------
@@ -44,7 +52,7 @@ function compose(index, tn, cols, size, border)
       
       local name = image:name()
       if (not (name == nil)) then
-	 local bb = dst:add_text(x, y + size, fontsize, size, family, name)
+	 local bb = dst:add_text(x, y + size, size, fontsize, family, name)
       end
       count = count + 1
    end
