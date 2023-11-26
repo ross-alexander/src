@@ -55,12 +55,12 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 
   XGetGeometry(dpy, root, &root, &rootx, &rooty, &rootwidth, &rootheight, &rootbw, &rootdepth);
  
-  printf("Xlib: Display width: %d\n", XDisplayWidth(dpy, screen));
-  printf("Xlib: Display height: %d\n", XDisplayHeight(dpy, screen));
-  printf("Xlib: Display depth: %d\n", rootdepth);
-  printf("Xlib: Pad: %d\n", XBitmapPad(dpy));
-  printf("Xlib: Black: %08lx\n", BlackPixel(dpy, screen));
-  printf("Xlib: White: %08lx\n", WhitePixel(dpy, screen));
+  printf("xlib: Display width: %d\n", XDisplayWidth(dpy, screen));
+  printf("xlib: Display height: %d\n", XDisplayHeight(dpy, screen));
+  printf("xlib: Display depth: %d\n", rootdepth);
+  printf("xlib: Pad: %d\n", XBitmapPad(dpy));
+  printf("xlib: Black: %08lx\n", BlackPixel(dpy, screen));
+  printf("xlib: White: %08lx\n", WhitePixel(dpy, screen));
 
   unsigned long background = BlackPixel(dpy, screen);
   unsigned long border = BlackPixel(dpy, screen);
@@ -72,11 +72,11 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
      Create atom XTK_ID to record xtk number
      -------------------- */
 
-  Atom xtkid = XInternAtom(dpy, "XTK_ID", False);      
+  Atom xtkid = XInternAtom(dpy, "XTK_ID", False);
 
   struct xtk_xlib_t xlib[nwin];
 
-  //  memset(xlib, 0, sizeof(struct xtk_xlib_t) * nwin);
+  memset(xlib, 0, sizeof(struct xtk_xlib_t) * nwin);
   
   for (int i = 0; i < nwin; i++)
     {
@@ -136,68 +136,78 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
       unsigned long nitems;
       unsigned long nbytes;
       int *prop_return;
-      XGetWindowProperty(dpy, event.xexpose.window, xtkid, 0, 1, 0, XA_INTEGER, &returntype, &returnformat, &nitems, &nbytes, (unsigned char**)&prop_return);
+      //      XGetWindowProperty(dpy, event.xexpose.window, xtkid, 0, 1, 0, XA_INTEGER, &returntype, &returnformat, &nitems, &nbytes, (unsigned char**)&prop_return);
 
       //      printf("nitems %ld nbytes = %ld\n", nitems, nbytes);
 
-      if (nitems)
-	{      
-	  struct xtk_xlib_t *t = (struct xtk_xlib_t*)&xlib[prop_return[0]];
-	  XFree(prop_return);
-	  
-	  switch(event.type)
+
+      switch(event.type)
+	{
+	case ButtonPress:
+	  break;
+	case ClientMessage:
+	  if (event.xclient.message_type == wm_protocols && event.xclient.data.l[0] == wm_delete_window)
 	    {
-	    case ButtonPress:
-	      break;
-	    case ClientMessage:
-	      if (event.xclient.message_type == wm_protocols && event.xclient.data.l[0] == wm_delete_window)
-		{
-		  XCloseDisplay(dpy);
-		  exit(0);
-		}
-	      break;
-	    case ResizeRequest:
-	      printf("Xlib: Resize\n");
-	      break;
-	    case ConfigureNotify:
+	      XCloseDisplay(dpy);
+	      exit(0);
+	    }
+	  break;
+	case ResizeRequest:
+	  printf("xlib: Resize\n");
+	  break;
+	case ConfigureNotify:
+	  {
+	    XGetWindowProperty(dpy, event.xconfigure.window, xtkid, 0, 1, 0, XA_INTEGER, &returntype, &returnformat, &nitems, &nbytes, (unsigned char**)&prop_return);
+	    if (nitems)
 	      {
+		struct xtk_xlib_t *t = (struct xtk_xlib_t*)&xlib[prop_return[0]];
+		XFree(prop_return);
+		
 		t->xtk->width = t->width = event.xconfigure.width;
 		t->xtk->height = t->height = event.xconfigure.height;
-		if (t->mapped)
-		  {
-		    printf("Xlib-event: ConfigureNotify (%d × %d)\n", t->xtk->width, t->xtk->height);
-		    //		    cairo_xlib_surface_set_size(t->surface, t->width, t->height);
-		  }
-		break;
+		printf("xlib-event: ConfigureNotify (%d × %d)\n", t->xtk->width, t->xtk->height);
 	      }
-	    case NoExpose:
-	      printf("NoExpose\n");
-	      break;
-	    case MapNotify:
-	      printf("Xlib-event: MapNotify\n");
-	      t->mapped = 1;
-	      //	      t->surface = cairo_xlib_surface_create(dpy, t->window, t->visual, t->width, t->height);
-	      //	      assert(cairo_surface_status(t->surface) == CAIRO_STATUS_SUCCESS);
-	      break;
-	    case ReparentNotify:
-	      printf("Xlib-event: Reparent\n");
-	      break;
-	    case Expose:
+	    break;
+	  }
+	case NoExpose:
+	  printf("NoExpose\n");
+	  break;
+	case MapNotify:
+	  {
+	    printf("xlib-event: MapNotify\n");
+	    XGetWindowProperty(dpy, event.xmap.window, xtkid, 0, 1, 0, XA_INTEGER, &returntype, &returnformat, &nitems, &nbytes, (unsigned char**)&prop_return);
+	    if (nitems)
 	      {
-		printf("Xlib-event: Expose\n");
-		if (t->mapped)
+		struct xtk_xlib_t *t = (struct xtk_xlib_t*)&xlib[prop_return[0]];
+		XFree(prop_return);
+		t->mapped = 1;
+	      }
+	    break;
+	  }
+	case ReparentNotify:
+	  printf("xlib-event: Reparent\n");
+	  break;
+	case Expose:
+	  {
+	    printf("xlib-event: Expose\n");
+	    XGetWindowProperty(dpy, event.xexpose.window, xtkid, 0, 1, 0, XA_INTEGER, &returntype, &returnformat, &nitems, &nbytes, (unsigned char**)&prop_return);
+	    if (nitems)
+	      {
+		struct xtk_xlib_t *t = (struct xtk_xlib_t*)&xlib[prop_return[0]];
+		XFree(prop_return);
+		if (t->mapped) 
 		  {
 		    t->surface = cairo_xlib_surface_create(dpy, t->window, t->visual, t->width, t->height);
 		    assert(cairo_surface_status(t->surface) == CAIRO_STATUS_SUCCESS);
 		    xtk_draw_surface(t->xtk, t->surface);
 		    cairo_surface_destroy(t->surface);
 		  }
-		break;
 	      }
-	    default:
-	      printf("Event type %d\n", event.type);
-	      break;
-	    }
+	    break;
+	  }
+	default:
+	  printf("Event type %d\n", event.type);
+	  break;
 	}
     }
 }
