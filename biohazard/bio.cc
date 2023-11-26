@@ -856,25 +856,10 @@ void bio_cairo(cairo_t *cr, bio_t &v)
 
 void bio_cairo_3(cairo_t *cr, bio_t &bio)
 {
-  // Fill background
-  cairo_rectangle(cr, 0, 0, bio.width, bio.height);
-  cairo_set_source_rgb(cr, 0, 1, 0);
-  //  cairo_fill(cr);
-
-  // Center, flip vertical axis and scale
-  
-  cairo_translate(cr, bio.width/2, bio.height/2);
-  cairo_scale(cr, 1.0, -1.0);
-  cairo_rotate(cr, deg2rad(bio.theta));
-  
-  // Fix up line width to counter scale
-  
-  cairo_set_line_width(cr, 0.5);
+  double scale = (bio.width > bio.height ? bio.height : bio.width) / 60.0;
 
   // Sizing based on "official" construction
 
-  double scale = bio.width > bio.height ? bio.height : bio.width / 60.0;
-  
   double a = scale;
   double b = 3.5 * a;
   double c = 4.0 * a;
@@ -888,8 +873,6 @@ void bio_cairo_3(cairo_t *cr, bio_t &bio)
   cairo_path_t* ring_path;
 
   {  
-      cairo_new_path(cr);
-
       // Create lower trefoil starting from the center circle (radius d/2)
 
       Circle center_circle(Point(0, 0), d/2);
@@ -942,8 +925,8 @@ void bio_cairo_3(cairo_t *cr, bio_t &bio)
       center_circle.intersect(inner_right_bar, inner_right_bar_inner[0], inner_right_bar_inner[1]);
 
       // Actual drawing
-      
-      cairo_set_source_rgb(cr, 1, 0, 0);
+
+      cairo_new_path(cr);
       cairo_arc_negative(cr, 0, 0, d/2, deg2rad(-90), p_center_left_inner[0].polar());
       cairo_line_to(cr, p_inner_left[1].x, p_inner_left[1].y);
       
@@ -992,7 +975,6 @@ void bio_cairo_3(cairo_t *cr, bio_t &bio)
       ring_inner.intersect(inner, p_ring_inner[0], p_ring_inner[1]);
       ring_outer.intersect(inner, p_ring_outer[0], p_ring_outer[1]);
 
-
       cairo_new_path(cr);
       cairo_move_to(cr, 0, e-a);
       
@@ -1019,12 +1001,35 @@ void bio_cairo_3(cairo_t *cr, bio_t &bio)
       cairo_close_path(cr);
       ring_path = cairo_copy_path(cr);
     }
+  
+  // Fill background
 
   cairo_new_path(cr);
+  //  cairo_rectangle(cr, 0, 0, bio.width, bio.height);
+  //  cairo_set_source_rgb(cr, 1, 1, 1);
+  cairo_fill(cr);
+
+  // Center, flip vertical axis and scale
+  
+  cairo_translate(cr, bio.width/2, bio.height/2);
+  cairo_scale(cr, 1.0, -1.0);
+
+  cairo_rotate(cr, deg2rad(bio.theta));
+  
+  // Fix up line width to counter scale
+  
+  cairo_set_line_width(cr, 0.5);
+
+
   for (int i = 0; i < 3; i++)
     {
-      cairo_append_path(cr, trefoil_path);
+      //      cairo_new_path(cr);
+      //      cairo_set_source_rgb(cr, 0, 0, 0);
+      //      cairo_rectangle(cr, -h, -h, h, h);
+      //      cairo_stroke(cr);
       
+      cairo_append_path(cr, trefoil_path);
+  
       // Fill & Stroke
       
       //	cairo_set_source_rgb(cr, 1, 1, 0);
@@ -1051,12 +1056,13 @@ void bio_cairo_3(cairo_t *cr, bio_t &bio)
       cairo_set_source_rgba(cr, 0, 0, 0, 1);
       cairo_stroke(cr);
 
-      
-      // Rotate
-      
       cairo_rotate(cr, deg2rad(120));
     }
-  
+  // Rotate
+      
+   
+  cairo_path_destroy(ring_path);
+  cairo_path_destroy(trefoil_path);
 }  
 		  
 
