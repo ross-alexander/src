@@ -17,22 +17,16 @@ typedef struct xtk_gtk_t {
 } xtk_gtk_t;
 
 
-static gboolean do_gtk_configure(GtkWidget *win, GdkEventConfigure *event, void *client_data)
+static gboolean do_gtk3_draw(GtkWidget *widget, cairo_t *cr, void *client_data)
 {
   xtk_gtk_t *xtk = (xtk_gtk_t*)client_data;
-  xtk->xtk->width = event->width;
-  xtk->xtk->height = event->height;
-  return 0;
-}
 
-static gboolean do_gtk_realise(GtkWidget *win, GdkEventConfigure *event, void *client_data)
-{
-  return 0;
-}
+  guint width = gtk_widget_get_allocated_width(widget);
+  guint height = gtk_widget_get_allocated_height(widget);
 
-static gboolean do_gtk_expose(GtkWidget *win, cairo_t *cr, void *client_data)
-{
-  xtk_gtk_t *xtk = (xtk_gtk_t*)client_data;
+  xtk->xtk->width = width;
+  xtk->xtk->height = height;
+  
   xtk_draw_cairo(xtk->xtk, cr);
   return 0;
 }
@@ -69,6 +63,7 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
       t->xtk = xtk[i];
 
       t->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+      gtk_window_set_title(GTK_WINDOW(t->window), xtk[i]->title);
       gtk_widget_set_visual(t->window, vis);
 
       GtkCssProvider *provider = gtk_css_provider_new ();
@@ -86,10 +81,7 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
       gtk_container_add(GTK_CONTAINER(t->window), t->drawing);
 
       g_signal_connect(G_OBJECT(t->window), "destroy", G_CALLBACK(gtk_main_quit), NULL);
-      g_signal_connect(G_OBJECT(t->window), "realize", G_CALLBACK(do_gtk_realise), t);
-      g_signal_connect(G_OBJECT(t->drawing), "draw", G_CALLBACK(do_gtk_expose), t);
-      g_signal_connect(G_OBJECT(t->drawing), "realize", G_CALLBACK(do_gtk_realise), t);
-      g_signal_connect(G_OBJECT(t->drawing), "configure-event", G_CALLBACK(do_gtk_configure), t);
+      g_signal_connect(G_OBJECT(t->drawing), "draw", G_CALLBACK(do_gtk3_draw), t);
 
       gtk_widget_set_size_request(GTK_WIDGET(t->drawing), t->xtk->width, t->xtk->height);
       gtk_style_context_add_class(gtk_widget_get_style_context(t->window), "clear");      
