@@ -82,13 +82,13 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
   xcb_intern_atom_reply_t* atom = xcb_intern_atom_reply(connection, xcb_intern_atom(connection, 0, strlen("XTK_ID"), "XTK_ID"), 0);
   assert(atom->atom != 0);
 
-  printf ("XCB: Informations of screen %ld:\n", (long)screen->root);
-  printf ("XCB:   width.........: %d\n", screen->width_in_pixels);
-  printf ("XCB:   height........: %d\n", screen->height_in_pixels);
-  printf ("XCB:   white pixel...: %ld\n", (long)screen->white_pixel);
-  printf ("XCB:   black pixel...: %ld\n", (long)screen->black_pixel);
-  printf ("XCB:   root depth....: %ld\n", (long)screen->root_depth);
-  printf ("XCB:   visual id.....: %ld\n", (long)screen->root_visual);
+  printf ("xcb: Informations of screen %ld:\n", (long)screen->root);
+  printf ("xcb:   width.........: %d\n", screen->width_in_pixels);
+  printf ("xcb:   height........: %d\n", screen->height_in_pixels);
+  printf ("xcb:   white pixel...: %ld\n", (long)screen->white_pixel);
+  printf ("xcb:   black pixel...: %ld\n", (long)screen->black_pixel);
+  printf ("xcb:   root depth....: %ld\n", (long)screen->root_depth);
+  printf ("xcb:   visual id.....: %ld\n", (long)screen->root_visual);
   printf ("\n");
 
   for (i = 0; i < nwin; i++)
@@ -184,7 +184,7 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 	      {
 		x->xtk->width = x->width = notify->width;
 		x->xtk->height = x->height = notify->height;
-		printf("XCB-event: ConfigureNotify %d × %d\n", x->width, x->height);
+		//		printf("XCB-event: ConfigureNotify %d × %d\n", x->width, x->height);
 		cairo_xcb_surface_set_size(x->surface, x->width, x->height);
 	      }
 	    break;
@@ -207,7 +207,7 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 	  break;
 	case XCB_RESIZE_REQUEST:
 	  {
-	    printf("XCB: Resize\n");
+	    printf("xcb: Resize\n");
 	    xcb_resize_request_event_t *resize = (xcb_resize_request_event_t*)ev;
 	    int id = do_xcb_get_xtkid(connection, resize->window, atom->atom);
 	    struct xtk_xcb_t *x =  xtkxcb + id;

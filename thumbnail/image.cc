@@ -222,7 +222,7 @@ image_t* pixbuf_t::scale(double s)
   cairo_matrix_scale(&scaler, 1.0/s, 1.0/s);
   cairo_pattern_set_matrix(pat, &scaler);
   cairo_pattern_set_filter(pat, CAIRO_FILTER_BEST);
-
+  //  cairo_pattern_set_dither(pat, CAIRO_DITHER_NONE);
   double w = bounds.width * s;
   double h = bounds.height * s;
   
@@ -259,8 +259,18 @@ void pixbuf_t::compose(image_t *src, int x, int y)
   pixbuf_t *src_px = dynamic_cast<pixbuf_t*>(src);
   
   cairo_t *cairo = cairo_create(surface);
-  cairo_set_source_surface(cairo, src_px->surface, x, y);
+
+  cairo_pattern_t *pat = cairo_pattern_create_for_surface (src_px->surface);
+  cairo_matrix_t scaler;
+  cairo_matrix_init_identity(&scaler);
+  cairo_matrix_translate(&scaler, -x, -y);
+  cairo_pattern_set_matrix(pat, &scaler);
+  //  cairo_pattern_set_dither(pat, CAIRO_DITHER_NONE);
+  cairo_set_source(cairo, pat);
+ 
+  //  cairo_set_source_surface(cairo, src_px->surface, x, y);
   cairo_paint(cairo);
+  cairo_pattern_destroy(pat);
   cairo_destroy(cairo);
 }
 
@@ -615,14 +625,17 @@ bounds_t gegl_t::text(double x, double y, double wrap_width, double fontsize, co
 {
   GeglColor *color = gegl_color_new("#000000");
   GeglNode *graph = gegl_node_new();
-  GeglNode *src = gegl_node_new_child(graph, "operation", "gegl:buffer-source",
-				      "buffer", gbuffer, nullptr);
+  GeglNode *src = gegl_node_new_child(graph, "operation", "gegl:buffer-source", "buffer", gbuffer, nullptr);
+
+  printf("gegl_t::text(%f, %f, %f, %f, %s,%s\n", x, y, wrap_width, fontsize, family, string);
+
+  
   GeglNode *text = gegl_node_new_child (graph,
 					"operation", "gegl:text",
 					"font", family,
 					"size", fontsize,
 					"string", string,
-					"wrap", wrap_width,
+					"wrap", (int)wrap_width,
 					"color", color,
 					"alignment", 1,
 					nullptr);

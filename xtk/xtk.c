@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
   /* --------------------
      Use dynamic display library
      -------------------- */
-  
+
   void **display = load_dynlib("display");
   for (int j = 0; display[j]; j++)
     {

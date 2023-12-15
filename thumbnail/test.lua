@@ -14,7 +14,7 @@
 
 function compose(index, tn, cols, size, border)
    local fontsize = 16
-   local family = "Linux Libertine O"
+   local family = "Linux Biolinum O"
 
    tn:load_images()
 
