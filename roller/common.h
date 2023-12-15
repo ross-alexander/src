@@ -67,3 +67,12 @@ public:
   void dump();
   int eval();
 };
+
+class list_t : public eval_t {
+  std::vector<eval_t*> list;
+public:
+  list_t();
+  void append(eval_t*);
+  void dump();
+  int eval();
+};

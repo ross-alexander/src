@@ -1,4 +1,7 @@
 #include <iostream>
+#include <array>
+#include <vector>
+#include <map>
 
 #include <stdio.h>
 #include <time.h>

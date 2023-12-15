@@ -1,5 +1,11 @@
 ---
 title: Simple dice rolling using lex/yacc
-date: December 11, 2023
+author: Ross Alexander
+date: December 15, 2023
 ---
+
+# Precis
+
+Use flex/bison to parse a string to eval a dice rolling string, for
+example "4d10+2".
 
