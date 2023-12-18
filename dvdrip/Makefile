@@ -6,9 +6,9 @@ dvdrip: lua_wrap.o dvdrip.o
 
 dvdrip.o: dvdrip.cc
 
-lua_wrap.cc : dvdrip.i
+lua_wrap.cc : dvdrip.swg
 	swig -c++ -lua -o $@ $<
 
 clean:
-	rm lua_wrap.o dvdrip.o lua_wrap.cc dvdrip *~
+	rm -f lua_wrap.o dvdrip.o lua_wrap.cc dvdrip *~
 
