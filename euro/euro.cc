@@ -28,15 +28,14 @@ public:
 
 /* ----------------------------------------------------------------------
 
-   main
+   euro
 
-   ---------------------------------------------------------------------- */
+   ----------------------------------------------------------------------*/
 
-int main()
+void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
 {
   // outer radius and width
-  
-  Cairo::RefPtr<Cairo::ImageSurface> surface = Cairo::ImageSurface::create(Cairo::Surface::Format::ARGB32, 800, 800);
+
   Cairo::RefPtr<Cairo::Context> cr = Cairo::Context::create(surface);
 
   // Center and invert y-axis  
@@ -107,35 +106,17 @@ int main()
   
   std::cout << "theta = " << rad2deg(theta) << "\n";
 
-  // Angle that is subtracted from lower outer arc
-  double A = (1.0/4.0 * M_PI) - asin(sin(M_PI * 3.0/4.0) * (inner_radius/outer_radius));
-  
-  // Angle added to upper outer arc
-  double B = M_PI - 3.0/4.0*M_PI - phi - asin((inner_radius/outer_radius) * sin(3.0/4.0*M_PI + phi));
 
-  std::cout << "A = " << A * 180 / M_PI << "\n";
-  std::cout << "B = " << B * 180 / M_PI << "\n";
-
-  /* --------------------
-     Create ring
-     -------------------- */
-
-  cr->set_source_rgb(0,1,0);  
-
-  cr->arc(0, 0, inner_radius, M_PI/4, 7 * M_PI/4);   // Inside arc
-  cr->arc_negative(0, 0, outer_radius, 7 * M_PI/4 - A, M_PI/4 + B); // Outside arc
-  cr->close_path();
-   
   double l0 = width / tan(theta); // tanθ = o/a => o = a * tanθ
   cpoint_t a0(l0, width);
-  
-  // lower bar
-  
+      
+      // lower bar
+      
   double l7 = outer_radius - 1.5 * width; // vertical height lower edge
   //  double l8 = outer_radius - 0.5 * width;  // vertical hieght upper edge
   double l9 = l7 / tan(theta);
   //  double l10 = tan(theta) * l8;
-
+  
   cpoint_t a7(-outer_radius - l9, -1.5*width);
   cpoint_t a8(l9, -1.5*width);
   cpoint_t a9 = a8 + a0;
@@ -144,27 +125,52 @@ int main()
   a8.print("a8 ");
   a9.print("a9 ");
   
-  a7.move_to(cr);
-  a8.line_to(cr);
-  a9.line_to(cr);
-  a10.line_to(cr);
-  cr->close_path();
-
   double l11 = outer_radius + 0.5 * width;
   //  double l12 = outer_radius + 1.5 * width;
   double l13 = l11 / tan(theta);
   //  double l14 = tan(theta) * l12;
-
+  
   cpoint_t a11(-outer_radius - l9, 0.5*width);
   cpoint_t a12(l13, 0.5*width);
   cpoint_t a13 = a12 + a0;
   cpoint_t a14 = a11 + a0;
-  a11.move_to(cr);
-  a12.line_to(cr);
-  a13.line_to(cr);
-  a14.line_to(cr);
-  cr->close_path();
-  cr->fill();
+  
+  if (original)
+    {
+      // Angle that is subtracted from lower outer arc
+      double A = (1.0/4.0 * M_PI) - asin(sin(M_PI * 3.0/4.0) * (inner_radius/outer_radius));
+      
+      // Angle added to upper outer arc
+      double B = M_PI - 3.0/4.0*M_PI - phi - asin((inner_radius/outer_radius) * sin(3.0/4.0*M_PI + phi));
+      
+      std::cout << "A = " << A * 180 / M_PI << "\n";
+      std::cout << "B = " << B * 180 / M_PI << "\n";
+      
+      /* --------------------
+	 Create ring
+	 -------------------- */
+      
+      cr->set_source_rgb(0,1,0);  
+      
+      cr->arc(0, 0, inner_radius, M_PI/4, 7 * M_PI/4);   // Inside arc
+      cr->arc_negative(0, 0, outer_radius, 7 * M_PI/4 - A, M_PI/4 + B); // Outside arc
+      cr->close_path();
+      
+      
+      a7.move_to(cr);
+      a8.line_to(cr);
+      a9.line_to(cr);
+      a10.line_to(cr);
+      cr->close_path();
+      
+      a11.move_to(cr);
+      a12.line_to(cr);
+      a13.line_to(cr);
+      a14.line_to(cr);
+      cr->close_path();
+      cr->fill();
+    }
+
   
   /* --------------------
      Construction
@@ -250,7 +256,17 @@ int main()
   a12.label(cr, 3, -3, "A12");
   a13.label(cr, 3, -3, "A13");
   a14.label(cr, 3, -3, "A14");
+}
 
-  
+/* ----------------------------------------------------------------------
+
+   main
+
+   ---------------------------------------------------------------------- */
+
+int main()
+{
+  Cairo::RefPtr<Cairo::ImageSurface> surface = Cairo::ImageSurface::create(Cairo::Surface::Format::ARGB32, 800, 800);
+  euro(surface, false);
   surface->write_to_png("image.png");
 }
