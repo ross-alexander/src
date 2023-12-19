@@ -110,30 +110,29 @@ void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
   double l0 = width / tan(theta); // tanθ = o/a => o = a * tanθ
   cpoint_t a0(l0, width);
       
-      // lower bar
+
+  cpoint_t bar[8];
+  // lower bar
       
   double l7 = outer_radius - 1.5 * width; // vertical height lower edge
   //  double l8 = outer_radius - 0.5 * width;  // vertical hieght upper edge
   double l9 = l7 / tan(theta);
   //  double l10 = tan(theta) * l8;
   
-  cpoint_t a7(-outer_radius - l9, -1.5*width);
-  cpoint_t a8(l9, -1.5*width);
-  cpoint_t a9 = a8 + a0;
-  cpoint_t a10 = a7 + a0;
-  a0.print("a0 ");
-  a8.print("a8 ");
-  a9.print("a9 ");
+  bar[0] = cpoint_t(-outer_radius - l9, -1.5*width);
+  bar[1] = cpoint_t(l9, -1.5*width);
+  bar[2] = bar[1] + a0;
+  bar[3] = bar[0] + a0;
   
   double l11 = outer_radius + 0.5 * width;
   //  double l12 = outer_radius + 1.5 * width;
   double l13 = l11 / tan(theta);
   //  double l14 = tan(theta) * l12;
   
-  cpoint_t a11(-outer_radius - l9, 0.5*width);
-  cpoint_t a12(l13, 0.5*width);
-  cpoint_t a13 = a12 + a0;
-  cpoint_t a14 = a11 + a0;
+  bar[4] = cpoint_t(-outer_radius - l9, 0.5*width);
+  bar[5] = cpoint_t(l13, 0.5*width);
+  bar[6] = bar[5] + a0;
+  bar[7] = bar[4] + a0;
   
   if (original)
     {
@@ -157,16 +156,16 @@ void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
       cr->close_path();
       
       
-      a7.move_to(cr);
-      a8.line_to(cr);
-      a9.line_to(cr);
-      a10.line_to(cr);
+      bar[0].move_to(cr);
+      bar[1].line_to(cr);
+      bar[2].line_to(cr);
+      bar[3].line_to(cr);
       cr->close_path();
       
-      a11.move_to(cr);
-      a12.line_to(cr);
-      a13.line_to(cr);
-      a14.line_to(cr);
+      bar[4].move_to(cr);
+      bar[5].line_to(cr);
+      bar[6].line_to(cr);
+      bar[7].line_to(cr);
       cr->close_path();
       cr->fill();
     }
@@ -202,27 +201,27 @@ void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
   cx[0].move_to(cr);
   cx[2].line_to(cr);
   cr->arc(0, 0, outer_radius, x[2].polar(), x[23].polar());
-  cr->line_to(a14.x, a14.y);
-  cr->line_to(a11.x, a11.y);
+  cr->line_to(bar[7].x, bar[7].y);
+  cr->line_to(bar[4].x, bar[4].y);
   cr->line_to(x[19].x, x[19].y);
   cr->arc(0, 0, outer_radius, x[19].polar(), x[15].polar());
   
-  cr->line_to(a10.x, a10.y);
-  cr->line_to(a7.x, a7.y);
+  cr->line_to(bar[3].x, bar[3].y);
+  cr->line_to(bar[0].x, bar[0].y);
   cr->line_to(x[11].x, x[11].y);
   cr->arc(0, 0, outer_radius, x[11].polar(), x[7].polar());
   cr->line_to(x[5].x, x[5].y);
   
   cr->arc_negative(0, 0, inner_radius, x[5].polar(), x[9].polar());
 
-  cr->line_to(a8.x, a8.y);
-  cr->line_to(a9.x, a9.y);
+  cr->line_to(bar[1].x, bar[1].y);
+  cr->line_to(bar[2].x, bar[2].y);
   cr->line_to(x[13].x, x[13].y);
   
   cr->arc_negative(0, 0, inner_radius, x[13].polar(), x[17].polar());
 
-  cr->line_to(a12.x, a12.y);
-  cr->line_to(a13.x, a13.y);
+  cr->line_to(bar[5].x, bar[5].y);
+  cr->line_to(bar[6].x, bar[6].y);
   cr->line_to(x[21].x, x[21].y);
 
   cr->arc_negative(0, 0, inner_radius, x[21].polar(), x[0].polar());
@@ -248,14 +247,14 @@ void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
   cr->set_source_rgb(0,0,0);
   cr->stroke();
       
-  a7.label(cr, 3.0, -10.0, "A7");
-  a8.label(cr, 3.0, -10.0, "A8");
-  a9.label(cr, 3.0, -10.0, "A9");
-  a10.label(cr, 3.0, -10.0, "A10");
-  a11.label(cr, 3, -3, "A11");
-  a12.label(cr, 3, -3, "A12");
-  a13.label(cr, 3, -3, "A13");
-  a14.label(cr, 3, -3, "A14");
+  bar[0].label(cr, 3.0, -10.0, "BAR[0]");
+  bar[1].label(cr, 3.0, -10.0, "BAR[1]");
+  bar[2].label(cr, 3.0, -10.0, "BAR[2]");
+  bar[3].label(cr, 3.0, -10.0, "BAR[3]");
+  bar[4].label(cr, 3, -3, "BAR[4]");
+  bar[5].label(cr, 3, -3, "BAR[5]");
+  bar[6].label(cr, 3, -3, "BAR[6]");
+  bar[7].label(cr, 3, -3, "BAR[7]");
 }
 
 /* ----------------------------------------------------------------------
