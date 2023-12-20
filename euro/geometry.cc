@@ -139,6 +139,49 @@ int circle_line_intersection (double x1, double y1,
   return 0;
 }
 
+
+int line_intersect(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double *x, double *y)
+{
+   double mua, mub;
+   double denom, numera, numerb;
+
+   denom  = (y4-y3) * (x2-x1) - (x4-x3) * (y2-y1);
+   numera = (x4-x3) * (y1-y3) - (y4-y3) * (x1-x3);
+   numerb = (x2-x1) * (y1-y3) - (y2-y1) * (x1-x3);
+
+   double epsilon = 1e-14;
+   
+   /* Are the line coincident? */
+   if (abs(numera) < epsilon && abs(numerb) < epsilon && abs(denom) < epsilon)
+     {
+       *x = (x1 + x2) / 2;
+       *y = (y1 + y2) / 2;
+       return(1);
+     }
+
+   /* Are the line parallel */
+   if (abs(denom) < epsilon)
+     {
+       *x = 0;
+       *y = 0;
+       return(0);
+     }
+
+   /* Is the intersection along the the segments */
+   
+   mua = numera / denom;
+   mub = numerb / denom;
+   if (mua < 0 || mua > 1 || mub < 0 || mub > 1)
+     {
+       *x = 0;
+       *y = 0;
+       return(0);
+     }
+   *x = x1 + mua * (x2 - x1);
+   *y = y1 + mua * (y2 - y1);
+   return(1);
+}
+
 /* ----------------------------------------------------------------------
 --
 -- point_t
@@ -224,7 +267,9 @@ void point_t::print(const char*s) { printf("%s[%8.2f %8.2f]\n", s ? s : "", x, y
 ---------------------------------------------------------------------- */
 
 line_t::line_t() {};
-line_t::line_t(point_t& p1, point_t& p2) { p[0] = p1; p[1] = p2; }
+
+line_t::line_t(const point_t& p1, const point_t& p2) { p[0] = p1; p[1] = p2; }
+
 void line_t::translate(double s)
 {
   point_t x = (p[1] - p[0]).normal();
@@ -232,11 +277,27 @@ void line_t::translate(double s)
   p[0] += x * s;
   p[1] += x * s;
 }
+
 void line_t::print(const char* s = "")
 {
   printf("line_t %s (%f, %f) -> (%f, %f)\n", s, p[0].x, p[0].y, p[1].x, p[1].y);
 }
 
+int line_t::intersect(line_t& line, point_t& ret)
+{
+  point_t isec;
+  int res = line_intersect(p[0].x, p[0].y, p[1].x, p[1].y,
+			   line.p[0].x, 
+			   line.p[0].y, 
+			   line.p[1].x, 
+			   line.p[1].y, 
+			   &isec.x,
+			   &isec.y);
+
+  ret.x = isec.x;
+  ret.y = isec.y;
+  return res;
+}
 
 /* ----------------------------------------------------------------------
 --

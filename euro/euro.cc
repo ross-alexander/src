@@ -59,7 +59,6 @@ void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
   line_t lines[6];
   point_t x[24];
 
-  
   // Subtract a2 from a1 to get vector from the origin
   
   point_t a3 = a1 - a2;
@@ -112,12 +111,8 @@ void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
       
 
   cpoint_t bar[8];
-  // lower bar
-      
   double l7 = outer_radius - 1.5 * width; // vertical height lower edge
-  //  double l8 = outer_radius - 0.5 * width;  // vertical hieght upper edge
   double l9 = l7 / tan(theta);
-  //  double l10 = tan(theta) * l8;
   
   bar[0] = cpoint_t(-outer_radius - l9, -1.5*width);
   bar[1] = cpoint_t(l9, -1.5*width);
@@ -125,9 +120,7 @@ void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
   bar[3] = bar[0] + a0;
   
   double l11 = outer_radius + 0.5 * width;
-  //  double l12 = outer_radius + 1.5 * width;
   double l13 = l11 / tan(theta);
-  //  double l14 = tan(theta) * l12;
   
   bar[4] = cpoint_t(-outer_radius - l9, 0.5*width);
   bar[5] = cpoint_t(l13, 0.5*width);
@@ -196,7 +189,6 @@ void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
   cpoint_t cx[8];
   for (int i = 0; i < 8; i++)
     cx[i] = x[i];
-  
       
   cx[0].move_to(cr);
   cx[2].line_to(cr);

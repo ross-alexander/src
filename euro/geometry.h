@@ -23,7 +23,8 @@ class line_t {
 public:
   point_t p[2];
   line_t();
-  line_t(point_t &, point_t &);
+  line_t(const point_t &, const point_t &);
+  int intersect(line_t&, point_t&);
   void translate(double);
   void print(const char*);
 };

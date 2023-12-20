@@ -32,4 +32,4 @@ draw.o: draw.c
 	$(CC) $(CFLAGS) `pkg-config --cflags cairo gegl-0.4` -c $^ -o $@
 
 clean:
-	rm $(EXE) *.o *~
+	rm -f $(EXE) *.o *~
