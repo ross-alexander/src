@@ -12,7 +12,7 @@ GTSLIBS		= `pkg-config --libs gts`
 
 XCBLDLIBS	= `pkg-config --libs xcb-glx x11-xcb` -lGL -lGLU
 
-ALL		= plane honeycomb test glx xcb mygl.so mygl3.so tri3.so tmath glxgears ex
+ALL		= plane honeycomb test glx xcb mygl.so mygl3.so tri3.so tmath glxgears ex ex2 ex3 ex4
 
 .suffix: .so
 
@@ -30,6 +30,16 @@ test: test.o
 
 ex	: ex.o
 	$(CC) $(XCBLDLIBS) $^ -o $@
+
+ex2	: ex2.o
+	$(CC) $(XCBLDLIBS) $^ -o $@
+
+ex3	: ex3.o
+	$(CC) $^ -lxcb -lGL -lEGL -o $@
+
+ex4	: ex4.o
+	$(CC) $^ -lxcb -lGL -lX11 -lX11-xcb -o $@
+
 
 glx:	glx.o
 	$(CC) $^ $(GLXLIBS) -o $@
