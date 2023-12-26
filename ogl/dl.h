@@ -1,0 +1,3 @@
+struct id {
+  char *desc;
+};
