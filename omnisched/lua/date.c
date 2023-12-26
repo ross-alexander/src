@@ -165,9 +165,13 @@ static int Date_omni_monthly(lua_State *L)
   return 1;
 }
 
-static const luaL_Reg Date_methods[] = {
+static const luaL_Reg Date_class_methods[] = {
   {"new",	Date_new},
   {"now",	Date_now},
+  {0, 0}
+};
+
+static const luaL_Reg Date_instance_methods[] = {
   {"wday",	Date_wday},
   {"omni",	Date_omni_holiday},
   {"monthly",	Date_omni_monthly},
@@ -212,16 +216,22 @@ int luaopen_date(lua_State *L)
      Add Date object
      -------------------- */
 
-  luaL_openlib(L, "Date", Date_methods, 0);  /* create methods table, add it to the globals */
+  lua_newtable(L);
+  luaL_setfuncs(L, Date_class_methods, 0);
+  lua_setglobal(L, "Date");            /* Set global with class methods */
+
   luaL_newmetatable(L, "Date");          /* create metatable for Date, and add it to the Lua registry */
-  luaL_openlib(L, 0, Date_meta, 0);    /* fill metatable */
+  luaL_setfuncs(L, Date_meta, 0);
+
   lua_pushliteral(L, "__index");
-  lua_pushvalue(L, -3);               /* dup methods table*/
+  lua_newtable(L);
+  luaL_setfuncs(L, Date_instance_methods, 0);
   lua_rawset(L, -3);                  /* metatable.__index = methods */
-  lua_pushliteral(L, "__metatable");
-  lua_pushvalue(L, -3);               /* dup methods table*/
-  lua_rawset(L, -3);                  /* hide metatable:
-                                         metatable.__metatable = methods */
+
+  //  lua_pushliteral(L, "__metatable");
+  //  lua_pushvalue(L, -3);               /* dup methods table*/
+  //  lua_rawset(L, -3);                  /* hide metatable:
+  //                                         metatable.__metatable = methods */
   lua_pop(L, 1);                      /* drop metatable */
 
   return 1;
