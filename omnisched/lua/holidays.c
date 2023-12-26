@@ -81,6 +81,17 @@ static int Date_omni_monthly(lua_State *L)
   return 1;
 }
 
+static int Date_omni_strftime(lua_State *L)
+{
+  char s[1024];
+  const char *format = "%c";
+  if (lua_gettop(L) > 1)
+    format = lua_tostring(L, 2);
+  strftime(s, 1024, format, &toDate(L, 1)->tm);
+  lua_pushfstring(L, "%s", s);
+  return 1;
+}
+
 static int Date_tostring(lua_State *L)
 {
   char buff[1024];
@@ -111,7 +122,7 @@ static int Date_wday(lua_State *L)
 {
   Date *bar = toDate(L, 1);
   int a = bar->tm.tm_wday;
-  lua_pushnumber(L, a);
+  lua_pushinteger(L, a);
   return 1;
 }
 
@@ -136,11 +147,16 @@ static int Date_sub(lua_State *L)
   return 1;
 }
 
-static const luaL_Reg Date_methods[] = {
+static const luaL_Reg Date_class_methods[] = {
   {"new",	Date_new},
+  {0, 0}
+};
+
+static const luaL_Reg Date_instance_methods[] = {
   {"wday",	Date_wday},
   {"omni",	Date_omni_holiday},
   {"monthly",	Date_omni_monthly},
+  {"strftime",	Date_omni_strftime},
   {0, 0}
 };
 
@@ -183,7 +199,7 @@ int main(int argc, char *argv[])
      Set the global variable year to the year parameter
      -------------------- */
 
-  lua_pushnumber(L, g.year);
+  lua_pushinteger(L, g.year);
   lua_setglobal(L, "year");
 
   /* --------------------
@@ -205,16 +221,33 @@ int main(int argc, char *argv[])
      Add Date object
      -------------------- */
 
-  luaL_openlib(L, "Date", Date_methods, 0);  /* create methods table, add it to the globals */
+  lua_newtable(L);
+  luaL_setfuncs(L, Date_class_methods, 0);
+  lua_setglobal(L, "Date");
+  
   luaL_newmetatable(L, "Date");          /* create metatable for Date, and add it to the Lua registry */
-  luaL_openlib(L, 0, Date_meta, 0);    /* fill metatable */
+  printf("%d -- newmetatable\n", lua_gettop(L));
+
+  luaL_setfuncs(L, Date_meta, 0);
+
+  //   luaL_openlib(L, 0, Date_meta, 0);    /* fill metatable */
   lua_pushliteral(L, "__index");
-  lua_pushvalue(L, -3);               /* dup methods table*/
+  printf("%d -- push __index\n", lua_gettop(L));
+
+  lua_newtable(L);
+  printf("%d -- newtable\n", lua_gettop(L));
+  luaL_setfuncs(L, Date_instance_methods, 0);
+  printf("%d -- setfuncs\n", lua_gettop(L));
+  
+  //  lua_pushvalue(L, -3);               /* dup methods table*/
   lua_rawset(L, -3);                  /* metatable.__index = methods */
-  lua_pushliteral(L, "__metatable");
-  lua_pushvalue(L, -3);               /* dup methods table*/
-  lua_rawset(L, -3);                  /* hide metatable:
-                                         metatable.__metatable = methods */
+
+  printf("%d -- rawset\n", lua_gettop(L));
+
+  //  lua_pushliteral(L, "__metatable");
+  //  lua_pushvalue(L, -3);               /* dup methods table*/
+  //  lua_rawset(L, -3);                  /* hide metatable:
+  //                                       metatable.__metatable = methods */
   lua_pop(L, 1);                      /* drop metatable */
 
   if(argc > 1)
