@@ -1,0 +1,1 @@
+gst-launch-1.0 filesrc location=/locker/m4a/Front_Line_Assembly/Angriff_Remix/07_Angriff_Mind_In_A_Box_Mix.m4a \! qtdemux name=demuxer demuxer. \! queue \! aacparse \! avdec_aac \! audioconvert \! autoaudiosink
