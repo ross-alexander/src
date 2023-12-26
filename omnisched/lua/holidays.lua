@@ -8,6 +8,10 @@
 
 require "date"
 
+-- --------------------
+-- cascade weekend dates into the week
+-- --------------------
+
 function cascade(a)
    if (a:wday() == 6)
    then
@@ -19,6 +23,12 @@ function cascade(a)
    end
    return a
 end
+
+-- --------------------
+-- christmas includes boxing day and thre three working days following
+-- as at the time these were company holidays and the office was
+-- closed so no backups where done
+-- --------------------
 
 function christmas(year)
    local a = Date.new("december 25 " .. year)
