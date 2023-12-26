@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdlib.h>
 #include <time.h>
 
 #include <lua.h>
@@ -168,9 +169,9 @@ static const luaL_Reg Date_methods[] = {
   {"new",	Date_new},
   {"now",	Date_now},
   {"wday",	Date_wday},
-  {"strftime",	Date_strftime},
   {"omni",	Date_omni_holiday},
   {"monthly",	Date_omni_monthly},
+  {"strftime",	Date_strftime},
   {0, 0}
 };
 

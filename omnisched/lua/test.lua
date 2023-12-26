@@ -1,21 +1,23 @@
--- print(package.cpath)
+-- ----------------------------------------------------------------------
+--
+-- 2023-12-26: Various examples parsing dates
+--
+-- ----------------------------------------------------------------------
 
-require("date")
-
--- print("The year is " .. year)
+print("The year is " .. year)
 
 function list_iter (t)
    local i = 0
-   local n = table.getn(t)
+   local n = #t
    return function ()
       i = i + 1
       if i <= n then return t[i] end
    end
 end
 
--- for b in list_iter({"jan 1 2012", "may 12 2011"}) do
---   print(Date.new(b):omni())
--- end
+for b in list_iter({"jan 1 2012", "may 12 2011"}) do
+   print(Date.new(b):omni())
+end
 
 dates = {"third saturday of november",
 	 "fourth saturday of november",

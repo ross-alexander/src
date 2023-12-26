@@ -1,5 +1,5 @@
 LEX	= flex
-CFLAGS	= -Wall -g -I/usr/include/lua/5.4 -fPIC -DLUA_COMPAT_5_1 -DLUA_COMPAT_5_2 -DLUA_COMPAT_5_3
+CFLAGS	= -g -I/usr/include/lua/5.4 -fPIC -DLUA_COMPAT_5_1 -DLUA_COMPAT_5_2 -DLUA_COMPAT_5_3
 LDLIBS	= -L/usr/lib64/lua/5.4 -llua -lm -ldl
 
 ALL	: holidays date.so
@@ -12,7 +12,7 @@ holidays : parse.o tokenize.o time.o holidays.o
 holidays.o : holidays.c common.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-parse.o : parse.c parse.h common.h
+parse.o : parse.c parse.h tokenize.h common.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 parse.c parse.h : parse.y

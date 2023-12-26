@@ -16,10 +16,10 @@ typedef struct ParseState {
   time_t res;
 } pstate;
 
-int parse_date(pstate*, char*);
-time_t addday(time_t tick, int days);
-time_t easter(int year);
-time_t nthday(int year, int month, int day);
-time_t nthdayofweek(int year, int month, int wday, int n);
-time_t special(int year, char *s);
+extern int parse_date(pstate*, char*);
+extern time_t addday(time_t tick, int days);
+extern time_t easter(int year);
+extern time_t nthday(int year, int month, int day);
+extern time_t nthdayofweek(int year, int month, int wday, int n);
+extern time_t special(int year, char *s);
 
