@@ -1,0 +1,22 @@
+CC	= @CC@
+DEFS	= @DEFS@
+CFLAGS	= $(DEFS) -DYYDEBUG
+YACC	= bison -d
+LEX	= flex
+
+ALL	= monthly holiday
+
+all:	$(ALL)
+
+monthly	: monthly.o
+
+holiday: parse.tab.o lex.yy.o holiday.o
+
+parse.tab.c parse.tab.h: parse.y
+	$(YACC) -d $<
+
+lex.yy.c: tokenize.lex
+	$(LEX) $<
+
+clean:
+	rm -f *~ *.o parse.tab.c parse.tab.h lex.yy.c $(ALL)
