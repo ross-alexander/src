@@ -1,8 +1,9 @@
-LDLIBS		= -Llua-5.4.6/lib -llua -ldl
-CXXFLAGS	= -g -std=c++11 -fPIC -D_BSD_SOURCE -D_POSIX_SOURCE -Ijsoncons-0.172.1/include -Ilua-5.4.0/include
-CFLAGS		= $(CXXFLAGS)
+LUALIB		= -L/usr/lib64 -llua
+LUAINC		= -I/usr/include
+LDLIBS		=  $(LUALIB)
+JSONCONSINC	= -Ijsoncons-0.172.1/include
+CXXFLAGS	= -g -std=c++11 -fPIC -D_DEFAULT_SOURCE -D_POSIX_SOURCE $(JSONCONSINC) $(LUAINC)
 CXX		= g++
-CC		= g++
 
 ALL		= jlog NetAddr.so
 
@@ -10,6 +11,12 @@ all	: $(ALL)
 
 jlog : parse.tab.o lex.yy.o collector.o collect.o main.o
 	$(CXX) $^ -rdynamic $(LDLIBS) -o $@
+
+lex.yy.o: lex.yy.c
+	$(CXX)  $(CXXFLAGS) -c $^ -o $@
+
+parse.tab.o: parse.tab.c
+	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
 parse.tab.c parse.tab.h : parse.y
 	bison -d parse.y
