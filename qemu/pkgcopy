@@ -1,0 +1,95 @@
+#!/usr/bin/perl -I/home/ralexand/src/qemu
+
+# ----------------------------------------------------------------------
+#
+# pkgcopy
+#
+# 2021-08-13: ralexand
+#   Convert to QemuPkg
+#
+# 2020-08-17: ralexand
+#    Add -q (--quiet) flag
+#
+# 2019-06-09: ralexand
+#
+# ----------------------------------------------------------------------
+
+use 5.28.0;
+use Getopt::Long;
+use File::Spec::Functions;
+use YAML qw(LoadFile);
+use Carp;
+use JSON;
+use Getopt::Long;
+
+use QemuPkg;
+
+
+# ----------------------------------------------------------------------
+#
+# M A I N
+#
+# ----------------------------------------------------------------------
+
+my $opts = {
+    conf_base => '/locker/vm',
+    pkg_base => '/locker/pkg/x86',
+    quiet => 1,
+};
+
+my $pkg = QemuPkg->new($opts, "pkg.yml");
+
+GetOptions(
+    'quiet+' => \$opts->{quiet},
+    'base=s' => \$opts->{pkg_base}
+    );
+
+# --------------------
+# Check args
+# --------------------
+
+if (scalar(@ARGV) < 2)
+{
+    printf STDERR "$0: <pkglist> [<dir>|<host>:]\n";
+    exit(1);
+}
+
+my $dst = pop(@ARGV);
+
+# --------------------
+# Use -1 limit on split so host: gives two results
+# --------------------
+
+my @dst = split(m/:/, $dst, -1);
+my ($dst_host, $dst_dir);
+if (scalar(@dst) == 2)
+{
+    ($dst_host, $dst_dir) = @dst;
+    $dst_dir = "/" if (length($dst_dir) == 0);
+}
+else
+{
+    ($dst_dir) = @dst;
+}
+
+# --------------------
+# Set $dst_dir to / if undefined
+# --------------------
+
+$dst_dir //= "/";
+
+my $base = "/locker/pkg";
+
+my @records = $pkg->files([@ARGV]);
+
+my $verbose = ($opts->{quiet} < 1) ? "-v" : "";
+
+for my $rec (@records)
+{
+    my @ssh = $dst_host ? ("ssh", $dst_host) : ();
+    
+    my $cmd = join(" ", "tar", "-C", $rec->{path}, "-cf", "-", ".", "|", @ssh, "tar", "-C", $dst_dir, $verbose, "-xhf", "-");
+    say $cmd if ($opts->{quiet} < 2);
+    my $res = qx/$cmd/;
+    say $res if ($opts->{quiet} < 1);
+}

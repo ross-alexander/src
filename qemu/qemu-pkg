@@ -1,0 +1,39 @@
+#!/usr/bin/perl -I/home/ralexand/src/qemu
+
+# ----------------------------------------------------------------------
+#
+# qemu-pkg
+#
+# 2021-08-10: Ross Alexander
+#
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+#
+# M A I N
+#
+# ----------------------------------------------------------------------
+
+use 5.34.0;
+use File::Spec::Functions;
+use YAML qw(LoadFile);
+use Carp;
+use QemuPkg;
+
+my $opts = {
+    conf_base => '/locker/vm',
+    pkg_base => '/locker/pkg',
+};
+
+my $qemu_pkg = QemuPkg->new($opts, "pkg.yml");
+
+my $pkgs = "base@";
+
+if (scalar(@ARGV) > 0)
+{
+    $pkgs = [ @ARGV ];
+}
+
+my @files = $qemu_pkg->files($pkgs);
+
+say join("\n", @files);
