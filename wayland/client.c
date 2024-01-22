@@ -1,3 +1,9 @@
+/* ----------------------------------------------------------------------
+
+   wayland client example using xdg_toplevel & wl_shm
+
+   ---------------------------------------------------------------------- */
+
 #define _POSIX_C_SOURCE 200112L
 #include <assert.h>
 #include <errno.h>
@@ -209,48 +215,45 @@ static void wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
 	xdg_toplevel_move(client_state->xdg_toplevel, client_state->wl_seat, event->serial);
     }
 
-       uint32_t axis_events = POINTER_EVENT_AXIS
-               | POINTER_EVENT_AXIS_SOURCE
-               | POINTER_EVENT_AXIS_STOP
-               | POINTER_EVENT_AXIS_DISCRETE;
-       char *axis_name[2] = {
-               [WL_POINTER_AXIS_VERTICAL_SCROLL] = "vertical",
-               [WL_POINTER_AXIS_HORIZONTAL_SCROLL] = "horizontal",
-       };
-       char *axis_source[4] = {
-               [WL_POINTER_AXIS_SOURCE_WHEEL] = "wheel",
-               [WL_POINTER_AXIS_SOURCE_FINGER] = "finger",
-               [WL_POINTER_AXIS_SOURCE_CONTINUOUS] = "continuous",
-              [WL_POINTER_AXIS_SOURCE_WHEEL_TILT] = "wheel tilt",
-       };
-       if (event->event_mask & axis_events) {
-               for (size_t i = 0; i < 2; ++i) {
-                       if (!event->axes[i].valid) {
-                               continue;
-                       }
-                       fprintf(stderr, "%s axis ", axis_name[i]);
-                       if (event->event_mask & POINTER_EVENT_AXIS) {
-                               fprintf(stderr, "value %f ", wl_fixed_to_double(
-                                                       event->axes[i].value));
-                       }
-                       if (event->event_mask & POINTER_EVENT_AXIS_DISCRETE) {
-                               fprintf(stderr, "discrete %d ",
-                                               event->axes[i].discrete);
-                       }
-                       if (event->event_mask & POINTER_EVENT_AXIS_SOURCE) {
-                               fprintf(stderr, "via %s ",
-                                               axis_source[event->axis_source]);
-                       }
-                       if (event->event_mask & POINTER_EVENT_AXIS_STOP) {
-                               fprintf(stderr, "(stopped) ");
-                       }
-               }
-       }
-
-       fprintf(stderr, "\n");
-       memset(event, 0, sizeof(*event));
+  uint32_t axis_events = POINTER_EVENT_AXIS
+    | POINTER_EVENT_AXIS_SOURCE
+    | POINTER_EVENT_AXIS_STOP
+    | POINTER_EVENT_AXIS_DISCRETE;
+  char *axis_name[2] = {
+    [WL_POINTER_AXIS_VERTICAL_SCROLL] = "vertical",
+    [WL_POINTER_AXIS_HORIZONTAL_SCROLL] = "horizontal",
+  };
+  char *axis_source[4] = {
+    [WL_POINTER_AXIS_SOURCE_WHEEL] = "wheel",
+    [WL_POINTER_AXIS_SOURCE_FINGER] = "finger",
+    [WL_POINTER_AXIS_SOURCE_CONTINUOUS] = "continuous",
+    [WL_POINTER_AXIS_SOURCE_WHEEL_TILT] = "wheel tilt",
+  };
+  if (event->event_mask & axis_events) {
+    for (size_t i = 0; i < 2; ++i) {
+      if (!event->axes[i].valid) {
+	continue;
+      }
+      fprintf(stderr, "%s axis ", axis_name[i]);
+      if (event->event_mask & POINTER_EVENT_AXIS) {
+	fprintf(stderr, "value %f ", wl_fixed_to_double(event->axes[i].value));
+      }
+      if (event->event_mask & POINTER_EVENT_AXIS_DISCRETE) {
+	fprintf(stderr, "discrete %d ",
+		event->axes[i].discrete);
+      }
+      if (event->event_mask & POINTER_EVENT_AXIS_SOURCE) {
+	fprintf(stderr, "via %s ", axis_source[event->axis_source]);
+      }
+      if (event->event_mask & POINTER_EVENT_AXIS_STOP) {
+	fprintf(stderr, "(stopped) ");
+      }
+    }
+  }
+  
+  fprintf(stderr, "\n");
+  memset(event, 0, sizeof(*event));
 }
-
 
 static const struct wl_pointer_listener wl_pointer_listener = {
   .enter = wl_pointer_enter,
@@ -273,6 +276,12 @@ static void wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
 static const struct wl_buffer_listener wl_buffer_listener = {
   .release = wl_buffer_release,
 };
+
+/* ----------------------------------------------------------------------
+
+   draw_frame
+
+   ---------------------------------------------------------------------- */
 
 static struct wl_buffer *draw_frame(struct client_state *state)
 {
@@ -415,8 +424,7 @@ static void registry_global(void *data, struct wl_registry *wl_registry, uint32_
 }
 
 
-static void
-registry_global_remove(void *data, struct wl_registry *wl_registry, uint32_t name)
+static void registry_global_remove(void *data, struct wl_registry *wl_registry, uint32_t name)
 {
     /* This space deliberately left blank */
 }
@@ -425,6 +433,12 @@ static const struct wl_registry_listener wl_registry_listener = {
     .global = registry_global,
     .global_remove = registry_global_remove,
 };
+
+/* ----------------------------------------------------------------------
+
+   main
+
+   ---------------------------------------------------------------------- */
 
 int main(int argc, char *argv[])
 {
