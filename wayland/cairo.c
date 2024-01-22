@@ -4,6 +4,12 @@
 
 #include <cairo.h>
 
+/* ----------------------------------------------------------------------
+
+   main
+
+   ---------------------------------------------------------------------- */
+
 int main()
 {
   int width = 640;
@@ -28,7 +34,6 @@ int main()
   cairo_pattern_add_color_stop_rgba(p, 1, 0, 1, 0, 1.0);
 
   cairo_set_source(cairo, p);
-  //   cairo_set_source_rgb(cairo, 1.0, 0.0, 0.0);
   cairo_rectangle(cairo, 0, 0, width, height);
   cairo_fill(cairo);
   cairo_show_page(cairo);
