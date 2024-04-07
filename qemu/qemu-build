@@ -4,6 +4,9 @@
 #
 # build.pl
 
+# 2024-04-07:
+#   Fix EFI & grub installs to use new mtab structure
+
 # 2022-08-26:
 #   Fix fuser_check for image->directory
 
@@ -756,19 +759,11 @@ sub efi_install {
     &image_mount($conf, qemu => 1) || die;
 
     my $mtab = $conf->{image}->{mtab};
-    say "--------------------";
-    say %{$mtab->{esp}};
-    say "--------------------";
-    
     my $esp_mnt = $mtab->{esp}->{mountpoint} || die;
-#    my $root = $mtab->{root}->{mountpoint} || die;
-#    my $partuuid = $mtab->{root}->{partuuid};
 
     # --------------------
     # Copy grub.efi to EFI/BOOT/BOOTX64.EFI
     # --------------------
-    
-#    printf "Installing EFI bootloader on device %s (%s)\n", $dev, $bootmnt;
     
     my $efi = catdir($esp_mnt, "EFI", "BOOT");
     if (! -d $efi)
@@ -1157,35 +1152,39 @@ sub etc_install {
 # ----------------------------------------------------------------------
 
 sub grub_install {
-    my ($vm, @opts) = @_;
-
-    my $opts = {@opts};
+    my $vm = shift @_;
+    my $opts = {@_};
+    my $conf = $vm->configuration_get();
     
     # --------------------
     # Check kernel passed
     # --------------------
 
-    if (!($opts->{kernel} || $vm->{kernel}))
+    if (!($opts->{kernel} || $conf->{kernel}))
     {
 	printf STDERR "Kernel version must be set with either --kernel or the vm key 'kernel'.\n";
 	exit 1;
     }
-    my $kernel = $opts->{kernel} // $vm->{kernel};
-    my $cmdline = $opts->{cmdline} // $vm->{cmdline};
+    my $kernel = $opts->{kernel} // $conf->{kernel};
+    my $cmdline = $opts->{cmdline} // $conf->{cmdline};
     	
-    &image_mount($vm, qemu => 1);   
-    
-    if (!$vm->{part}->{boot}->{_mnt})
+    &image_mount($conf, qemu => 1);   
+
+    my $mtab = $conf->{image}->{mtab};
+    my $boot_mnt = $mtab->{boot}->{mountpoint} || die;
+
+
+    if (!$boot_mnt || (! -d $boot_mnt))
     {
 	printf STDERR "Cannot find mountpoint.\n";
 	&image_umount($vm, qemu => 1);
 	exit 1;
     }
 
-    my $partuuid = $vm->{part}->{root}->{id}->{PARTUUID};
-    my $mount = $vm->{part}->{boot}->{_mnt};
+    my $root_partuuid = $mtab->{root}->{partuuid};
+    my $root_fstype = $mtab->{root}->{fstype};
 
-    my $grub = catdir($mount, "grub");
+    my $grub = catdir($boot_mnt, "grub");
     if (!-d $grub)
     {
 	mkdir($grub) || die;
@@ -1195,21 +1194,38 @@ sub grub_install {
     # Actual grub.cfg
     # --------------------
     
-    my $grub_dir = catdir($mount, "grub");
+    my $grub_dir = catdir($boot_mnt, "grub");
     if (! -d $grub_dir)
     {
-	`mkdir -p $grub_dir`;
+	qx(mkdir -p $grub_dir);
     }
 
+    # --------------------
+    # Copy kernel
+    # --------------------
+
+    if (!-f $kernel)
+    {
+	printf(STDERR "Cannot find kernel %s\n", $kernel);
+	&image_umount($vm, qemu => 1);
+	exit(1);
+    }
+    
+    if (!copy($kernel, catfile($boot_mnt, basename($kernel))))
+    {
+	printf(STDER "Cannot copy kernel to image\n");
+	&image_umount($vm, qemu => 1);
+	exit(1);
+    }	       
+    
     # --------------------
     # grub.cfg
     # --------------------
 
-    my $fstype = $vm->{part}->{root}->{id}->{TYPE};
     my $linux = join(" ", ("linux",
-			   sprintf("(\$boot)/vmlinuz-%s", $kernel),
-			   sprintf("root=PARTUUID=%s",  $partuuid),
-			   sprintf("rootfstype=%s", $fstype),
+			   sprintf("(\$boot)/%s", basename($kernel)),
+			   sprintf("root=PARTUUID=%s",  $root_partuuid),
+			   sprintf("rootfstype=%s", $root_fstype),
 			   "console=ttyS0", $cmdline));
 
     my $stream;
@@ -1226,7 +1242,7 @@ sub grub_install {
 
     printf("grub.cfg installed for kernel version %s\n", $kernel);
 
-    &image_umount($vm, qemu => 1);
+    &image_umount($conf, qemu => 1);
 }
 
 # ----------------------------------------------------------------------
