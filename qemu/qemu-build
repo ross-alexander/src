@@ -49,7 +49,7 @@
 #
 # ----------------------------------------------------------------------
 
-use 5.24.0;
+use 5.34.0;
 use File::Spec::Functions qw(:ALL);
 use File::Copy;
 use File::Slurp;
@@ -337,6 +337,18 @@ sub image_mount {
     # Use blkid to determine details of image
     # --------------------
 
+    my $part_map = {
+	root => {
+	    mountpoint => '/',
+	},
+	boot => {
+	    mountpoint => '/boot',
+	},
+	esp => {
+	    mountpoint => '/boot/efi'
+	},
+    };
+
     my @blkid = map {
         +{ map { split(m:=:, $_) } split(m:\n:, $_) }
     }  split(m:\n\n:, qx(blkid -o export ${dev}*));
@@ -380,10 +392,10 @@ sub image_mount {
 	# map devices to partitions
 	# --------------------
 	
-	my $partmap = {};
+	my $dev_to_part_map = {};
 	while (my ($k, $v) = each(%$part))
 	{
-	    $partmap->{$v->{nbd}} = $k;
+	    $dev_to_part_map->{$v->{nbd}} = $k;
 	}
 	
 	# --------------------
@@ -393,7 +405,7 @@ sub image_mount {
 	for my $blkid (grep(m:$dev:, split(m:\n:, qx/blkid/)))
 	{
 	    my ($dev, $list) = split(m/: /, $blkid, 2);
-	    if (my $name = $partmap->{$dev})
+	    if (my $name = $dev_to_part_map->{$dev})
 	    {
 		print $dev," ", $name, " ", $list, "\n";
 		for my $i (split(m: :, $list))
@@ -404,6 +416,21 @@ sub image_mount {
 		    
 		    $part->{$name}->{id}->{$k} = $v;
 		}
+		
+		if (!$part_map->{$name})
+		{
+		    print(STDERR "Cannot find mountpoint of '%s'\n", $name);
+		    continue;
+		}
+		my $blkid_map = $part->{$name}->{id};
+		
+		$mtab->{$name} = {
+		    dev => $dev,
+		    path => $part_map->{$name}->{mountpoint},
+		    fstype => $blkid_map->{TYPE},
+		    label => $blkid_map->{LABEL},
+		    uuid => $blkid_map->{UUID},
+		    partuuid => $blkid_map->{PARTUUID},		};
 	    }
 	}
     }
@@ -423,10 +450,6 @@ sub image_mount {
     # Create mount points
     # --------------------
     
-#    $part->{root}->{mnt} = "/";
-#    $part->{boot}->{mnt} = "/boot";
-#    $part->{esp}->{mnt} = "/boot/efi";
-
     my $mnt_root = catdir($tmpdir, "root");
 
     for my $n ('root', 'boot', 'esp')
@@ -694,36 +717,63 @@ sub image_create {
 # ----------------------------------------------------------------------
 
 sub efi_install {
-    my ($conf, @opts) = @_;
-    my $opts = {@opts};
-    my $name = $conf->{name};
-    my $dev = $conf->{image}->{device};
-    my $path = $conf->{image}->{path};
-    my $fmt = $conf->{image}->{format};
+    my $vm = shift @_;
+    my $opts = {@_};
+    
+    my $conf = $vm->configuration_get();
+    
+# --------------------
+# Put everything into a directory
+# --------------------
+
+    my $vmname = $conf->{name} || die;
+    my $image = $conf->{image} || die;
+    my $format = $conf->{image}->{format} || die;
+    my $size = $conf->{image}->{size} || die;
+
+    my $imagefile = $conf->{image}->{path};
+    my $basedir = dirname($imagefile);
 
     my $vars = 'OVMF_VARS.fd';
 
-    if (!-f catdir($name, $vars))
+    my $vars_src = catfile($opts->{ovmf_base}, $vars);
+    
+    if (-f $vars_src)
     {
-	copy(catdir($opts->{ovmf_base}, $vars), catfile($name, $vars)) || die;
+	my $vars_dst = catfile($basedir, $vars);
+	
+	if (copy($vars_src, $vars_dst))
+	{
+	    printf("%s -> %s copied\n", $vars_src, $vars_dst);
+	}
+	else
+	{
+	    printf("%s -> %s : %s\n", $vars_src, $vars_dst, $!);
+	    return 0;
+	}
     }
     
     &image_mount($conf, qemu => 1) || die;
 
-    my $bootmnt = $conf->{part}->{boot}->{_mnt} || die;
-    my $root = $conf->{part}->{root} || die;
-    my $partuuid = $root->{id}->{PARTUUID};
+    my $mtab = $conf->{image}->{mtab};
+    say "--------------------";
+    say %{$mtab->{esp}};
+    say "--------------------";
+    
+    my $esp_mnt = $mtab->{esp}->{mountpoint} || die;
+#    my $root = $mtab->{root}->{mountpoint} || die;
+#    my $partuuid = $mtab->{root}->{partuuid};
 
     # --------------------
     # Copy grub.efi to EFI/BOOT/BOOTX64.EFI
     # --------------------
     
-    printf "Installing EFI bootloader on device %s (%s)\n", $dev, $bootmnt;
+#    printf "Installing EFI bootloader on device %s (%s)\n", $dev, $bootmnt;
     
-    my $efi = catdir($bootmnt, "efi", "EFI", "BOOT");
+    my $efi = catdir($esp_mnt, "EFI", "BOOT");
     if (! -d $efi)
     {
-	`mkdir -p $efi`;
+	qx(mkdir -p $efi);
     }
     my $efi_boot = catfile($efi, "bootx64.efi");
     my $grub_efi = catdir($opts->{ovmf_base}, 'grub/grub.efi');
@@ -850,7 +900,6 @@ sub pkgs_install {
 # ----------------------------------------------------------------------
 sub etc_install {
     my ($vm) = @_;
-
     my $conf = $vm->configuration_get();
     
     &image_mount($conf, qemu => 1);   
