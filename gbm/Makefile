@@ -4,7 +4,7 @@ CXX	= g++
 CFLAGS	=  `pkg-config --cflags libdrm` -std=c17 -D_GNU_SOURCE -g
 LDLIBS	= `pkg-config --libs libdrm` -lEGL -lGL -lgbm
 
-EXE = example-1 example-2 example-3 example-4 example-5 example-6 formats drm example-0 drm-gbm draw
+EXE = example-1 example-2 example-3 example-4 example-5 example-6 formats drm drm-gbm draw
 
 ALL: $(EXE)
 

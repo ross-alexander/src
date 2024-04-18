@@ -1,3 +1,9 @@
+/* ----------------------------------------------------------------------
+--
+-- main.cc
+--
+---------------------------------------------------------------------- */
+   
 #include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -119,8 +125,8 @@ int main(int argc, char * const argv[])
       exit(1);
     }
 
-  printf("Loaded lua file %s\n", lua);
-
+  // Disable IP to Name resolving
+  
   lua_pushinteger(L, 0);
   lua_setglobal(L, "resolve");
 

@@ -5,6 +5,8 @@
    ---------------------------------------------------------------------- */
 
 #define _POSIX_C_SOURCE 200112L
+#define _GNU_SOURCE
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -189,21 +191,21 @@ static void wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
 {
   struct client_state *client_state = data;
   struct pointer_event *event = &client_state->pointer_event;
-  fprintf(stderr, "pointer frame @ %d: ", event->time);
+  //   fprintf(stderr, "pointer frame @ %d: ", event->time);
 
   if (event->event_mask & POINTER_EVENT_ENTER)
     {
-      fprintf(stderr, "entered %f, %f ", wl_fixed_to_double(event->surface_x), wl_fixed_to_double(event->surface_y));
+      // fprintf(stderr, "entered %f, %f ", wl_fixed_to_double(event->surface_x), wl_fixed_to_double(event->surface_y));
     }
   
   if (event->event_mask & POINTER_EVENT_LEAVE)
     {
-      fprintf(stderr, "leave");
+      // fprintf(stderr, "leave");
     }
 
   if (event->event_mask & POINTER_EVENT_MOTION)
     {
-      fprintf(stderr, "motion %f, %f ", wl_fixed_to_double(event->surface_x), wl_fixed_to_double(event->surface_y));
+      // fprintf(stderr, "motion %f, %f ", wl_fixed_to_double(event->surface_x), wl_fixed_to_double(event->surface_y));
     }
 
   if (event->event_mask & POINTER_EVENT_BUTTON)
@@ -251,7 +253,7 @@ static void wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
     }
   }
   
-  fprintf(stderr, "\n");
+  // fprintf(stderr, "\n");
   memset(event, 0, sizeof(*event));
 }
 
@@ -286,15 +288,17 @@ static const struct wl_buffer_listener wl_buffer_listener = {
 static struct wl_buffer *draw_frame(struct client_state *state)
 {
   const int width = 640, height = 480;
-  int stride = width * 4;
+  int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
   int size = stride * height;
 
-  int fd = allocate_shm_file(size);
+  //  int fd = allocate_shm_file(size);
+  int fd = memfd_create("buffer", 0);
   if (fd == -1)
     {
       return NULL;
     }
-  
+  ftruncate(fd, size);
+
   uint32_t *data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (data == MAP_FAILED)
     {
@@ -307,9 +311,7 @@ static struct wl_buffer *draw_frame(struct client_state *state)
   wl_shm_pool_destroy(pool);
   close(fd);
 
-  int cairo_stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
-  
-  fprintf(stdout, "xdg_surface_configure: %d × %d × %d\n", width, height, cairo_stride);
+  fprintf(stdout, "draw_frame: %d × %d × %d\n", width, height, stride);
   
   cairo_surface_t *surface = cairo_image_surface_create_for_data((void*)data, CAIRO_FORMAT_ARGB32, width, height, stride);
   cairo_t *cairo = cairo_create(surface);
@@ -361,9 +363,11 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
     .ping = xdg_wm_base_ping,
 };
 
-
-
-
+/* ----------------------------------------------------------------------
+   --
+   -- wl_seat
+   --
+   ---------------------------------------------------------------------- */
 
 static void wl_seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities)
 {

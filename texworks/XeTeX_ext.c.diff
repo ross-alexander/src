@@ -1,0 +1,140 @@
+*** XeTeX_ext.c.orig	2024-04-08 11:47:15.223210571 +0100
+--- XeTeX_ext.c	2024-04-18 09:34:45.564035004 +0100
+***************
+*** 2031,2037 ****
+                 bothered to deal with the memory reallocation headache of doing it differently
+              */
+              int nRuns = ubidi_countRuns(pBiDi, &errorCode);
+!             double width = 0;
+              int i, runIndex;
+              int32_t logicalStart, length;
+              for (runIndex = 0; runIndex < nRuns; ++runIndex) {
+--- 2031,2037 ----
+                 bothered to deal with the memory reallocation headache of doing it differently
+              */
+              int nRuns = ubidi_countRuns(pBiDi, &errorCode);
+!             Fixed width = 0;
+              int i, runIndex;
+              int32_t logicalStart, length;
+              for (runIndex = 0; runIndex < nRuns; ++runIndex) {
+***************
+*** 2040,2053 ****
+              }
+  
+              if (totalGlyphCount > 0) {
+!                 double x, y;
+                  glyph_info = xcalloc(totalGlyphCount, native_glyph_info_size);
+                  locations = (FixedPoint*)glyph_info;
+                  glyphIDs = (uint16_t*)(locations + totalGlyphCount);
+                  glyphAdvances = (Fixed*) xcalloc(totalGlyphCount, sizeof(Fixed));
+                  totalGlyphCount = 0;
+  
+!                 x = y = 0.0;
+                  for (runIndex = 0; runIndex < nRuns; ++runIndex) {
+                      int nGlyphs;
+                      dir = ubidi_getVisualRun(pBiDi, runIndex, &logicalStart, &length);
+--- 2040,2053 ----
+              }
+  
+              if (totalGlyphCount > 0) {
+!                 Fixed x, y;
+                  glyph_info = xcalloc(totalGlyphCount, native_glyph_info_size);
+                  locations = (FixedPoint*)glyph_info;
+                  glyphIDs = (uint16_t*)(locations + totalGlyphCount);
+                  glyphAdvances = (Fixed*) xcalloc(totalGlyphCount, sizeof(Fixed));
+                  totalGlyphCount = 0;
+  
+!                 x = y = 0;
+                  for (runIndex = 0; runIndex < nRuns; ++runIndex) {
+                      int nGlyphs;
+                      dir = ubidi_getVisualRun(pBiDi, runIndex, &logicalStart, &length);
+***************
+*** 2064,2076 ****
+  
+                      for (i = 0; i < nGlyphs; ++i) {
+                          glyphIDs[totalGlyphCount] = glyphs[i];
+!                         locations[totalGlyphCount].x = D2Fix(positions[i].x + x);
+!                         locations[totalGlyphCount].y = D2Fix(positions[i].y + y);
+                          glyphAdvances[totalGlyphCount] = D2Fix(advances[i]);
+                          ++totalGlyphCount;
+                      }
+!                     x += positions[nGlyphs].x;
+!                     y += positions[nGlyphs].y;
+  
+                      free(glyphs);
+                      free(positions);
+--- 2064,2076 ----
+  
+                      for (i = 0; i < nGlyphs; ++i) {
+                          glyphIDs[totalGlyphCount] = glyphs[i];
+!                         locations[totalGlyphCount].x = D2Fix(positions[i].x) + x;
+!                         locations[totalGlyphCount].y = D2Fix(positions[i].y) + y;
+                          glyphAdvances[totalGlyphCount] = D2Fix(advances[i]);
+                          ++totalGlyphCount;
+                      }
+!                     x += D2Fix(positions[nGlyphs].x);
+!                     y += D2Fix(positions[nGlyphs].y);
+  
+                      free(glyphs);
+                      free(positions);
+***************
+*** 2079,2089 ****
+                  width = x;
+              }
+  
+!             node_width(node) = D2Fix(width);
+              native_glyph_count(node) = totalGlyphCount;
+              native_glyph_info_ptr(node) = glyph_info;
+          } else {
+!             double width = 0;
+              totalGlyphCount = layoutChars(engine, txtPtr, 0, txtLen, txtLen, (dir == UBIDI_RTL));
+  
+              glyphs = (uint32_t*) xcalloc(totalGlyphCount, sizeof(uint32_t));
+--- 2079,2089 ----
+                  width = x;
+              }
+  
+!             node_width(node) = width;
+              native_glyph_count(node) = totalGlyphCount;
+              native_glyph_info_ptr(node) = glyph_info;
+          } else {
+!             Fixed width = 0;
+              totalGlyphCount = layoutChars(engine, txtPtr, 0, txtLen, txtLen, (dir == UBIDI_RTL));
+  
+              glyphs = (uint32_t*) xcalloc(totalGlyphCount, sizeof(uint32_t));
+***************
+*** 2096,2101 ****
+--- 2096,2102 ----
+  
+              if (totalGlyphCount > 0) {
+                  int i;
++ 		Fixed x = 0;
+                  glyph_info = xcalloc(totalGlyphCount, native_glyph_info_size);
+                  locations = (FixedPoint*)glyph_info;
+                  glyphIDs = (uint16_t*)(locations + totalGlyphCount);
+***************
+*** 2105,2115 ****
+                      glyphAdvances[i] = D2Fix(advances[i]);
+                      locations[i].x = D2Fix(positions[i].x);
+                      locations[i].y = D2Fix(positions[i].y);
+                  }
+!                 width = positions[totalGlyphCount].x;
+              }
+  
+!             node_width(node) = D2Fix(width);
+              native_glyph_count(node) = totalGlyphCount;
+              native_glyph_info_ptr(node) = glyph_info;
+  
+--- 2106,2117 ----
+                      glyphAdvances[i] = D2Fix(advances[i]);
+                      locations[i].x = D2Fix(positions[i].x);
+                      locations[i].y = D2Fix(positions[i].y);
++ 		    x += D2Fix(advances[i]);
+                  }
+!                 width = x;
+              }
+  
+!             node_width(node) = width;
+              native_glyph_count(node) = totalGlyphCount;
+              native_glyph_info_ptr(node) = glyph_info;
+  

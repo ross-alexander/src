@@ -37,8 +37,6 @@ struct surfers_t {
   struct xdg_toplevel *xdg_toplevel;
 };
 
-
-
 /* ----------------------------------------------------------------------
    --
    -- xdg_surface_configure
@@ -50,7 +48,7 @@ static void wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
   printf("wl_buffer_release\n");
   surfers_t *surfers = (surfers_t*)data;
     /* Sent by the compositor when it's no longer using this buffer */
-  wl_buffer_destroy(surfers->wl_buffer);
+  wl_buffer_destroy(wl_buffer);
 }
 
 static const struct wl_buffer_listener wl_buffer_listener = {

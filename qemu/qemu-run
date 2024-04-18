@@ -62,6 +62,7 @@ sub model_aarch64 {
     push(@cmd, '-cpu', $run->{vm}->{cpu}) if ($run->{vm}->{cpu});
     push(@cmd, '-kernel', $run->{vm}->{kernel}) if ($run->{vm}->{kernel});
     push(@cmd, '-initrd', $run->{vm}->{initrd}) if ($run->{vm}->{initrd});
+    push(@cmd, '-bios', $run->{vm}->{bios}) if ($run->{vm}->{bios});
     return [@cmd];
 };
 
@@ -119,7 +120,7 @@ sub model_x86_64 {
 	croak "$0: OVMF vars file $ovmf_vars missing" if (! -f $ovmf_vars);
 	$run->{ovmf_code} = $ovmf_code;
 	$run->{ovmf_vars} = $ovmf_vars;
-	push(@cmd, "-drive", sprintf("unit=0,if=pflash,format=raw,readonly,file=%s", $run->{ovmf_code}));
+	push(@cmd, "-drive", sprintf("unit=0,if=pflash,format=raw,readonly=on,file=%s", $run->{ovmf_code}));
 	push(@cmd, "-drive", sprintf("unit=1,if=pflash,format=raw,file=%s", $run->{ovmf_vars}));
 
 	# --------------------
@@ -232,6 +233,13 @@ sub qemu_run {
     {
 	my $drive = sprintf("hd%d", $run->{drive_index}++);
 	push(@cmd, '-drive', sprintf('if=none,file=%s,format=%s,id=%s', $run->{image}, $run->{format}, $drive));
+	push(@cmd, '-device', "virtio-blk-device,drive=$drive");
+	$root_dev = "vda";
+    }
+    elsif ($run->{device} eq "virtio-blk-pci")
+    {
+	my $drive = sprintf("hd%d", $run->{drive_index}++);
+	push(@cmd, '-drive', sprintf('if=none,file=%s,format=%s,id=%s', $run->{image}, $run->{format}, $drive));
 	push(@cmd, '-device', "virtio-blk-pci,drive=$drive");
 	$root_dev = "vda";
     }
@@ -249,13 +257,20 @@ sub qemu_run {
     
     if ($run->{vm}->{kernel})
     {
-    	if ($run->{partition})
+	if ($run->{vm}->{append} && $run->{vm}->{append} =~ 'root=')
 	{
-	    push(@append, sprintf("root=/dev/%s%d", $root_dev, $run->{partition}));
+	    # Do nothing
 	}
 	else
 	{
-	    push(@append, sprintf("root=/dev/%s", $root_dev));
+	    if ($run->{partition})
+	    {
+		push(@append, sprintf("root=/dev/%s%d", $root_dev, $run->{partition}));
+	    }
+	    else
+	    {
+		push(@append, sprintf("root=/dev/%s", $root_dev));
+	    }
 	}
     }
     # --------------------
@@ -289,10 +304,11 @@ sub qemu_run {
     my $index = 0;
     for my $n (@{$vm->{nic}})
     {
+	my $netdev = $n->{device} // 'virtio-net-pci';
 	my $ifname = sprintf("%s_%02d", $run->{name}, $index);
 	push(@cmd, "-netdev", sprintf("type=tap,id=net%d,ifname=%s,script=/locker/vm/ovs-up,downscript=/locker/vm/ovs-down",
 				      $index, $ifname));
-	push(@cmd, "-device", sprintf("virtio-net-pci,netdev=net%d,mac=%s", $index, $n->{mac}));
+	push(@cmd, "-device", sprintf("%s,netdev=net%d,mac=%s", $netdev, $index, $n->{mac}));
 	$index++;
 	$netdb->{$ifname} = to_json($n);
     }
