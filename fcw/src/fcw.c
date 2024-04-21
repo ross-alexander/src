@@ -782,7 +782,7 @@ xmlNodePtr EntityToSvg(Fcw *fcw, Entity *e, Matrix3f transform, int flags)
   xmlNodePtr res = NULL;
   char stroke[8], fill[8];
 
-  printf("EntityToSvg(%d %d)\n", common->EColor, common->EColor2);
+  //  printf("EntityToSvg(%d %d)\n", common->EColor, common->EColor2);
   
   sprintf(stroke, "#%06x", DefaultPalette[common->EColor]);
   sprintf(fill, "#%06x", DefaultPalette[common->EColor2]);
@@ -896,7 +896,7 @@ xmlNodePtr SublistToSvg(Fcw *fcw, GPtrArray *sublist, Matrix3f transform, int fl
 {
   xmlNodePtr g = xmlNewNode(NULL, (xmlChar*)"g");
 
-  printf("SublistToSvg(%d)\n", sublist->len);
+  //  printf("SublistToSvg(%d)\n", sublist->len);
 
   for (int i = 0; i < sublist->len; i++)
     {
@@ -942,6 +942,9 @@ int FcwToSvg(Fcw *fcw)
   char *x = g_strdup_printf("%hfpt", hdr->Low.x);
   char *y = g_strdup_printf("%hfpt", hdr->Low.y);
   char *viewbox = g_strdup_printf("%hf %hf %hf %hf", hdr->Low.x, hdr->Low.y, w, h);
+
+  printf("width=%s height=%s x=%s y=%s viewbox=%s\n", width, height, x, y, viewbox);
+
   xmlSetProp(svg, (xmlChar*)"x", (xmlChar*)x);
   xmlSetProp(svg, (xmlChar*)"y", (xmlChar*)y);
   xmlSetProp(svg, (xmlChar*)"width", (xmlChar*)width);
@@ -1182,7 +1185,8 @@ int FcwEStruct(Fcw *fcw, Entity *e)
   else
     {
       InfoBlock *ib = (InfoBlock*)common;
-      printf("InfoBlock %d\n", ib->IType);
+      if (ib)
+	printf("InfoBlock %d\n", ib->IType);
     }
   if (e->sublist)
     FcwDecodeSublist(fcw, e->sublist);
@@ -1222,6 +1226,7 @@ int FcwDecodeBuffer(char *file, size_t size, unsigned char *buf)
     {
       nfile = (char*)calloc(1, strlen(file) - 4 + 1);
       strncpy(nfile, file, strlen(file) - 4);
+      printf("Catalog file\n");
       fcw->flags |= FCW_CATALOG;
     }
   else
@@ -1232,10 +1237,13 @@ int FcwDecodeBuffer(char *file, size_t size, unsigned char *buf)
 
   Entity *root = (Entity*)calloc(sizeof(Entity), 1);
   root->sublist = g_ptr_array_new();
-  int sublist = 1;
-  GTrashStack *stack = NULL;
-  g_trash_stack_push(&stack, root);
+  fcw->root = root;
+  int level = 1;
+  //  GTrashStack *stack = NULL;
+  //  g_trash_stack_push(&stack, root);
 
+  Entity *current_entity = root;
+  
   for (int offset = 0; offset < size; )
     {
       Common *ptr = (Common*)(buf + offset);
@@ -1254,21 +1262,20 @@ int FcwDecodeBuffer(char *file, size_t size, unsigned char *buf)
 	 If size == 0 then sublist marker
 	 -------------------- */
 
-      Entity *e = (Entity*)g_trash_stack_peek(&stack);
-
       if (esize == 5)
 	{
 	  if (etype == 0)
 	    {
-	      g_trash_stack_push(&stack, g_ptr_array_index(e->sublist, e->sublist->len - 1));
-	      sublist++;
-	      printf("++ sublist %d\n", sublist);
+	      GPtrArray *array = current_entity->sublist;
+	      current_entity = (Entity*)g_ptr_array_index(array, array->len-1);
+	      level++;
+	      //	      printf("++ sublist %d\n", level);
 	    }
 	  else
 	    {
-	      g_trash_stack_pop(&stack);
-	      sublist--;
-	      printf("-- sublist %d\n", sublist);
+	      current_entity = current_entity->parent;
+	      level--;
+	      //	      printf("-- sublist %d\n", level);
 	    }
 	}
       else if (etype == 0)
@@ -1281,22 +1288,18 @@ int FcwDecodeBuffer(char *file, size_t size, unsigned char *buf)
 	  Entity *n = (Entity*)calloc(sizeof(Entity), 1);
 	  n->etype = etype;
 	  n->ptr = ptr;
-	  n->level = sublist;
+	  n->level = level;
 	  n->sublist = g_ptr_array_new();
-	  FcwEStruct(fcw, n);
-	  g_ptr_array_add(e->sublist, n);
+	  n->parent = current_entity;
+	  g_ptr_array_add(current_entity->sublist, n);
 	}
       offset += esize;
     }
-
-  fcw->root = (Entity*)g_trash_stack_pop(&stack);
-  FcwInfoBlock(fcw, fcw->iblock[0]);
-
   //  FcwDecodeSublist(fcw, fcw->root->sublist);
-  return 0;
+  FcwInfoBlock(fcw, fcw->iblock[0]);
 
   FcwToSvg(fcw);
   if (fcw->flags & FCW_CATALOG)
-    SymTabToSvg(fcw);
+      SymTabToSvg(fcw);
   return 1;
 }
