@@ -22,60 +22,63 @@ int SymbolToSvg(char *key, Symbol *sym, struct SymToSvgStuff *stuff)
 
   xmlNodePtr clone = SublistToSvg(stuff->fcw, sym->sublist, transform, stuff->flags);
 
-  printf("Converting symbol %s to svg...", key);
-
     // xmlCopyNode(sym->svg, 1);
-  xmlChar *id = g_strdup(key);
+  char *id = g_strdup(key);
   g_strdelimit(id, " ", '-');
-  xmlSetProp(clone, "id", id);
+  xmlSetProp(clone, (xmlChar*)"id", (xmlChar*)id);
   xmlAddChild(stuff->defs, clone);
 
   double h = sym->original->Hi.y - sym->original->Low.y + 12.0;
   double w = sym->original->Hi.x - sym->original->Low.x + 4.0;
-
-  xmlNodePtr use = xmlNewNode(NULL, "use");
+  
+  xmlNodePtr use = xmlNewNode(NULL, (xmlChar*)"use");
   char *link = g_strdup_printf("#%s", id);
   char *x = g_strdup_printf("%4.2f", stuff->width - sym->original->Low.x);
   char *y = g_strdup_printf("%4.2f", stuff->height - sym->original->Low.y);
 
-  xmlSetProp(use, "xlink:href", (xmlChar*)link);
-  xmlSetProp(use, "x", x);
-  xmlSetProp(use, "y", y);
+  xmlSetProp(use, (xmlChar*)"xlink:href", (xmlChar*)link);
+  xmlSetProp(use, (xmlChar*)"x", (xmlChar*)x);
+  xmlSetProp(use, (xmlChar*)"y", (xmlChar*)y);
 
   free(x);
   free(y);
   free(link);
   free(id);
 
-  if (w < strlen(key))
-    w = 5 * strlen(key);
+  double fontsize = 5;
+  
+  if (w < (fontsize * strlen(key)))
+    w = fontsize * strlen(key);
 
-  xmlNodePtr box = xmlNewNode(NULL, "path");
+  xmlNodePtr box = xmlNewNode(NULL, (xmlChar*)"path");
   char *d = g_strdup_printf("M%f %f L %f %f L %f %f L %f %f z",
 			    stuff->width, stuff->height,
 			    stuff->width + w, stuff->height,
 			    stuff->width + w, stuff->height + h,
 			    stuff->width, stuff->height + h);
   char *style = g_strdup_printf("stroke:red; fill:none; stroke-width:1pt;");
-  xmlSetProp(box, "style", style);
-  xmlSetProp(box, "d", d);
+  xmlSetProp(box, (xmlChar*)"style", (xmlChar*)style);
+  xmlSetProp(box, (xmlChar*)"d", (xmlChar*)d);
 
   free(style);
   free(d);
 
-  xmlNodePtr text = xmlNewNode(NULL, "text");
+  xmlNodePtr text = xmlNewNode(NULL, (xmlChar*)"text");
   x = g_strdup_printf("%4.2f", stuff->width);
   y = g_strdup_printf("%4.2f", stuff->height + h - 2);
-  xmlSetProp(text, "x", x);
-  xmlSetProp(text, "y", y);
-  xmlSetProp(text, "style", "font-size:4pt;font-family:Courier;");
-  xmlAddChild(text, xmlNewText(key));
+  xmlSetProp(text, (xmlChar*)"x", (xmlChar*)x);
+  xmlSetProp(text, (xmlChar*)"y", (xmlChar*)y);
+  xmlSetProp(text, (xmlChar*)"style", (xmlChar*)"font-size:4pt;font-family:Courier;");
+  xmlAddChild(text, xmlNewText((xmlChar*)key));
   free(x);
   free(y);
 
   xmlAddChild(stuff->svg, box);
   xmlAddChild(stuff->svg, text);
   xmlAddChild(stuff->svg, use);
+
+  printf("Converting symbol %s [%f %f @ %f %f] to svg...", key, h, w, stuff->width, stuff->height);
+  
   if (h > stuff->lineh)
     stuff->lineh = h;
 
@@ -104,22 +107,26 @@ void SymTabToSvg(Fcw *fcw)
   stuff.defs = xmlNewNode(NULL, (xmlChar*)"defs");
   stuff.fcw = fcw;
   stuff.flags = 0;
-  stuff.width = stuff.height = stuff.lineh = 0.0;
+  stuff.width = stuff.height = stuff.lineh = stuff.linew = 0.0;
 
+  printf("Symbol table to SVG\n");
+  
   xmlDocSetRootElement(stuff.doc, stuff.svg);
   xmlAddChild(stuff.svg, stuff.defs);
   stuff.width = stuff.height = 0.0;
   g_tree_foreach(fcw->symbolTab, (GTraverseFunc)SymbolToSvg, &stuff);
 
-  xmlSetProp(stuff.svg, "version", "1.1");
-  xmlSetProp(stuff.svg, "xmlns", "http://www.w3.org/2000/svg");
-  xmlSetProp(stuff.svg, "xmlns:xlink", "http://www.w3.org/1999/xlink");
+  xmlSetProp(stuff.svg, (xmlChar*)"version", (xmlChar*)"1.1");
+  xmlSetProp(stuff.svg, (xmlChar*)"xmlns", (xmlChar*)"http://www.w3.org/2000/svg");
+  xmlSetProp(stuff.svg, (xmlChar*)"xmlns:xlink", (xmlChar*)"http://www.w3.org/1999/xlink");
 
+  printf("width=%f height=%f linew=%f lineh=%f\n", stuff.width, stuff.height, stuff.linew, stuff.lineh);
+  
   char *width = g_strdup_printf("%6.2f", stuff.linew);
   char *height = g_strdup_printf("%6.2f", stuff.height + stuff.lineh);
 
-  xmlSetProp(stuff.svg, "width", width);
-  xmlSetProp(stuff.svg, "height", height);
+  xmlSetProp(stuff.svg, (xmlChar*)"width", (xmlChar*)width);
+  xmlSetProp(stuff.svg, (xmlChar*)"height", (xmlChar*)height);
 
   free(width);
   free(height);
