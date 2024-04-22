@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <assert.h>
 
 #include "fcw.h"
 
@@ -337,7 +338,7 @@ Vector3f Vector3fFrom2f(float x, float y)
 
 int SymbolTableToSvg(gpointer key, gpointer data, gpointer user_data)
 {
-  printf("Adding symbol %s to table.\n", key);
+  printf("Adding symbol %s to table.\n", (char*)key);
   Symbol *sym = (Symbol*)data;
   xmlNodePtr clone = xmlCopyNode(sym->svg, 1);
   xmlChar *id = xmlGetProp(clone, (xmlChar*)"id");
@@ -360,6 +361,8 @@ xmlNodePtr SymrefToSvg(Fcw *fcw, Entity *e, SYMREF *sref, Matrix3f transform, in
   Matrix3f fulltrans = MatrixMatrix3fMult(symtrans, transform);
   Symbol *sym = (Symbol*)g_tree_lookup(fcw->symbolTab, sref->SName);
 
+  printf("SymrefToSvg(%s)\b", sref->SName);
+  
 #ifdef UseSvgUse
   xmlNodePtr use = xmlNewNode(NULL, (xmlChar*)"use");
   if (sym)
@@ -440,9 +443,11 @@ xmlNodePtr LineToSvg(Fcw *fcw, Line2 *g, Matrix3f transform, int flags)
 
   Vector3f p1 = VectorMatrix3fMult(Vector3fFrom2f(g->Line.p1.x, g->Line.p1.y), transform);
   Vector3f p2 = VectorMatrix3fMult(Vector3fFrom2f(g->Line.p2.x, g->Line.p2.y), transform);
-	
+
   char *d = g_strdup_printf("M %f %f L %f %f", p1.v[0], p1.v[1], p2.v[0], p2.v[1]);
-  xmlNodePtr path = xmlNewNode(NULL, (xmlChar*)"path");
+
+  xmlNodePtr path = xmlNewNode(0, "path");
+  
   char *style = g_strdup_printf("stroke:%s; fill:none;stroke-width:0.1pt;", stroke);
   if (!(flags & ENT_TO_SVG_INHERIT))
     xmlSetProp(path, (xmlChar*)"style", (xmlChar*)style);
@@ -467,12 +472,12 @@ xmlNodePtr PathToSvg(Fcw *fcw, Path2 *g, Matrix3f transform, int flags)
   int nodes = g->Count;
   char cmd = 'M';
   char **strbits = (char**)calloc(sizeof(char*), nodes + 1);
-  float *f = (float*)calloc(sizeof(float), nodes * 2);
+  //  float *f = (float*)calloc(sizeof(float), nodes * 2);
   for (int k = 0; k < nodes; k++)
     {
       GPOINT2 *n = g->Nodes;
       Vector3f v = VectorMatrix3fMult(Vector3fFrom2f(n[k].x, n[k].y), transform);
-      strbits[k] = g_strdup_printf("%c %hf %hf ", cmd, v.v[0], v.v[1]);
+      strbits[k] = g_strdup_printf("%c %f %f ", cmd, v.v[0], v.v[1]);
       strsize += strlen(strbits[k]);
       cmd = 'L';
     }
@@ -496,16 +501,16 @@ xmlNodePtr PathToSvg(Fcw *fcw, Path2 *g, Matrix3f transform, int flags)
   if (!(g->Flags && NL_CLS))
     {
       if (g->LWidth)
-	style = g_strdup_printf("stroke:%s; fill:none; stroke-width:%hf;", stroke, g->LWidth);
+	style = g_strdup_printf("stroke:%s; fill:none; stroke-width:%f;", stroke, g->LWidth);
       else
 	style = g_strdup_printf("stroke:%s; fill:none; stroke-width:1px;", stroke);
     }
   else
     {
       if (g->EFStyle == 0)
-	style = g_strdup_printf("stroke:%s; fill:none; stroke-width:%hf;", stroke, g->LWidth);
+	style = g_strdup_printf("stroke:%s; fill:none; stroke-width:%f;", stroke, g->LWidth);
       else
-	style = g_strdup_printf("stroke:%s; fill:%s; stroke-width:%hf;", stroke, g->LWidth == 0.0 ? fill : "none", g->LWidth);
+	style = g_strdup_printf("stroke:%s; fill:%s; stroke-width:%f;", stroke, g->LWidth == 0.0 ? fill : "none", g->LWidth);
     }
   xmlNodePtr path = xmlNewNode(NULL, (xmlChar*)"path");
   if (!(flags & ENT_TO_SVG_INHERIT))
@@ -617,7 +622,7 @@ xmlNodePtr ElpToSvg(Fcw *fcw, Elp2 *cir, Matrix3f transform, int flags)
   double ecc = cir->Circle.Ecc;
   double incl = cir->Circle.Incl;
 
-  Vector3f p1 = VectorMatrix3fMult(Vector3fFrom2f(x, y), transform);
+  //  Vector3f p1 = VectorMatrix3fMult(Vector3fFrom2f(x, y), transform);
 
   //  printf("Elp %f %f %f %f\n", x, y, ecc, incl);
 
@@ -758,15 +763,18 @@ xmlNodePtr SymdefToSvg(Fcw *fcw, Entity *e, SYMDEF *sdef, Matrix3f transform, in
 {
   Symbol *s = (Symbol*)calloc(sizeof(Symbol), 1);
   Matrix3f ident = Matrix3fIdentity();
-  xmlNodePtr svg = SublistToSvg(fcw, e->sublist, ident, flags);
   char *name = g_strdup(sdef->SName);
+
+  printf("SymdefToSvg(%s)\n", name);
+  
+  xmlNodePtr svg = SublistToSvg(fcw, e->sublist, ident, flags);  
   xmlSetProp(svg, (xmlChar*)"id", (xmlChar*)name);
 
   s->original = sdef;
   s->sublist = e->sublist;
   s->svg = svg;
   g_tree_insert(fcw->symbolTab, name, s);
-  return NULL;
+  return 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -779,85 +787,96 @@ xmlNodePtr EntityToSvg(Fcw *fcw, Entity *e, Matrix3f transform, int flags)
 {
   Common *common = (Common*)e->ptr;
 
-  xmlNodePtr res = NULL;
-  char stroke[8], fill[8];
-
-  //  printf("EntityToSvg(%d %d)\n", common->EColor, common->EColor2);
+  xmlNodePtr res = 0;
+  char stroke[10], fill[10];
   
   sprintf(stroke, "#%06x", DefaultPalette[common->EColor]);
   sprintf(fill, "#%06x", DefaultPalette[common->EColor2]);
 
-  //  printf("Flags %04x\n", flags);
-  //  printf("EntityToSvg(%d - %s %s)\n", common->EType, stroke, fill);
+  printf("EntityToSvg(%d - %s %s)\n", common->EType, stroke, fill);
 
   switch(common->EType)
     {
     case 1:
-      res = PointToSvg(fcw, (Point2*)common, transform, flags);
-      break;
-    case 2:
-      res = LineToSvg(fcw, (Line2*)common, transform, flags);
-      break;
-    case 3:
-      res = PathToSvg(fcw, (Path2*)common, transform, flags);
-      break;
-    case 6:
-      res = CirToSvg(fcw, (Cir2*)common, transform, flags);
-      break;
-    case 7:
-      res = ArcToSvg(fcw, (Arc2*)common, transform, flags);
-      break;
-    case 8:
-      res = ElpToSvg(fcw, (Elp2*)common, transform, flags);
-      break;
-    case 9:
-      res = ElaToSvg(fcw, (Ela2*)common, transform, flags);
-      break;
-    case 17:
       {
-	if (e->sublist)
-	  {
-	    Common *g = common;
-	    char *style;
-	    xmlNodePtr ptr;
-	    if (g->EFStyle == 0)
-	      style = g_strdup_printf("fill-rule: evenodd; stroke:%s; fill:none; stroke-width:%hf;", stroke, g->LWidth);
-	    else
-	      style = g_strdup_printf("fill-rule: evenodd; stroke:%s; fill:%s; stroke-width:%hf;", stroke, g->LWidth == 0.0 ? fill : "none", g->LWidth);
-	    xmlNodePtr sublist = SublistToSvg(fcw, e->sublist, transform, flags | ENT_TO_SVG_INHERIT);
+	//	res = PointToSvg(fcw, (Point2*)common, transform, flags);
+	break;
+      }
+    case 2: /* Line */
+      {
+	res = LineToSvg(fcw, (Line2*)common, transform, flags);
+	break;
+      }
+    case 3: /* Path */
+      {
+	res = PathToSvg(fcw, (Path2*)common, transform, flags);
+	break;
+      }
+    case 6:
+      {
+	//	res = CirToSvg(fcw, (Cir2*)common, transform, flags);
+	break;
+      }
+    case 7:
+      {
+	res = ArcToSvg(fcw, (Arc2*)common, transform, flags);
+	break;
+      }
+    case 8:
+      {
+	//	res = ElpToSvg(fcw, (Elp2*)common, transform, flags);
+	break;
+      }
+    case 9:
+      {
+	//	res = ElaToSvg(fcw, (Ela2*)common, transform, flags);
+	break;
+      }
+    case 17: /* 2D Poly line */
+      {
+	if (!e->sublist || (e->sublist->len == 0))
+	  break;
 
-	    int slen = 0;
-	    if (sublist->children)
-	      for (ptr = sublist->children; ptr != NULL; ptr = ptr->next)
-		{
-		  char *p = (char*)xmlGetProp((xmlNode*)ptr, (xmlChar*)"d");
-		  if (p)
-		    slen += strlen(p) + 1;
-		}
-	    char *np = (char*)calloc(1, slen + 1);
-	    if (sublist->children)
-	      for (ptr = sublist->children; ptr != NULL; ptr = ptr->next)
-		{
-		  char *p = (char*)xmlGetProp((xmlNode*)ptr, (xmlChar*)"d");
-		  if (p)
-		    {
-		      strcat(np, p);
-		      strcat(np, " ");
-		    }
-		}
-	    xmlNodePtr path = xmlNewNode(NULL, (xmlChar*)"path");
-	    xmlSetProp(path, (xmlChar*)"d", (xmlChar*)np);
-	    xmlSetProp(path, (xmlChar*)"style", (xmlChar*)style);
-	    free(np);
-	    free(style);
-	    res = path;
-	    xmlFreeNode(sublist);
+	Common *g = common;
+	char *style;
+	xmlNodePtr ptr;
+	if (g->EFStyle == 0)
+	  style = g_strdup_printf("fill-rule: evenodd; stroke:%s; fill:none; stroke-width:%f;", stroke, g->LWidth);
+	else
+	  style = g_strdup_printf("fill-rule: evenodd; stroke:%s; fill:%s; stroke-width:%f;", stroke, common->LWidth == 0.0 ? fill : "none", g->LWidth);
+	
+	xmlNodePtr sublist = SublistToSvg(fcw, e->sublist, transform, flags | ENT_TO_SVG_INHERIT);
+	break;
+	int slen = 0;
+	for (xmlNodePtr ptr = sublist->children; ptr != 0; ptr = ptr->next)
+	  {
+	    char *p = (char*)xmlGetProp((xmlNode*)ptr, (xmlChar*)"d");
+	    if (p)
+	      slen += strlen(p) + 1;
 	  }
+	char *np = (char*)calloc(1, slen + 1);
+	if (sublist->children)
+	  for (ptr = sublist->children; ptr != NULL; ptr = ptr->next)
+	    {
+	      char *p = (char*)xmlGetProp((xmlNode*)ptr, (xmlChar*)"d");
+	      if (p)
+		{
+		  strcat(np, p);
+		  strcat(np, " ");
+		}
+	    }
+	xmlNodePtr path = xmlNewNode(NULL, (xmlChar*)"path");
+	xmlSetProp(path, (xmlChar*)"d", (xmlChar*)np);
+	xmlSetProp(path, (xmlChar*)"style", (xmlChar*)style);
+	free(np);
+	free(style);
+	res = path;
+	xmlFreeNode(sublist);
 	break;
       }
     case 18:
       {
-	res = SublistToSvg(fcw, e->sublist, transform, flags);
+	// res = SublistToSvg(fcw, e->sublist, transform, flags);
 	break;
       }
     case 28:
@@ -874,8 +893,8 @@ xmlNodePtr EntityToSvg(Fcw *fcw, Entity *e, Matrix3f transform, int flags)
       {
 	if (e->sublist)
 	  {
-	    xmlNodePtr sheet = SublistToSvg(fcw, e->sublist, transform, flags);
-	    res = sheet;
+	    // xmlNodePtr sheet = SublistToSvg(fcw, e->sublist, transform, flags);
+	    // res = sheet;
 	  }
 	break;
       }
@@ -894,20 +913,25 @@ xmlNodePtr EntityToSvg(Fcw *fcw, Entity *e, Matrix3f transform, int flags)
 
 xmlNodePtr SublistToSvg(Fcw *fcw, GPtrArray *sublist, Matrix3f transform, int flags)
 {
-  xmlNodePtr g = xmlNewNode(NULL, (xmlChar*)"g");
+  xmlNodePtr g = xmlNewNode(0, (xmlChar*)"g");
 
-  //  printf("SublistToSvg(%d)\n", sublist->len);
+  printf("SublistToSvg(%d)\n", sublist->len);
 
+  int count = 0;
   for (int i = 0; i < sublist->len; i++)
     {
       xmlNodePtr res = EntityToSvg(fcw, (Entity*)g_ptr_array_index(sublist, i), transform, flags);
       if (res)
-	xmlAddChild(g, res);
+	{
+	  xmlAddChild(g, res);
+	  count++;
+	}
     }
-  if (xmlIsBlankNode(g))
+  if (xmlIsBlankNode(g) || (count == 0))
     {
+      printf("SublistToSvg(blank)\n");
       xmlFreeNode(g);
-      return NULL;
+      return 0;
     }
   return g;
 }
@@ -937,11 +961,11 @@ int FcwToSvg(Fcw *fcw)
   float w = hdr->Hi.x - hdr->Low.x;
   float h = hdr->Hi.y - hdr->Low.y;
 
-  char *width = g_strdup_printf("%hfpt", w);
-  char *height = g_strdup_printf("%hfpt", h);
-  char *x = g_strdup_printf("%hfpt", hdr->Low.x);
-  char *y = g_strdup_printf("%hfpt", hdr->Low.y);
-  char *viewbox = g_strdup_printf("%hf %hf %hf %hf", hdr->Low.x, hdr->Low.y, w, h);
+  char *width = g_strdup_printf("%fpt", w);
+  char *height = g_strdup_printf("%fpt", h);
+  char *x = g_strdup_printf("%fpt", hdr->Low.x);
+  char *y = g_strdup_printf("%fpt", hdr->Low.y);
+  char *viewbox = g_strdup_printf("%f %f %f %f", hdr->Low.x, hdr->Low.y, w, h);
 
   printf("width=%s height=%s x=%s y=%s viewbox=%s\n", width, height, x, y, viewbox);
 
@@ -1001,9 +1025,9 @@ int FcwInfoBlock(Fcw *fcw, InfoBlock *ib)
 	printf("AllocLen = %d\n", hdr->AllocLen);
 	printf("Version = %hhd\n", hdr->HdrVersion);
 	printf("DBVersion = %hhd\n", hdr->DBVer);
-	printf("(%hf %hf) -> (%hf %hf)\n", hdr->Low.x, hdr->Low.y, hdr->Hi.x, hdr->Hi.y);
+	printf("(%f %f) -> (%f %f)\n", hdr->Low.x, hdr->Low.y, hdr->Hi.x, hdr->Hi.y);
 	//  printf("CurColor = %d\n", hdr->CurColor);
-	printf("UnitV = %hf\n", hdr->UnitV);
+	printf("UnitV = %f\n", hdr->UnitV);
 	printf("Decimals = %hhd\n", hdr->DecP);
 	printf("Pen Thickness %4.2f\n", (double)hdr->PThick / 100.0);      
       break;
@@ -1084,7 +1108,7 @@ int FcwEStruct(Fcw *fcw, Entity *e)
     printf("..");
   if (common->EType)
     {
-      printf("%hhu Color %hhu %hhu Style %hhu %hhu Thick %hhu Width %hf ",
+      printf("%hhu Color %hhu %hhu Style %hhu %hhu Thick %hhu Width %f ",
 	     common->EType,
 	     common->EColor, common->EColor2, 
 	     common->ELStyle, common->EFStyle, common->EThick, common->LWidth);
@@ -1096,7 +1120,7 @@ int FcwEStruct(Fcw *fcw, Entity *e)
 	case 2:
 	  {
 	    Line2 *g = (Line2*)(common);
-	    printf("Line2 %hf %hf %hf %hf\n", 
+	    printf("Line2 %f %f %f %f\n", 
 		   g->Line.p1.x, g->Line.p1.y, g->Line.p2.x, g->Line.p2.y);
 	    break;
 	  }
@@ -1134,7 +1158,7 @@ int FcwEStruct(Fcw *fcw, Entity *e)
 	case 28:
 	  {
 	    SYMDEF *sdef = (SYMDEF*)common;
-	    printf("SymDef %hf %hf %hf %hf %s\n",
+	    printf("SymDef %f %f %f %f %s\n",
 		   sdef->Low.x,
 		   sdef->Low.y,
 		   sdef->Hi.x,
@@ -1145,28 +1169,28 @@ int FcwEStruct(Fcw *fcw, Entity *e)
 	case 29:
 	  {
 	    SYMREF *sref = (SYMREF*)common;
-	    printf("SymRef %hf %hf %hf %hf %s\n",
+	    printf("SymRef %f %f %f %f %s\n",
 		   sref->Low.x,
 		   sref->Low.y,
 		   sref->Hi.x,
 		   sref->Hi.y,
 		   sref->SName);
-	    printf("%14.4hf %14.4hf %14.4hf %14.4hf\n",
+	    printf("%14.4f %14.4f %14.4f %14.4f\n",
 		   sref->TMat.m11, 
 		   sref->TMat.m12, 
 		   sref->TMat.m13,
 		   (float)0.0);
-	    printf("%14.4hf %14.4hf %14.4hf %14.4hf\n",
+	    printf("%14.4f %14.4f %14.4f %14.4f\n",
 		   sref->TMat.m21, 
 		   sref->TMat.m22, 
 		   sref->TMat.m23,
 		   (float)0.0);
-	    printf("%14.4hf %14.4hf %14.4hf %14.4hf\n",
+	    printf("%14.4f %14.4f %14.4f %14.4f\n",
 		   sref->TMat.m31, 
 		   sref->TMat.m32, 
 		   sref->TMat.m33,
 		   (float)0.0);
-	    printf("%14.4hf %14.4hf %14.4hf %14.4hf\n",
+	    printf("%14.4f %14.4f %14.4f %14.4f\n",
 		   sref->TMat.m41, 
 		   sref->TMat.m42, 
 		   sref->TMat.m43,
@@ -1269,19 +1293,19 @@ int FcwDecodeBuffer(char *file, size_t size, unsigned char *buf)
 	      GPtrArray *array = current_entity->sublist;
 	      current_entity = (Entity*)g_ptr_array_index(array, array->len-1);
 	      level++;
-	      //	      printf("++ sublist %d\n", level);
+	      // printf("++ sublist %d\n", level);
 	    }
 	  else
 	    {
 	      current_entity = current_entity->parent;
 	      level--;
-	      //	      printf("-- sublist %d\n", level);
+	      // printf("-- sublist %d\n", level);
 	    }
 	}
       else if (etype == 0)
 	{
 	  InfoBlock *ib = (InfoBlock*)(ptr);
-	  fcw->iblock[ib->IType] = ib;
+	  fcw->iblock[(int)ib->IType] = ib;
 	}
       else
 	{
@@ -1295,7 +1319,7 @@ int FcwDecodeBuffer(char *file, size_t size, unsigned char *buf)
 	}
       offset += esize;
     }
-  //  FcwDecodeSublist(fcw, fcw->root->sublist);
+  FcwDecodeSublist(fcw, fcw->root->sublist);
   FcwInfoBlock(fcw, fcw->iblock[0]);
 
   FcwToSvg(fcw);
