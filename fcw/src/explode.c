@@ -16,7 +16,7 @@
 --
 ---------------------------------------------------------------------- */
 
-int DecodeFile(char *file, int dump)
+int DecodeFile(fcw_global_t *globals, char *file)
 {
   size_t bsize = 0;
   uint8_t *decodebuf = NULL;
@@ -32,7 +32,7 @@ int DecodeFile(char *file, int dump)
   FILE *stream = fopen(file, "rb");
   if (stream == NULL)
     {
-      fprintf(stderr, "Failed to open file %s: %s\n", strerror(errno));
+      fprintf(stderr, "Failed to open file %s: %s\n", file, strerror(errno));
       exit(1);
     }
 
@@ -90,7 +90,7 @@ int DecodeFile(char *file, int dump)
     }
  if (bsize && decodebuf)
    {
-     res = FcwDecodeBuffer(file, bsize, decodebuf);
+     res = FcwDecodeBuffer(globals, file, bsize, decodebuf);
      free(decodebuf);
    }
  return res;
@@ -105,13 +105,17 @@ int DecodeFile(char *file, int dump)
 int main(int argc, char *argv[])
 {
   int ch;
-  int dump = 0;
 
-  while ((ch = getopt(argc, argv, "d")) != EOF)
+  fcw_global_t globals;
+  
+  while ((ch = getopt(argc, argv, "dc")) != EOF)
     switch(ch)
       {
       case 'd':
-	dump = 1;
+	globals.dump = 1;
+	break;
+      case 'c':
+	globals.cairo = 1;
 	break;
       }
 
@@ -120,6 +124,6 @@ int main(int argc, char *argv[])
       fprintf(stdout, "%s: [filename]\n", argv[0]);
       exit(0);
     }
-  DecodeFile(argv[optind], dump);
+  DecodeFile(&globals, argv[optind]);
   exit(0);
 }

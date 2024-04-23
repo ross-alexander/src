@@ -262,7 +262,7 @@ typedef struct
 
   unsigned int Flags;		// options/status flags
   char SName[32];	// ANSIZ symbol name
-}SYMDEF;	
+} SYMDEF;	
 
 typedef struct
 {
@@ -287,6 +287,29 @@ typedef struct
   unsigned long DefAdr;   // run-time adrs of definition
   SYMTMAT TMat;		// SymDef -> World Coordinates TMAT
 } SYMREF;
+
+
+typedef struct
+{
+  unsigned int  ERLen;
+  unsigned char EType;
+  unsigned char EFlags;
+  unsigned char EFlags2;
+  unsigned char EColor;
+  unsigned char EColor2;
+  unsigned char EThick;
+  short         EWPlane;
+  short         ELayer;
+  unsigned short ELStyle;
+  short         GroupID;
+  unsigned short EFStyle;
+  float LWidth;
+  int   Tag;
+  short           XPId;     // XP ID # for custom entity SVC
+  char            XType;    // entity sub-type (if needed)
+  char            XFlags;   // sub-type flags (if needed)
+  // xp-specific data starts here
+} XPENT;
 
 // 	Values for SWFlags are:
 

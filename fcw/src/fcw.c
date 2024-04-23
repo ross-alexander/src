@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -446,7 +447,7 @@ xmlNodePtr LineToSvg(Fcw *fcw, Line2 *g, Matrix3f transform, int flags)
 
   char *d = g_strdup_printf("M %f %f L %f %f", p1.v[0], p1.v[1], p2.v[0], p2.v[1]);
 
-  xmlNodePtr path = xmlNewNode(0, "path");
+  xmlNodePtr path = xmlNewNode(0, (xmlChar*)"path");
   
   char *style = g_strdup_printf("stroke:%s; fill:none;stroke-width:0.1pt;", stroke);
   if (!(flags & ENT_TO_SVG_INHERIT))
@@ -498,7 +499,7 @@ xmlNodePtr PathToSvg(Fcw *fcw, Path2 *g, Matrix3f transform, int flags)
 	}
     }
   char *style;
-  if (!(g->Flags && NL_CLS))
+  if (!(g->Flags & NL_CLS))
     {
       if (g->LWidth)
 	style = g_strdup_printf("stroke:%s; fill:none; stroke-width:%f;", stroke, g->LWidth);
@@ -797,9 +798,9 @@ xmlNodePtr EntityToSvg(Fcw *fcw, Entity *e, Matrix3f transform, int flags)
 
   switch(common->EType)
     {
-    case 1:
+    case 1: /* PointToSvg */
       {
-	//	res = PointToSvg(fcw, (Point2*)common, transform, flags);
+	res = PointToSvg(fcw, (Point2*)common, transform, flags);
 	break;
       }
     case 2: /* Line */
@@ -812,24 +813,24 @@ xmlNodePtr EntityToSvg(Fcw *fcw, Entity *e, Matrix3f transform, int flags)
 	res = PathToSvg(fcw, (Path2*)common, transform, flags);
 	break;
       }
-    case 6:
+    case 6: /* Circle */
       {
-	//	res = CirToSvg(fcw, (Cir2*)common, transform, flags);
+	res = CirToSvg(fcw, (Cir2*)common, transform, flags);
 	break;
       }
-    case 7:
+    case 7: /* Arc */
       {
 	res = ArcToSvg(fcw, (Arc2*)common, transform, flags);
 	break;
       }
-    case 8:
+    case 8: /* Ellipse */
       {
-	//	res = ElpToSvg(fcw, (Elp2*)common, transform, flags);
+	res = ElpToSvg(fcw, (Elp2*)common, transform, flags);
 	break;
       }
     case 9:
       {
-	//	res = ElaToSvg(fcw, (Ela2*)common, transform, flags);
+	res = ElaToSvg(fcw, (Ela2*)common, transform, flags);
 	break;
       }
     case 17: /* 2D Poly line */
@@ -876,25 +877,25 @@ xmlNodePtr EntityToSvg(Fcw *fcw, Entity *e, Matrix3f transform, int flags)
       }
     case 18:
       {
-	// res = SublistToSvg(fcw, e->sublist, transform, flags);
+	res = SublistToSvg(fcw, e->sublist, transform, flags);
 	break;
       }
-    case 28:
+    case 28: /* Symdef */
       {
 	res = SymdefToSvg(fcw, e, (SYMDEF*)common, transform, flags);
 	break;
       }
-    case 29:
+    case 29: /* Symref */
       {
 	res = SymrefToSvg(fcw, e, (SYMREF*)common, transform, flags);
 	break;
       }
-    case 41:
+    case 41: /* Sheet */
       {
 	if (e->sublist)
 	  {
-	    // xmlNodePtr sheet = SublistToSvg(fcw, e->sublist, transform, flags);
-	    // res = sheet;
+	    xmlNodePtr sheet = SublistToSvg(fcw, e->sublist, transform, flags);
+	    res = sheet;
 	  }
 	break;
       }
@@ -1217,6 +1218,12 @@ int FcwEStruct(Fcw *fcw, Entity *e)
   return 0;
 }
 
+/* ----------------------------------------------------------------------
+--
+-- FcwDecodeSublist
+--
+---------------------------------------------------------------------- */
+
 int FcwDecodeSublist(Fcw *fcw, GPtrArray *sublist)
 {
   for (int i = 0; i < sublist->len; i++)
@@ -1231,7 +1238,7 @@ int FcwDecodeSublist(Fcw *fcw, GPtrArray *sublist)
 --
 ---------------------------------------------------------------------- */
 
-int FcwDecodeBuffer(char *file, size_t size, unsigned char *buf)
+int FcwDecodeBuffer(fcw_global_t *globals, char *file, size_t size, uint8_t *buf)
 {
   Fcw* fcw = (Fcw*)calloc(sizeof(Fcw), 1);
   fcw->symbolTab = g_tree_new((GCompareFunc)strcmp);
@@ -1325,5 +1332,12 @@ int FcwDecodeBuffer(char *file, size_t size, unsigned char *buf)
   FcwToSvg(fcw);
   if (fcw->flags & FCW_CATALOG)
       SymTabToSvg(fcw);
+
+  /*  
+  if (globals->cairo)
+    {
+      FcwToCairo(fcw);
+    }
+  */
   return 1;
 }

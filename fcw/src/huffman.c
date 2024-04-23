@@ -26,9 +26,11 @@ int GetBit(struct Huff *h)
     return -1;
   int res = h->in[h->offset] >> h->bit;
   res &= 0x01;
+
 #ifdef DebugHuff
   printf(".%d", res);
 #endif
+
   h->bit++;
   if (h->bit == 8)
     {
@@ -77,7 +79,6 @@ struct Huff *HuffDecodeBuffer(size_t size, unsigned char *inbuf)
 {
   int M[256];
 
-  int p1 = inbuf[0];
   int p2 = inbuf[1];
 
   M[0] = 7;
@@ -94,12 +95,9 @@ struct Huff *HuffDecodeBuffer(size_t size, unsigned char *inbuf)
   huff->outmax = 4096;
   huff->out = (uint8_t*)calloc(1, huff->outmax);
 
-  int res;
   int encoded;
   while (((encoded = GetBit(huff)) >= 0))
     {
-      int byte = huff->offset;
-      int bit = huff->bit;
       if (encoded)
 	{
 	  int len;
@@ -113,7 +111,6 @@ struct Huff *HuffDecodeBuffer(size_t size, unsigned char *inbuf)
 	      int l2 = GetNBits(huff, l1 - 7);
 	      len = l2 + M[l1 - 7] + 2;
 	    }
-
 
 	  int d1 = HuffDecode(huff, tree2, 0);
 	  int d2;

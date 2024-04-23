@@ -86,6 +86,6 @@ typedef struct    	// SYMBOL TMat (last always [0 0 0 1])
 	float m23;
 	float m33;
 	float m43;
-}SYMTMAT;
+} SYMTMAT;
 
 #endif
