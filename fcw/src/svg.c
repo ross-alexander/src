@@ -12,12 +12,20 @@ typedef struct fcw_svg_catalog_t {
   xmlDocPtr doc;
   xmlNodePtr defs;
   xmlNodePtr svg;
+  double max_width;
+  double x;
+  double y;
   double lineh;
   double linew;
   double height;
   double width;
 } fcw_svg_catalog_t;
 
+/* ----------------------------------------------------------------------
+
+   SymbolToSvg
+
+   ---------------------------------------------------------------------- */
 
 int SymbolToSvg(char *key, Symbol *sym, fcw_svg_catalog_t *catalog)
 {
@@ -33,34 +41,40 @@ int SymbolToSvg(char *key, Symbol *sym, fcw_svg_catalog_t *catalog)
   xmlSetProp(clone, (xmlChar*)"id", (xmlChar*)id);
   xmlAddChild(catalog->defs, clone);
 
-  double h = sym->original->Hi.y - sym->original->Low.y + 12.0;
-  double w = sym->original->Hi.x - sym->original->Low.x + 4.0;
+  double h = sym->original->Hi.y - sym->original->Low.y;
+  double w = sym->original->Hi.x - sym->original->Low.x;
+
+  
   
   xmlNodePtr use = xmlNewNode(NULL, (xmlChar*)"use");
   char *link = g_strdup_printf("#%s", id);
-  char *x = g_strdup_printf("%4.2f", catalog->width - sym->original->Low.x);
-  char *y = g_strdup_printf("%4.2f", catalog->height - sym->original->Low.y);
+
+  double x = catalog->x - sym->original->Low.x + (catalog->width - w)/2;
+  double y = catalog->y - sym->original->Low.y + (catalog->height - h)/2;
+
+  char *x_prop = g_strdup_printf("%4.2f", x);
+  char *y_prop = g_strdup_printf("%4.2f", y);
 
   xmlSetProp(use, (xmlChar*)"xlink:href", (xmlChar*)link);
-  xmlSetProp(use, (xmlChar*)"x", (xmlChar*)x);
-  xmlSetProp(use, (xmlChar*)"y", (xmlChar*)y);
+  xmlSetProp(use, (xmlChar*)"x", (xmlChar*)x_prop);
+  xmlSetProp(use, (xmlChar*)"y", (xmlChar*)y_prop);
 
-  free(x);
-  free(y);
+  free(x_prop);
+  free(y_prop);
   free(link);
   free(id);
 
-  double fontsize = 5;
+  //  double fontsize = 5;
   
-  if (w < (fontsize * strlen(key)))
-    w = fontsize * strlen(key);
+  //  if (w < (fontsize * strlen(key)))
+  //    w = fontsize * strlen(key);
 
   xmlNodePtr box = xmlNewNode(NULL, (xmlChar*)"path");
   char *d = g_strdup_printf("M%f %f L %f %f L %f %f L %f %f z",
-			    catalog->width, catalog->height,
-			    catalog->width + w, catalog->height,
-			    catalog->width + w, catalog->height + h,
-			    catalog->width, catalog->height + h);
+			    catalog->x, catalog->y,
+			    catalog->x + catalog->width, catalog->y,
+			    catalog->x + catalog->width, catalog->y + catalog->height,
+			    catalog->x, catalog->y + catalog->height);
   char *style = g_strdup_printf("stroke:red; fill:none; stroke-width:1pt;");
   xmlSetProp(box, (xmlChar*)"style", (xmlChar*)style);
   xmlSetProp(box, (xmlChar*)"d", (xmlChar*)d);
@@ -68,32 +82,34 @@ int SymbolToSvg(char *key, Symbol *sym, fcw_svg_catalog_t *catalog)
   free(style);
   free(d);
 
+  // Add text
+  
   xmlNodePtr text = xmlNewNode(NULL, (xmlChar*)"text");
-  x = g_strdup_printf("%4.2f", catalog->width);
-  y = g_strdup_printf("%4.2f", catalog->height + h - 2);
-  xmlSetProp(text, (xmlChar*)"x", (xmlChar*)x);
-  xmlSetProp(text, (xmlChar*)"y", (xmlChar*)y);
+  x_prop = g_strdup_printf("%4.2f", catalog->x + 4.0);
+  y_prop = g_strdup_printf("%4.2f", catalog->y + catalog->height - 2.0);
+  xmlSetProp(text, (xmlChar*)"x", (xmlChar*)x_prop);
+  xmlSetProp(text, (xmlChar*)"y", (xmlChar*)y_prop);
   xmlSetProp(text, (xmlChar*)"style", (xmlChar*)"font-size:4pt;font-family:Courier;");
   xmlAddChild(text, xmlNewText((xmlChar*)key));
-  free(x);
-  free(y);
+  free(x_prop);
+  free(y_prop);
 
   xmlAddChild(catalog->svg, box);
   xmlAddChild(catalog->svg, text);
   xmlAddChild(catalog->svg, use);
 
-  printf("Converting symbol %s [%f %f @ %f %f] to svg...", key, h, w, catalog->width, catalog->height);
-  
-  if (h > catalog->lineh)
-    catalog->lineh = h;
+  printf("Converting symbol %s [%f × %f @ %f × %f] to svg...", key, h, w, catalog->x, catalog->y);
 
-  catalog->width += w;
-  if (catalog->width > 400)
+  // Get maximum width
+  
+  if (catalog->x > catalog->linew)
+    catalog->linew = catalog->x;
+  
+  catalog->x += catalog->width;
+  if (catalog->x > catalog->max_width)
     {
-      if (catalog->width > catalog->linew)
-	catalog->linew = catalog->width;
-      catalog->height += catalog->lineh;
-      catalog->lineh = catalog->width = 0.0;
+      catalog->y += catalog->height;
+      catalog->x = 0.0;
     }
   printf("\n");
   return 0;
@@ -140,10 +156,31 @@ void SymTabToSvg(Fcw *fcw)
   catalog.flags = 0;
   catalog.width = catalog.height = catalog.lineh = catalog.linew = 0.0;
 
-  printf("Symbol table to SVG [%d symbols]\n", g_tree_nnodes(fcw->symbolTab));
-  
   xmlDocSetRootElement(catalog.doc, catalog.svg);
   xmlAddChild(catalog.svg, catalog.defs);
+
+  double w, h = 0.0;
+  catalog.max_width = 1000;
+
+  for (GTreeNode *node = g_tree_node_first(fcw->symbolTab); node != 0; node = g_tree_node_next(node))
+    {
+      Symbol *sym = (Symbol*)g_tree_node_value(node);
+      SYMDEF* esym = sym->original;
+      double scale = 1.0;
+      double border = 0.0;
+      double sym_w = (esym->Hi.x - esym->Low.x + 2*border) * scale;
+      double sym_h = (esym->Hi.y - esym->Low.y + 2*border) * scale;
+      w = w > sym_w ? w : sym_w;
+      h = h > sym_h ? h : sym_h;
+    }
+
+  printf("Symbol table to SVG [%d symbols, %f × %f]\n", g_tree_nnodes(fcw->symbolTab), w, h);
+  
+
+  catalog.x = catalog.y = 0.0;
+  catalog.width = w + 4.0;
+  catalog.height = h + 12.0;
+  
   g_tree_foreach(fcw->symbolTab, (GTraverseFunc)SymbolToSvg, &catalog);
 
   xmlSetProp(catalog.svg, (xmlChar*)"version", (xmlChar*)"1.1");
@@ -153,7 +190,7 @@ void SymTabToSvg(Fcw *fcw)
   printf("width=%f height=%f linew=%f lineh=%f\n", catalog.width, catalog.height, catalog.linew, catalog.lineh);
   
   char *width = g_strdup_printf("%6.2f", catalog.linew);
-  char *height = g_strdup_printf("%6.2f", catalog.height + catalog.lineh);
+  char *height = g_strdup_printf("%6.2f", catalog.y + catalog.height);
 
   xmlSetProp(catalog.svg, (xmlChar*)"width", (xmlChar*)width);
   xmlSetProp(catalog.svg, (xmlChar*)"height", (xmlChar*)height);
@@ -169,14 +206,16 @@ void SymTabToSvg(Fcw *fcw)
   /* --------------------
      Create individual symtol output using cairo
      -------------------- */
+
+  return;
   
   for (GTreeNode *node = g_tree_node_first(fcw->symbolTab); node != 0; node = g_tree_node_next(node))
     {
       const char *key = g_tree_node_key(node);
       Symbol *sym = (Symbol*)g_tree_node_value(node);
       SYMDEF* esym = sym->original;
-      double scale = 20.0;
-      double border = 2.0;
+      double scale = 10.0;
+      double border = 1.0;
       double w = (esym->Hi.x - esym->Low.x + 2*border) * scale;
       double h = (esym->Hi.y - esym->Low.y + 2*border) * scale;
       cairo_surface_t *surface;
