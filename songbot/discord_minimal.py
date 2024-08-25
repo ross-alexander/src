@@ -33,8 +33,6 @@ async def on_message(message):
             vc = await message.author.voice.channel.connect()
             vc.play(discord.FFmpegPCMAudio("/locker/media/misc/gta3_intro.mp3"))
 
-
-
 parser = argparse.ArgumentParser()
 
 token_group = parser.add_mutually_exclusive_group(required=True)
