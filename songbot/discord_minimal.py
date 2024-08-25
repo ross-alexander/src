@@ -10,6 +10,7 @@
 # This example requires the 'message_content' intent.
 
 import discord
+import argparse
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -32,4 +33,23 @@ async def on_message(message):
             vc = await message.author.voice.channel.connect()
             vc.play(discord.FFmpegPCMAudio("/locker/media/misc/gta3_intro.mp3"))
 
-client.run('OTAyNjQyMzQ4Mzg1Nzk2MTI2.YXhZMg.QGtbE2Fnh2LAmiMaLzI7v9KIh5k')
+
+
+parser = argparse.ArgumentParser()
+
+token_group = parser.add_mutually_exclusive_group(required=True)
+token_group.add_argument("--token_file", action="store", help="json file which has discord bot token")
+token_group.add_argument("--token", action="store", help="bot token")
+
+args = parser.parse_args()
+
+print("Initializing...")
+if "token_file" in args:
+    with open(args.token_file, "r") as f:
+        tmp = json.load(f)
+        token = tmp["token"]
+elif "token" in args:
+    token = args.token
+print("Token loaded.")
+
+client.run(token)
