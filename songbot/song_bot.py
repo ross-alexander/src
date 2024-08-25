@@ -23,7 +23,6 @@ ffmpeg_options = {
     'options': '-vn'
 }
 
-
 class MusicBot(commands.Cog):
     def __init__(self, bot, db):
         self.bot = bot
@@ -261,7 +260,11 @@ def main(args):
     with open(args.database, "r") as f:
         db = json.load(f)
 
+    intents = discord.Intents.default()
+    intents.message_content = True
+        
     bot = commands.Bot(
+        intents=intents,
         command_prefix=commands.when_mentioned_or(">", "!"),
         description='Plays local music file in voice channel'
     )

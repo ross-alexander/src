@@ -1,3 +1,9 @@
+# Use
+
+To rip a DVD use the `rip.lua` script.
+
+    ./rip.lua NCIS.11 1 . /locker/media/dvd/NCIS/11
+
 # History
 
 ## 2022-12-21

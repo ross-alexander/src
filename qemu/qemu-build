@@ -588,6 +588,8 @@ sub image_create {
     
     my $nbd = $conf->{image}->{device}  || die;
     print qx(qemu-nbd -c $nbd -f $format $imagefile);
+    sleep(2);
+    print qx(sysctl vm.drop_caches=3);
     
     # --------------------
     # Set sizes (all in M)
@@ -659,13 +661,14 @@ sub image_create {
 	# Add print result
 	# --------------------
 	
+	print qx(sysctl vm.drop_caches=3);
+	sleep(2);
 	print qx(parted -s $nbd print);
 	
 	# --------------------
 	# Use partprobe to pick up partitions
 	# --------------------
 	
-	sleep(2);
 	print qx(partprobe -s $nbd);
     
 	# --------------------

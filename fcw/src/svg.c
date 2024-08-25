@@ -43,8 +43,6 @@ int SymbolToSvg(char *key, Symbol *sym, fcw_svg_catalog_t *catalog)
 
   double h = sym->original->Hi.y - sym->original->Low.y;
   double w = sym->original->Hi.x - sym->original->Low.x;
-
-  
   
   xmlNodePtr use = xmlNewNode(NULL, (xmlChar*)"use");
   char *link = g_strdup_printf("#%s", id);
@@ -64,7 +62,7 @@ int SymbolToSvg(char *key, Symbol *sym, fcw_svg_catalog_t *catalog)
   free(link);
   free(id);
 
-  //  double fontsize = 5;
+  double fontsize = 8;
   
   //  if (w < (fontsize * strlen(key)))
   //    w = fontsize * strlen(key);
@@ -83,16 +81,19 @@ int SymbolToSvg(char *key, Symbol *sym, fcw_svg_catalog_t *catalog)
   free(d);
 
   // Add text
+
+  char *style_prop = g_strdup_printf("font-size: %4.2fpt; font-family: TeX Gyre Heros;", fontsize);
   
   xmlNodePtr text = xmlNewNode(NULL, (xmlChar*)"text");
   x_prop = g_strdup_printf("%4.2f", catalog->x + 4.0);
   y_prop = g_strdup_printf("%4.2f", catalog->y + catalog->height - 2.0);
   xmlSetProp(text, (xmlChar*)"x", (xmlChar*)x_prop);
   xmlSetProp(text, (xmlChar*)"y", (xmlChar*)y_prop);
-  xmlSetProp(text, (xmlChar*)"style", (xmlChar*)"font-size:4pt;font-family:Courier;");
+  xmlSetProp(text, (xmlChar*)"style", (xmlChar*)style_prop);
   xmlAddChild(text, xmlNewText((xmlChar*)key));
   free(x_prop);
   free(y_prop);
+  free(style_prop);
 
   xmlAddChild(catalog->svg, box);
   xmlAddChild(catalog->svg, text);
@@ -102,8 +103,8 @@ int SymbolToSvg(char *key, Symbol *sym, fcw_svg_catalog_t *catalog)
 
   // Get maximum width
   
-  if (catalog->x > catalog->linew)
-    catalog->linew = catalog->x;
+  if ((catalog->x + catalog->width) > catalog->linew)
+    catalog->linew = catalog->x + catalog->width;
   
   catalog->x += catalog->width;
   if (catalog->x > catalog->max_width)
