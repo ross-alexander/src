@@ -2,6 +2,8 @@
 
 # ----------------------------------------------------------------------
 #
+# 2024-09-04: Add safety
+#
 # 2023-06-05
 #
 # ----------------------------------------------------------------------
@@ -27,8 +29,17 @@ sub renum {
 		printf("%s → %s : ", $src, $dst);
 		if ($renum)
 		{
-		    my $res = rename(catdir($dir, $src), catdir($dir, $dst));
-		    printf("%s", $res ? "done" : "failed");
+		    my $src_path = catdir($dir, $src);
+		    my $dst_path = catdir($dir, $dst);
+		    if (-f $dst_path)
+		    {
+			printf("%s exists - renum aborted\n", $dst_path);
+		    }
+		    else
+		    {
+			my $res = rename(, catdir($dir, $dst));
+			printf("%s", $res ? "done" : "failed");
+		    }
 		}
 		else
 		{
