@@ -1,0 +1,46 @@
+#!/usr/bin/perl -I.
+
+# ----------------------------------------------------------------------
+#
+# 2021-10-19: Script to add ssh keys to vm meta file
+#
+# ----------------------------------------------------------------------
+
+use 5.34.0;
+use QemuVm;
+use QemuVmFile;
+use Getopt::Long;
+
+my $opts = {};
+GetOptions(
+    'in=s' => \$opts->{in},
+    'out=s' => \$opts->{out},
+    'vmname=s' => \$opts->{vmname},
+    );
+
+
+if (!$opts->{in})
+{
+    printf(STDERR "%s: --in <yaml file>\n", $0);
+    exit(1);
+}
+
+my $vm_file = QemuVmFile->new($opts->{in});
+
+if (!$opts->{vmname})
+{
+    printf(STDERR "%s: --vmname <name>\n", $0);
+    exit(1);
+}
+
+my $vm = $vm_file->vm_get($opts->{vmname});
+
+printf("Adding keys to %s\n", $opts->{vmname});
+
+$vm->ssh_add_keys() if ($vm);
+
+if ($opts->{out})
+{
+    $vm_file->save($opts->{out});
+}
+

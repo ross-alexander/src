@@ -10,7 +10,7 @@ ALL	: holidays date.so
 date.so	: time.o tokenize.o parse.o date.o
 	$(CC) -shared $^ -o $@
 
-holidays : parse.o tokenize.o time.o holidays.o
+holidays : parse.o tokenize.o time.o date.o holidays.o
 
 holidays.o : holidays.c common.h
 	$(CC) $(CFLAGS) -c $< -o $@

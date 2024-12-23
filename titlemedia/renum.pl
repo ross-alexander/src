@@ -37,7 +37,7 @@ sub renum {
 		    }
 		    else
 		    {
-			my $res = rename(, catdir($dir, $dst));
+			my $res = rename($src_path, $dst_path);
 			printf("%s", $res ? "done" : "failed");
 		    }
 		}

@@ -37,7 +37,7 @@ sub ssh_add_keys {
 
     my $fqdn = $vm->{fqdn};
     
-    for my $t ('rsa', 'dsa', 'ecdsa', 'ed25519')
+    for my $t ('rsa', 'ecdsa', 'ed25519')
     {
 	my $keyfile = catfile($dir, sprintf("ssh_host_%s_key", $t));
 	if (!-f $keyfile)

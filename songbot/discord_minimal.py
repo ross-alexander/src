@@ -11,6 +11,7 @@
 
 import discord
 import argparse
+import json
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -42,11 +43,11 @@ token_group.add_argument("--token", action="store", help="bot token")
 args = parser.parse_args()
 
 print("Initializing...")
-if "token_file" in args:
+if not (args.token_file is None):
     with open(args.token_file, "r") as f:
         tmp = json.load(f)
         token = tmp["token"]
-elif "token" in args:
+elif not (args.token is None):
     token = args.token
 print("Token loaded.")
 

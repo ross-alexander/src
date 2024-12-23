@@ -998,6 +998,7 @@ sub etc_install {
 	open($stream, ">", $vrf_file);
 	printf($stream "[Match]\nName=%s\n", $vrf->{name});
 	close($stream);
+	print("Adding systemd-network configuration file $vrf_file\n");
     }
     
     if ($conf->{nic})
@@ -1020,6 +1021,10 @@ sub etc_install {
 	    if ($nic->{dhcp6})
 	    {
 		printf($stream "DHCP=ipv6\n");
+	    }
+	    elsif ($nic->{dhcp4})
+	    {
+		printf($stream "DHCP=ipv4\n");
 	    }
 	    if ($nic->{ip6})
 	    {

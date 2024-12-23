@@ -10,6 +10,9 @@
 #include <time.h>
 #include <stdio.h>
 #include "common.h"
+
+extern int yyerror(tree**, char*);
+
 %}
 
 %union {
@@ -40,7 +43,10 @@ lines	: line { $$ = NewOp(LIST, $1, NULL); printf("New List created %p\n", $$); 
 	| parse line { $$ = NewOp(LIST, $1, $2); printf("List appened %p\n", $$); }
 	;
 
-line	: date { $$ = NewOp(FUNC, "print", NewOp(FUNC, "omni", NewInt(TICK, $1))); printf("New Tick %p\n", $$); }
+line	: date
+	{ $$ = NewOp(FUNC, NewStr(STRING, "print"), NewOp(FUNC, NewStr(STRING, "omni"), NewInt(TICK, $1)));
+	  printf("New Tick %p\n", $$);
+	}
 	| date TILDE expr
 	{
 	  tree *t = NewInt(TICK, $1);
@@ -105,7 +111,7 @@ wday	: SUN { $$ = 0; }
 mday	: INTEGER { $$ = strtol($1, NULL, 10); }
 	;
 %%
-int yyerror(char *str)
+int yyerror(tree** tree, char *str)
 {
   fprintf(stderr, "parse error: %s\n", str);
   exit(1);

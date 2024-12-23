@@ -16,9 +16,9 @@ int main(int argc, char *argv[])
 {
   srand(time(0));
 
-  if (argc > 1)
+  for (int i = 1; i < argc; i++)
     { 
-      const char *s = argv[1];
+      const char *s = argv[i];
       eval_t *e;
       yy_scan_string(s);
       yyparse(&e);

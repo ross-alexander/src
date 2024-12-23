@@ -188,6 +188,9 @@ static const luaL_Reg Date_meta[] = {
 
 int luaopen_date(lua_State *L)
 {
+  /* if called as a dynamic library then two strings a put onto the
+     stack, the module name and the module path */
+  
   /* --------------------
      Get current year
      -------------------- */
@@ -200,7 +203,7 @@ int luaopen_date(lua_State *L)
   /* --------------------
      Set the global variable year to the year parameter
      -------------------- */
-  
+
   
 #if LUA_VERSION_NUM > 501
   lua_pushglobaltable(L);

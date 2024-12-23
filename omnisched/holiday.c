@@ -160,7 +160,7 @@ tree *NewStr(int v, char *s)
   return t;
 }
 
-tree *NewInt(int v, int s)
+tree *NewInt(int v, long s)
 {
   tree *t = calloc(sizeof(tree), 1);
   t->op = v;
