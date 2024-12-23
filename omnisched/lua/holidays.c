@@ -178,7 +178,6 @@ int main(int argc, char *argv[])
   pstate g;
   time_t now = time(0);
 
-
   /* --------------------
      Get current year
      -------------------- */
