@@ -200,18 +200,19 @@ int luaopen_date(lua_State *L)
   /* --------------------
      Set the global variable year to the year parameter
      -------------------- */
-
+  
+  
 #if LUA_VERSION_NUM > 501
   lua_pushglobaltable(L);
-  lua_pushnumber(L, year);
+  lua_pushinteger(L, year);
   lua_setfield(L, -2, "year");
-  lua_pop(L, 1);
   lua_pop(L, 1);
 #else
   lua_pushnumber(L, year);
   lua_setfield(L, LUA_REGISTRYINDEX, "year");
 #endif
 
+  
   /* --------------------
      Add Date object
      -------------------- */
@@ -233,6 +234,8 @@ int luaopen_date(lua_State *L)
   //  lua_rawset(L, -3);                  /* hide metatable:
   //                                         metatable.__metatable = methods */
   lua_pop(L, 1);                      /* drop metatable */
+
+  //  lua_pop(L, 1);
 
   return 1;
 }
