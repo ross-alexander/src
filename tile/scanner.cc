@@ -8,10 +8,11 @@
 #include <stdint.h>
 #include <sys/stat.h>
 
+#include <algorithm>
 #include <vector>
 #include <string>
+#include <random>
 #include <ctime>
-#include <algorithm>
 
 struct scanner_t {
   std::vector<const char*> dir;
@@ -224,7 +225,11 @@ int rescan(lua_State *L)
       const char *dirpath = scanner->dir[i];
       rescan_dir(scanner, dirpath);
     }
-  std::random_shuffle(scanner->file.begin(), scanner->file.end());
+
+  std::random_device rd;
+  std::mt19937 g(rd());
+  
+  std::shuffle(scanner->file.begin(), scanner->file.end(), g);
   scanner->index = 0;
   return 1;
 }
