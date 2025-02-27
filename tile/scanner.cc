@@ -12,11 +12,13 @@
 #include <vector>
 #include <string>
 #include <random>
+#include <filesystem>
 #include <ctime>
+#include <iostream>
 
 struct scanner_t {
-  std::vector<const char*> dir;
-  std::vector<std::string> file;
+  std::vector<std::filesystem::path> dir;
+  std::vector<std::filesystem::path> file;
   int index;
 };
 
@@ -156,7 +158,7 @@ int dirs_get(lua_State *L)
   
   for(auto const& value: scanner->dir)
     {  
-      lua_pushstring(L, value);
+      lua_pushstring(L, value.c_str());
       lua_rawseti(L, -2, index++);
     }
   return 1;
@@ -170,36 +172,53 @@ int dirs_get(lua_State *L)
 --
 ---------------------------------------------------------------------- */
 
-static void rescan_dir(scanner_t *s, const char *dirpath)
+static void rescan_dir(scanner_t *s, std::filesystem::path &dirpath)
 {
-  DIR *dirp;
-  unsigned flen = pathconf(dirpath, _PC_NAME_MAX) + 1;
-  unsigned dlen = offsetof(struct dirent, d_name) + flen;
-  char *path = (char*)calloc(flen, 1);
-  struct dirent **namelist;
-  struct stat statbuf;
-  int dcount;
-
-  if ((dcount = scandir(dirpath, &namelist, 0, alphasort)) > 0)
+  if (is_directory(dirpath))
     {
-      for (int i = 0; i < dcount; i++)
+      
+      for (auto const& dir_entry : std::filesystem::directory_iterator{dirpath})
 	{
-	  snprintf(path, flen, "%s/%s", dirpath, namelist[i]->d_name);
-	  if (stat(path, &statbuf) == 0)
+	  std::filesystem::path p = dir_entry.path();
+	  if (is_regular_file(p))
 	    {
-	      if (S_ISREG(statbuf.st_mode))
-		{
-		  s->file.push_back(std::string(path));
-		}
-	      if (S_ISDIR(statbuf.st_mode) && (strcmp(".", namelist[i]->d_name)) && (strcmp("..", namelist[i]->d_name)))
-		{
-		  rescan_dir(s, path);
-		}
+	      s->file.push_back(p);
 	    }
-	}
-      free(namelist);
+	  if (is_directory(p))
+	    {
+	      rescan_dir(s, p);
+	    }
+	}      
     }
-  free(path);
+  
+  // DIR *dirp;
+  // unsigned flen = pathconf(dirpath, _PC_NAME_MAX) + 1;
+  // unsigned dlen = offsetof(struct dirent, d_name) + flen;
+  // char *path = (char*)calloc(flen, 1);
+  // struct dirent **namelist;
+  // struct stat statbuf;
+  // int dcount;
+
+  // if ((dcount = scandir(dirpath, &namelist, 0, alphasort)) > 0)
+  //   {
+  //     for (int i = 0; i < dcount; i++)
+  // 	{
+  // 	  snprintf(path, flen, "%s/%s", dirpath, namelist[i]->d_name);
+  // 	  if (stat(path, &statbuf) == 0)
+  // 	    {
+  // 	      if (S_ISREG(statbuf.st_mode))
+  // 		{
+  // 		  s->file.push_back(std::string(path));
+  // 		}
+  // 	      if (S_ISDIR(statbuf.st_mode) && (strcmp(".", namelist[i]->d_name)) && (strcmp("..", namelist[i]->d_name)))
+  // 		{
+  // 		  rescan_dir(s, path);
+  // 		}
+  // 	    }
+  // 	}
+  //     free(namelist);
+  //   }
+  // free(path);
 } 
 
 
@@ -222,8 +241,7 @@ int rescan(lua_State *L)
   
   for (unsigned i = 0; i < scanner->dir.size(); i++)
     {
-      const char *dirpath = scanner->dir[i];
-      rescan_dir(scanner, dirpath);
+      rescan_dir(scanner, scanner->dir[i]);
     }
 
   std::random_device rd;
@@ -250,7 +268,7 @@ int Scanner___tostring(lua_State *L)
   unsigned int len = 0;
   for (int i = 0; i < scanner->dir.size(); i++)
     {
-      len += strlen(scanner->dir[i]) + 2;
+      len += strlen(scanner->dir[i].c_str()) + 2;
     }
   char buf[1024 + len];
 
@@ -262,7 +280,7 @@ int Scanner___tostring(lua_State *L)
       index = strlen(buf);
       for (int i = 0; i < scanner->dir.size(); i++)
 	{
-	  snprintf(buf + index, 1024 + len - index, "%s", scanner->dir[i]);
+	  snprintf(buf + index, 1024 + len - index, "%s", scanner->dir[i].c_str());
 	  index = strlen(buf);
 	  if (i < scanner->dir.size()-1)
 	    {
@@ -313,7 +331,7 @@ extern "C" int luaopen_Scanner(lua_State *L)
      Create Scanner metatable
      -------------------- */
 
-  lua_newtable(L);
+  luaL_newmetatable(L, "Scanner");
   lua_pushcclosure(L, Scanner___tostring, 0);  lua_setfield(L, -2, "__tostring");
 
   /* --------------------
@@ -331,7 +349,8 @@ extern "C" int luaopen_Scanner(lua_State *L)
 
   lua_pushcclosure(L, scanner_index, 2); lua_setfield(L, -2, "__index");
 
-  lua_setfield(L, LUA_REGISTRYINDEX, "Scanner");
+  lua_pop(L, 1);
+  //  lua_setfield(L, LUA_REGISTRYINDEX, "Scanner");
   
   /* --------------------
      Create Scanner object
