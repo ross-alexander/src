@@ -1114,6 +1114,13 @@ sub etc_install {
     say qx/@cmd/;
 
     # --------------------
+    # enable systemd-resolved
+    # --------------------
+
+    my @cmd = ('chroot', $root_mnt, 'systemctl', 'enable', 'systemd-resolved');
+    say qx/@cmd/;
+
+    # --------------------
     # GLib schemas
     # --------------------
 

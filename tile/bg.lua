@@ -10,7 +10,7 @@ function background()
 
    -- Get all files under images (recursive)
    
-   local images = scanner_t.new("images")
+   local images = scanner_t.new("/usr/share/backgrounds")
    images:rescan()
 
    -- Pick a random file, hopefully an image

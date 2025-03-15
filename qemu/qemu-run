@@ -291,7 +291,7 @@ sub qemu_run {
 	    {
 		push(@cmd, "-device", sprintf("scsi-hd,drive=%s", $drive));
 	    }
-	    push(@cmd, "-drive", sprintf("index=%d,if=none,id=%s,file=%s,format=%s", $index, $drive, catfile($run->{basedir}, $disk->{name}), $disk->{format}));
+	    push(@cmd, "-drive", sprintf("index=%d,if=none,id=%s,file=%s,format=%s", $index, $drive, catfile($run->{basedir}, $disk->{file}), $disk->{format}));
 	}
     }
 

@@ -33,8 +33,16 @@ async def on_message(message):
         if message.author.voice is None:
             await message.channel.send('Hello!')
         else:
+            print(message.content)
             vc = await message.author.voice.channel.connect()
             vc.play(discord.FFmpegPCMAudio("/locker/media/misc/gta3_intro.mp3"))
+
+
+# ----------------------------------------------------------------------
+#
+# M A I N
+#
+# ----------------------------------------------------------------------
 
 parser = argparse.ArgumentParser()
 

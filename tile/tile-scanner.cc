@@ -39,13 +39,24 @@ int add(lua_State *L)
     /* --------------------
      Allow either strings or tables of strings to be added
      -------------------- */
+
+  int count = 0;
   
   for (int i = lua_gettop(L); i > 1; i--)
     {
       if (lua_isstring(L, i))
 	{
-	  const char *s = lua_tostring(L, i);
-	  scanner->dir.push_back(s);
+	  std::filesystem::path p(lua_tostring(L, i));
+	  if (is_directory(p))
+	    {
+	      scanner->dir.push_back(p);
+	      count++;
+	    }
+	  else if (is_regular_file(p))
+	    {
+	      scanner->file.push_back(p);
+	      count++;
+	    }
 	}
       if (lua_istable(L, i))
 	{
@@ -53,7 +64,11 @@ int add(lua_State *L)
 	  lua_pushnil(L);  /* first key */
 	  while (lua_next(L, i) != 0)
 	    {
-	      if (lua_isstring(L, -1)) scanner->dir.push_back(lua_tostring(L, -1));
+	      if (lua_isstring(L, -1))
+		{
+		  scanner->dir.push_back(lua_tostring(L, -1));
+		  count++;
+		}
 	      /* uses 'key' (at index -2) and 'value' (at index -1) */
 	      /* removes 'value'; keeps 'key' for next iteration */
 	      lua_pop(L, 1);
@@ -62,7 +77,8 @@ int add(lua_State *L)
 	}
       lua_pop(L, 1);
     }
-  return 0;
+  lua_pushinteger(L, count);
+  return 1;
 }
 
 /* ----------------------------------------------------------------------
@@ -83,10 +99,11 @@ int scanner_t_new(lua_State *L)
   
   lua_insert(L, 1);
 
-  /* Add any paramters passed */
+  /* Add any paramters passed and pop the rturning integer */
 
   add(L);
-
+  lua_pop(L, 1);
+  
   /* Add some entropy */
 
   time_t  t = time(0);

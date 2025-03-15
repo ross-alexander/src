@@ -96,9 +96,13 @@ mandel_image* mandel_image_create(int colors, double xmin, double xmax, double y
   else
     depth = 1;
 
-  unsigned char* map = (unsigned char*)malloc(width * height * depth);
-
+  unsigned int map_size = width * height * depth;
+  unsigned char* map = (unsigned char*)malloc(map_size);
+  assert(map != 0);
+  
   mandel_image* image = calloc(sizeof(mandel_image), 1);
+  assert(image != 0);
+  
   image->width = width;
   image->height = height;
   image->depth = depth * 8;
@@ -110,7 +114,7 @@ mandel_image* mandel_image_create(int colors, double xmin, double xmax, double y
   double xscale = (xmax - xmin) / width;
   double yscale = (ymax - ymin) / height;
 
-  printf("Creating mandelbrot image (%d, %d) with %d colours.\n", width, height, colors);
+  printf("Creating mandelbrot image (%d, %d) with %d colours [%u bytes].\n", width, height, colors, map_size);
 
   colors--;
   y = ymin;
@@ -122,7 +126,7 @@ mandel_image* mandel_image_create(int colors, double xmin, double xmax, double y
       for (xplot = 0; xplot < width; xplot++)
 	{
 	  c = mandel_pixel(colors, x, y);
-	  map[(height - yplot) * width + xplot] = c;
+	  map[((height - yplot - 1) * width) + xplot] = c;
 	  x += xscale;
 	}
       y += yscale;
@@ -139,6 +143,9 @@ void mandel_image_create_hsv_palette(mandel_image *image)
 {
   int colors = image->palette_size;
   rgb3i* palette = (rgb3i*)malloc(colors * sizeof(rgb3i));
+
+  assert(palette != 0);
+  
   for (int i = 0; i < colors; i++)
     {
       double hue = fmod(240 - 360.0 / colors * i * 4.0, 360.0);
@@ -157,7 +164,8 @@ typedef guint8 rgb[3];
 void mandel_image_8to24(mandel_image *image)
 {
   rgb* buf = malloc(image->width * image->height * sizeof(rgb));
-
+  assert(buf != 0);
+  
   for (int i = 0; i < image->height; i++)
     for (int j = 0; j < image->width; j++)
       {

@@ -62,6 +62,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <random>
 
 /* ----------------------------------------------------------------------
 --
@@ -95,7 +96,11 @@ int scanner_t::rescan()
     }
   time_t t = time(0);
   srand(t);
-  std::random_shuffle(file.begin(), file.end());
+
+  std::random_device rd;
+  std::mt19937 g(rd());
+  
+  std::shuffle(file.begin(), file.end(), g);
   index = 0;
   return 1;
 }

@@ -150,8 +150,13 @@ int main(int argc, char *argv[])
     }
   
   mandel_image* image = mandel_image_create(256, -2.0, 1.0, -1.0, 1.0, width, height);
-  mandel_image_create_hsv_palette(image);
+
+  printf("image created\n");
   
+  mandel_image_create_hsv_palette(image);
+
+  printf("image palette created\n");
+
   if (write_cm)
     mandel_write_cm(image, "mandel.cm");
 

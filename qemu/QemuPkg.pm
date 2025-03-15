@@ -40,13 +40,13 @@ sub pkgs_recc {
 	my $res = {
 	    name => $pkg
 	};
+	if ($pp->{deps})
+	{
+	    push(@res, +( map { pkgs_recc($obj, $base, $pkg_conf, $_); } @{$pp->{deps}} ));
+	    $res->{deps} = [ map {$_->{name}} @res ];
+	}
 	if ($pp->{path})
 	{
-	    if ($pp->{deps})
-	    {
-		push(@res, +( map { pkgs_recc($obj, $base, $pkg_conf, $_); } @{$pp->{deps}} ));
-		$res->{deps} = [ map {$_->{name}} @res ];
-	    }
 	    my $path = catdir($base, $pp->{path});
 	    if (-d $path)
 	    {
@@ -60,8 +60,8 @@ sub pkgs_recc {
 		    $obj->{missing}->{$pkg} = 1;
 		}
 	    }
-	    push(@res, $res);
 	}
+	push(@res, $res);
     }
     # --------------------
     # Else pkg : directory
