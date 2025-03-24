@@ -22,7 +22,7 @@ use QemuPkg;
 
 my $opts = {
     conf_base => '/locker/vm',
-    pkg_base => '/locker/pkg',
+    pkg_base => '/locker/pkg/x86',
 };
 
 my $qemu_pkg = QemuPkg->new($opts, "pkg.yml");
