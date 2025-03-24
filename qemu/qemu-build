@@ -56,6 +56,7 @@ use 5.34.0;
 use File::Spec::Functions qw(:ALL);
 use File::Copy;
 use File::Slurp;
+use File::Path;
 use File::Basename;
 use File::Sync qw(fsync sync);
 use Perl6::Slurp;
@@ -292,7 +293,7 @@ sub nbd_check {
 sub image_mount {
     my $conf = shift(@_);
     my $opts = {@_};
-    
+
     my $vmname = $conf->{name} || die;
 
     my $image = $conf->{image};
@@ -844,6 +845,20 @@ sub install_pkg {
 
 # ----------------------------------------------------------------------
 #
+# stage_mount
+#
+# ----------------------------------------------------------------------
+
+sub stage_mount {
+    my ($vm, @opts) = @_;
+    my $opts = {@opts};
+
+    my $conf = $vm->configuration_get();
+    &image_mount($conf, qemu => 1);
+}
+
+# ----------------------------------------------------------------------
+#
 # pkgs_install
 #
 # ----------------------------------------------------------------------
@@ -1010,7 +1025,7 @@ sub etc_install {
 	    my $stream;
 	    if (! -d $network_dir)
 	    {
-		mkdir($network_dir) || die;
+		File::Path::mkpath($network_dir) || die;
 	    }
 	    my $network = catfile($network_dir, sprintf("10-en%02d.network", $i));
 	    open($stream, ">", $network) || die;
@@ -1411,7 +1426,7 @@ my $stages = [
     },
     {
 	stage => 'mount',
-	function => \&image_mount,
+	function => \&stage_mount,
     }
     ];
 
