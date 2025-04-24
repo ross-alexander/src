@@ -1070,7 +1070,7 @@ sub etc_install {
     {
 	mkdir($sshconf);
     }    
-    for my $t ('rsa', 'dsa', 'ecdsa', 'ed25519')
+    for my $t ('rsa', 'ecdsa', 'ed25519')
     {
 	if (exists($conf->{ssh}->{$t}))
 	{
@@ -1324,9 +1324,9 @@ sub yaml_file_read {
 my $opts = {
     qemu => 1,
     pkg_base => '/locker/pkg/x86',
-    conf_base => '/locker/vm/',
-    vmdef_base => '/locker/vm/vmdef',
-    ovmf_base => '/locker/vm/uefi',
+    conf_base => '/srv/kvm/vm/',
+    vmdef_base => '/srv/kvm/vm/vmdef',
+    ovmf_base => '/srv/kvm/uefi',
     install_base => undef,
     force => 0,
 };
@@ -1391,7 +1391,7 @@ if ($vm_config->{model} eq "riscv64")
 # Get package YAML file
 # --------------------
 
-my $qemu_pkg = QemuPkg->new($opts, "pkg.yml");
+my $qemu_pkg = QemuPkg->new($opts, "pkg.yaml");
 $opts->{_pkg_conf_} = $qemu_pkg;
 
 

@@ -20,7 +20,9 @@ char *device;
 
 dvd_info_t* dvd_read(const char *dev)
 {
-  dvd_info_t *info = lsdvd_read_dvd(dev ? dev : device);
+  const char *dvd_device = dev ? dev : device;
+  printf("Using device %s\n", dvd_device);
+  dvd_info_t *info = lsdvd_read_dvd(dvd_device);
   return info;
 }
 
@@ -68,7 +70,7 @@ int info_read_title(dvd_info_t *info, int title, const char *file)
   unsigned char *readdata = malloc(1024 * DVD_VIDEO_LB_LEN);
   for (int j = 1; j <= n_chapters; j++)
     {
-      tc_dvd_read(device, title, j, 1, readdata, 1, stream);
+      tc_dvd_read(info->discinfo.device, title, j, 1, readdata, 1, stream);
       printf("Writing chapter %d of title %d to %s\n", j, title, file);
     }
   fclose(stream);

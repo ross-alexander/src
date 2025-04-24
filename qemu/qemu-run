@@ -306,7 +306,7 @@ sub qemu_run {
     {
 	my $netdev = $n->{device} // 'virtio-net-pci';
 	my $ifname = sprintf("%s_%02d", $run->{name}, $index);
-	push(@cmd, "-netdev", sprintf("type=tap,id=net%d,ifname=%s,script=/locker/vm/ovs-up,downscript=/locker/vm/ovs-down",
+	push(@cmd, "-netdev", sprintf("type=tap,id=net%d,ifname=%s,script=/srv/kvm/vm/ovs-up,downscript=/srv/kvm/vm/ovs-down",
 				      $index, $ifname));
 	push(@cmd, "-device", sprintf("%s,netdev=net%d,mac=%s", $netdev, $index, $n->{mac}));
 	$index++;
@@ -394,8 +394,8 @@ sub main()
     # --------------------
     
     my $opts = {
-	confdir => '/locker/vm/',
-	vmdefdir => '/locker/vm/vmdef',
+	confdir => '/srv/kvm/vm/',
+	vmdefdir => '/srv/kvm/vm/vmdef',
 	yamlfile => undef,
 	demon => 0,
 	systemd => 0,

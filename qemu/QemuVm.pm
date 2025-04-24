@@ -36,8 +36,11 @@ sub ssh_add_keys {
     my $vm = $obj->{vm};
 
     my $fqdn = $vm->{fqdn};
+
+#    my @key_types = ('rsa', 'ecdsa', 'ed25519');
+    my @key_types = ('ed25519');
     
-    for my $t ('rsa', 'ecdsa', 'ed25519')
+    for my $t (@key_types)
     {
 	my $keyfile = catfile($dir, sprintf("ssh_host_%s_key", $t));
 	if (!-f $keyfile)
