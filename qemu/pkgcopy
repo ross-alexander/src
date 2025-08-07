@@ -32,12 +32,12 @@ use QemuPkg;
 # ----------------------------------------------------------------------
 
 my $opts = {
-    conf_base => '/locker/vm',
+    conf_base => '/srv/kvm/vm',
     pkg_base => '/locker/pkg/x86',
     quiet => 1,
 };
 
-my $pkg = QemuPkg->new($opts, "pkg.yml");
+my $pkg = QemuPkg->new($opts, "pkg.yaml");
 
 GetOptions(
     'quiet+' => \$opts->{quiet},

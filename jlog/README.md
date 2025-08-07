@@ -11,7 +11,25 @@ the fuction dump is called (if it exists).
 
 # ChangeLog
 
-## 2023-12-27
+
+## 2025-08-06
+
+### Update to lua-5.4.8
+
+Download lua-5.4.8 source
+
+     curl -L -R -O https://www.lua.org/ftp/lua-5.4.8.tar.gz
+
+Unpack archive
+
+     tar zxf lua-5.4.8.tar.gz
+
+Build using Make
+
+    cd lua-5.4.8
+    make all
+    make INSTALL_TOP=$PWD/../lua install
+
 
 
 
