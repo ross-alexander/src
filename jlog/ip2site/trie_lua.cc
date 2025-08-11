@@ -51,6 +51,8 @@ ip_table_t* trie_read_file(const char *path)
       char *next_token, *token;
       unsigned int count = 0;
 
+      /* duplicate string to count the number of fields */
+      
       char *line_dup = strdup(line);
       token = strtok_r(line_dup, delim, &next_token);
       while (token)
@@ -60,8 +62,10 @@ ip_table_t* trie_read_file(const char *path)
 	}
       free(line_dup);
       int nfields = count;
-      char* bits[nfields];
 
+      /* split string into fields */
+      
+      char* bits[nfields];
       count = 0;
       token = strtok_r(line, delim, &next_token);
       while (token)
@@ -70,6 +74,8 @@ ip_table_t* trie_read_file(const char *path)
 	  token = strtok_r(NULL, delim, &next_token);
 	}
 
+      /* format of string is cidr address then comments with tab delimiter */
+      
       char *addr_field = bits[0];
       char *comment_field;
 
@@ -78,8 +84,6 @@ ip_table_t* trie_read_file(const char *path)
       else
 	comment_field = 0;
       
-      printf("%s -- %s\n", addr_field, comment_field);
-
       /* Split prefix into address and length */
       
       delim = "/";
@@ -265,7 +269,7 @@ int main(int argc, char *argv[])
   lua_pushcclosure(L, trie_lua_read_file, 0);
   lua_setglobal(L, "read_file");
 
-  lua_getglobal(L, "read_file");
+  //  lua_getglobal(L, "read_file");
 
   /*
   if (argc > 1)
