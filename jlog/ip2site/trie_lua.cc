@@ -298,6 +298,62 @@ int ip_table_t___pairs(lua_State *L)
   return 3;
 }
 
+/* ----------------------------------------------------------------------
+   --
+   -- ip_trie_t
+   --
+   ---------------------------------------------------------------------- */
+
+int ip_trie_t_new(lua_State *L)
+{
+  ip_table_t *t = *(ip_table_t**)luaL_checkudata(L, 1, "ip_table_t");
+
+  int len = t->size();
+  entryrec** tmp_table = new entryrec*[len];
+  for (int i = 0; i < len; i++)
+    {
+      tmp_table[i] = new entryrec;
+      tmp_table[i]->data = (*t)[i]->addr;
+      tmp_table[i]->len = (*t)[i]->len;
+      tmp_table[i]->nexthop = (void*)((*t)[i]);
+    }
+  routtablerec *res = buildrouttable(tmp_table, len, 0.5, 16, 0);
+  routtablerec **res_p = (routtablerec**)lua_newuserdata(L, sizeof(routtablerec*));
+
+  *res_p = res;
+  luaL_getmetatable(L, "ip_trie_t");
+  lua_setmetatable(L, -2);
+  return 1;
+}
+
+int ip_trie_t_find(lua_State *L)
+{
+  routtablerec *rt = *(routtablerec**)luaL_checkudata(L, 1, "ip_trie_t");
+  netaddr_t *na = (netaddr_t*)luaL_checkudata(L, 2, "netaddr_t");
+
+  word w = ntohl(na->addr.s_addr);
+
+  ip_table_entry_t *ipte = (ip_table_entry_t*)find(w, rt);
+  if (ipte)
+    {
+      ip_table_entry_t** i_p = (ip_table_entry_t**)lua_newuserdata(L, sizeof(ip_table_entry_t*));
+      *i_p = ipte;
+      luaL_getmetatable(L, "ip_table_entry_t");
+      lua_setmetatable(L, -2);
+    }
+  else
+    {
+      lua_pushnil(L);
+    }
+  return 1;
+}
+
+/* ----------------------------------------------------------------------
+   --
+   -- trie_lua_read_file
+   --
+   ---------------------------------------------------------------------- */
+
 
 int trie_lua_read_file(lua_State *L)
 {
@@ -372,6 +428,23 @@ int main(int argc, char *argv[])
   lua_pushcclosure(L, ip_table_t___tostring, 0); lua_setfield(L, -2, "__tostring");
   lua_pushcclosure(L, ip_table_t___pairs, 0); lua_setfield(L, -2, "__pairs");
   lua_pushcclosure(L, ip_table_t___len, 0); lua_setfield(L, -2, "__len");
+  lua_pop(L, 1);
+
+  /* --------------------
+     ip_trie
+     -------------------- */
+
+  luaL_newmetatable(L, "ip_trie_t");
+
+  lua_newtable(L);
+  lua_pushcclosure(L, ip_trie_t_find, 0); lua_setfield(L, -2, "find");
+  lua_setfield(L, -2, "__index");
+  lua_pop(L, 1);
+
+  lua_pushglobaltable(L);
+  lua_newtable(L);
+  lua_pushcclosure(L, ip_trie_t_new, 0); lua_setfield(L, -2, "new");
+  lua_setfield(L, -2, "ip_trie_t");
   lua_pop(L, 1);
 
   /* --------------------
