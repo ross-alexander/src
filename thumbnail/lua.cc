@@ -18,6 +18,8 @@
 
 typedef std::map<std::string, image_t*> image_table_t;
 
+typedef pixbuf_t default_image_t;
+
 /* ----------------------------------------------------------------------
 --
 -- image_t (pixbuf)
@@ -55,7 +57,7 @@ int image_t_new_from_file(lua_State *L)
 {
   const char *path = lua_tostring(L, 1);
   image_t** ip = (image_t**)lua_newuserdata(L, sizeof(image_t*));
-  *ip = new gegl_t(path);
+  *ip = new default_image_t(path);
   lua_getfield(L, LUA_REGISTRYINDEX, "image_t");
   lua_setmetatable(L, -2);
   return 1;
@@ -64,7 +66,7 @@ int image_t_new_from_file(lua_State *L)
 int image_t_new(lua_State *L)
 {
   image_t** ip = (image_t**)lua_newuserdata(L, sizeof(image_t*));
-  *ip = new gegl_t(lua_tointeger(L, 1), lua_tointeger(L, 2));
+  *ip = new default_image_t(lua_tointeger(L, 1), lua_tointeger(L, 2));
   lua_getfield(L, LUA_REGISTRYINDEX, "image_t");
   lua_setmetatable(L, -2);
   return 1;
@@ -154,6 +156,7 @@ int image_t_scale(lua_State *L)
 {
   image_t *src = *(image_t**)luaL_checkudata(L, 1, "image_t");
   double scale = lua_tonumber(L, 2);
+
   image_t *dst = src->scale((double)scale);
   image_t** ip = (image_t**)lua_newuserdata(L, sizeof(image_t*));
   *ip = dst;
@@ -202,8 +205,8 @@ int image_t_add_text(lua_State *L)
   double fontsize = lua_tonumber(L, 5);
   const char *family = lua_tostring(L, 6);
   const char *string = lua_tostring(L, 7);
-
-  printf("add_text(%f %f %f %f %s %s)\n", x, y, width, fontsize, family, string);
+  
+  // printf("add_text(%f %f %f %f %s %s)\n", x, y, width, fontsize, family, string);
   
   bounds_t bb = i->text(x, y, width, fontsize, family, string);
   
@@ -440,7 +443,7 @@ int thumbnail_t_load_images(lua_State *L)
     {
       if (i.second == nullptr)
 	{
-	  image_t *image = i.second = new gegl_t();
+	  image_t *image = i.second = new default_image_t();
 	  image->path = std::string(i.first);
 	}
       i.second->load();

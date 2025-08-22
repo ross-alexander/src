@@ -1,0 +1,74 @@
+#!/usr/bin/python3
+
+# ----------------------------------------------------------------------
+#
+# inv2net - Read JSON inventory file from vmw-inventory and list
+# networks and their associated prefixes, based on VM guest information
+#
+# 2025-08-08: Initial version
+#
+# ----------------------------------------------------------------------
+
+import os
+import sys
+import json
+import argparse
+import pytricia
+import ipaddress
+
+# --------------------
+# Use argparse to get name of inventory file
+# --------------------
+
+parser = argparse.ArgumentParser(description='Inventory to list of prefixes')
+parser.add_argument("-i", "--inventory", action='store', type=str, required=True, help="JSON inventory file")
+args = parser.parse_args()
+
+if not 'inventory' in args:
+    print("%s: requires inventory file" % (sys.argv[0]), file=sys.stderr)
+    exit(1)
+
+with open(args.inventory, "r") as stream:
+    inventory = json.load(stream)
+
+
+# --------------------
+# Recursive descent into the tree structure to pull out the VMs
+# --------------------
+
+def vm_descent(e):
+    res = []
+    if 'folder' in e:
+        [res.extend(vm_descent(i)) for i in e['folder']]
+    if 'virtualmachine' in e:
+        return e['virtualmachine']
+    return res
+
+vm_list = vm_descent(inventory['vm'])
+
+# --------------------
+# Create a PATRICIA trie
+# --------------------
+
+pyt = pytricia.PyTricia()
+
+
+# --------------------
+# Insert network into trie
+# --------------------
+
+for vm in vm_list:
+    if 'guest' in vm and 'net' in vm['guest']:
+        for nic in vm['guest']['net']:
+            if 'network' in nic:
+                for ip in nic['ip']:
+                    cidr = "%s/%d" % (ip['ip'], int(ip['prefix']))
+                    ipa = ipaddress.ip_network(cidr, strict=False)
+                    pyt[ipa] = nic['network']
+
+# --------------------
+# Write out trie
+# --------------------
+
+for k in pyt.keys():
+    print("%s\t%s" % (k, pyt[k]))

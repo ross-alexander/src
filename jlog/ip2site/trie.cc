@@ -22,17 +22,11 @@ double gettime(void)
    return (stopclock-startclock) / (double) CLOCKS_PER_SEC;
 }
 
-
 /* ----------------------------------------------------------------------
    --
    -- lctrie code
    --
    ---------------------------------------------------------------------- */
-
-
-
-
-
 
 #define ADRSIZE 32        /* the number of bits in an address */
 #define NOPRE -1          /* an empty prefix pointer */
@@ -163,8 +157,7 @@ void computebranch(base_t base[], int prefix, int first, int n,
    tree and 'nextfree' is the first position in the array
    that hasn't yet been reserved.
 */
-void build(base_t base[], pre_t pre[], int prefix, int first, int n,
-           int pos, int *nextfree, node_t *tree)
+void build(base_t base[], pre_t pre[], int prefix, int first, int n, int pos, int *nextfree, node_t *tree)
 {
    int branch, newprefix;
    int k, p, adr, bits;
@@ -174,75 +167,83 @@ void build(base_t base[], pre_t pre[], int prefix, int first, int n,
    
    if (n == 1)
       tree[pos] = first; /* branch and skip are 0 */
-   else {
-      computebranch(base, prefix, first, n, &branch, &newprefix);
-      adr = *nextfree;
-      tree[pos] = SETBRANCH(branch) |
-                  SETSKIP(newprefix-prefix) |
-                  SETADR(adr);
-      *nextfree += 1<<branch;
-      p = first;
-      /* Build the subtrees */
-      for (bitpat = 0; bitpat < 1<<branch; bitpat++) {
-         k = 0;         
-         while (p+k < first+n &&
-                EXTRACT(newprefix, branch, base[p+k]->str) == bitpat)
-            k++;
+   else
+     {
+       computebranch(base, prefix, first, n, &branch, &newprefix);
+       adr = *nextfree;
+       tree[pos] = SETBRANCH(branch) |
+	 SETSKIP(newprefix-prefix) |
+	 SETADR(adr);
+       *nextfree += 1<<branch;
+       p = first;
+       /* Build the subtrees */
+       for (bitpat = 0; bitpat < 1<<branch; bitpat++)
+	 {
+	   k = 0;         
+	   while (p+k < first+n && EXTRACT(newprefix, branch, base[p+k]->str) == bitpat)
+	     k++;
 
-         if (k == 0) {
-	   /* The leaf should have a pointer either to p-1 or p,
-              whichever has the longest matching prefix */
-            int match1 = 0, match2 = 0;
+	   if (k == 0)
+	     {
+	       /* The leaf should have a pointer either to p-1 or p,
+		  whichever has the longest matching prefix */
+	       int match1 = 0, match2 = 0;
+	       
+	       /* Compute the longest prefix match for p - 1 */
+	       if (p > first)
+		 {
+		   int prep, len;
+		   prep =  base[p-1]->pre;
+		   while (prep != NOPRE && match1 == 0)
+		     {
+		       len = pre[prep]->len;
+		       if (len > newprefix &&
+			   EXTRACT(newprefix, len - newprefix, base[p-1]->str) ==
+			   EXTRACT(32 - branch, len - newprefix, bitpat))
+			 match1 = len;
+		       else
+			 prep = pre[prep]->pre;
+		     }
+		 }
 
-            /* Compute the longest prefix match for p - 1 */
-            if (p > first) {
-               int prep, len;
-               prep =  base[p-1]->pre;
-               while (prep != NOPRE && match1 == 0) {
-                  len = pre[prep]->len;
-                  if (len > newprefix &&
-                      EXTRACT(newprefix, len - newprefix, base[p-1]->str) ==
-                      EXTRACT(32 - branch, len - newprefix, bitpat))
-                     match1 = len;
-                  else
-                     prep = pre[prep]->pre;
-               }
-	    }         
+	       /* Compute the longest prefix match for p */
+	       if (p < first + n)
+		 {
+		   int prep, len;
+		   prep =  base[p]->pre;
+		   while (prep != NOPRE && match2 == 0)
+		     {
+		       len = pre[prep]->len;
+		       if (len > newprefix &&
+			   EXTRACT(newprefix, len - newprefix, base[p]->str) ==
+			   EXTRACT(32 - branch, len - newprefix, bitpat))
+			 match2 = len;
+		       else
+			 prep = pre[prep]->pre;
+		     }
+		 }
 
-            /* Compute the longest prefix match for p */
-            if (p < first + n) {
-               int prep, len;
-               prep =  base[p]->pre;
-               while (prep != NOPRE && match2 == 0) {
-                  len = pre[prep]->len;
-                  if (len > newprefix &&
-                      EXTRACT(newprefix, len - newprefix, base[p]->str) ==
-                      EXTRACT(32 - branch, len - newprefix, bitpat))
-                     match2 = len;
-                  else
-                     prep = pre[prep]->pre;
-               }
-	    }         
-
-            if ((match1 > match2 && p > first) || p == first + n)
-               build(base, pre, newprefix+branch, p-1, 1,
-                     adr + bitpat, nextfree, tree);
-            else
-               build(base, pre, newprefix+branch, p, 1,
-                     adr + bitpat, nextfree, tree);
-         } else if (k == 1 && base[p]->len - newprefix < branch) {
-            word i;
-            bits = branch - base[p]->len + newprefix;
-            for (i = bitpat; i < bitpat + (1<<bits); i++)
-               build(base, pre, newprefix+branch, p, 1,
-                     adr + i, nextfree, tree);
-            bitpat += (1<<bits) - 1;
-         } else
-            build(base, pre, newprefix+branch, p, k,
-                  adr + bitpat, nextfree, tree);
-         p += k;
-      }
-   }
+	       if ((match1 > match2 && p > first) || p == first + n)
+		 build(base, pre, newprefix+branch, p-1, 1, adr + bitpat, nextfree, tree);
+	       else
+		 build(base, pre, newprefix+branch, p, 1, adr + bitpat, nextfree, tree);
+	     }
+	   else if (k == 1 && base[p]->len - newprefix < branch)
+	     {
+	       word i;
+	       bits = branch - base[p]->len + newprefix;
+	       for (i = bitpat; i < bitpat + (1<<bits); i++)
+		 build(base, pre, newprefix+branch, p, 1,
+		       adr + i, nextfree, tree);
+	       bitpat += (1<<bits) - 1;
+	     }
+	   else
+	     {
+	       build(base, pre, newprefix+branch, p, k, adr + bitpat, nextfree, tree);
+	     }
+	   p += k;
+	 }
+     }
 }
 
 /* Is the string s a prefix of the string t? */
@@ -449,12 +450,13 @@ nexthop_t find(word s, routtable_t t)
    pos = GETSKIP(node);
    branch = GETBRANCH(node);
    adr = GETADR(node);
-   while (branch != 0) {
-      node = t->trie[adr + EXTRACT(pos, branch, s)];
-      pos += branch + GETSKIP(node);
-      branch = GETBRANCH(node);
-      adr = GETADR(node);
-   }
+   while (branch != 0)
+     {
+       node = t->trie[adr + EXTRACT(pos, branch, s)];
+       pos += branch + GETSKIP(node);
+       branch = GETBRANCH(node);
+       adr = GETADR(node);
+     }
 
    /* Was this a hit? */
    bitmask = t->base[adr].str ^ s;
@@ -463,11 +465,12 @@ nexthop_t find(word s, routtable_t t)
 
    /* If not, look in the prefix tree */
    preadr = t->base[adr].pre;
-   while (preadr != NOPRE) {
-      if (EXTRACT(0, t->pre[preadr].len, bitmask) == 0)
+   while (preadr != NOPRE)
+     {
+       if (EXTRACT(0, t->pre[preadr].len, bitmask) == 0)
          return t->nexthop[t->pre[preadr].nexthop];
-      preadr = t->pre[preadr].pre;
-   }
+       preadr = t->pre[preadr].pre;
+     }
 
    /* Debugging printout for failed search */
    /*
@@ -494,17 +497,20 @@ void traverse(routtable_t t, node_t r, int depth,
 {
    int i;
 
-   if (GETBRANCH(r) == 0) { /* leaf */
-      *totdepth += depth;
-      if (depth > *maxdepth)
+   if (GETBRANCH(r) == 0)
+     { /* leaf */
+       *totdepth += depth;
+       if (depth > *maxdepth)
          *maxdepth = depth;
-      depths[depth]++;
-   } else
-      for (i = 0; i < 1<<GETBRANCH(r); i++)
+       depths[depth]++;
+     }
+   else
+     {
+       for (i = 0; i < 1<<GETBRANCH(r); i++)
          traverse(t, t->trie[GETADR(r)+i], depth+1,
                   totdepth, maxdepth, depths);
+     }
 }
-
 
 void routtablestat(routtable_t t, int verbose)
 {

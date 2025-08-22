@@ -162,10 +162,10 @@ int main(int argc, char *argv[])
       
       /* Format is from jlog with the smoothwall.lua script */
       
-      word addr = ntohl(inet_addr(bits[4]));
+      word addr = ntohl(inet_addr(bits[0]));
       nexthop_t nh = find(addr, table);
       if (!nh) nh = (void*)"****";
-      printf("%-60s\t%-12s\t%s\n", nh, bits[4], bits[0]);
+      printf("%-60s\t%-12s\t%s\n", nh, bits[0], bits[1]);
     }
   fclose(stream);
 }
