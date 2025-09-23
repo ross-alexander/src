@@ -11,6 +11,7 @@
 "#"		{ BEGIN(comment); }
 <comment>.	;
 <comment>\n	{ BEGIN(INITIAL); }
+","		{ return COMMA; }
 "+"		{ return PLUS; }
 "-"		{ return MINUS; }
 "("		{ return LPAREN; }
