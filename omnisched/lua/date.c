@@ -109,6 +109,38 @@ static int Date_wday(lua_State *L)
   return 1;
 }
 
+static int Date_wday_get(lua_State *L)
+{
+  Date *bar = toDate(L, 1);
+  int a = bar->tm.tm_wday;
+  lua_pushinteger(L, a);
+  return 1;
+}
+
+static int Date_mday_get(lua_State *L)
+{
+  Date *bar = toDate(L, 1);
+  int a = bar->tm.tm_mday;
+  lua_pushinteger(L, a);
+  return 1;
+}
+
+static int Date_mon_get(lua_State *L)
+{
+  Date *bar = toDate(L, 1);
+  int a = bar->tm.tm_mon;
+  lua_pushinteger(L, a);
+  return 1;
+}
+
+static int Date_year_get(lua_State *L)
+{
+  Date *bar = toDate(L, 1);
+  int a = bar->tm.tm_year;
+  lua_pushinteger(L, a);
+  return 1;
+}
+
 /* ----------------------------------------------------------------------
  * 
  * Date_strftime
@@ -165,6 +197,32 @@ static int Date_omni_monthly(lua_State *L)
   return 1;
 }
 
+static int Date___index(lua_State *L)
+{
+  assert(lua_gettop(L) == 2);
+  assert(luaL_checkudata(L, 1, "Date"));
+  const char* key = luaL_checkstring(L, 2);
+
+  /* methods table */
+  
+  lua_pushvalue(L, lua_upvalueindex(1));
+  lua_getfield(L, -1, key);
+  if(!lua_isnil(L, -1))
+    return 1;
+
+  /* getter table */
+  
+  lua_pushvalue(L, lua_upvalueindex(2));
+  lua_getfield(L, -1, key);
+  
+  if (!lua_isnil(L, -1))
+    {
+      lua_pushvalue(L, 1);
+      lua_call(L, 1, 1);
+    }
+  return 1;
+}
+
 static const luaL_Reg Date_class_methods[] = {
   {"new",	Date_new},
   {"now",	Date_now},
@@ -172,19 +230,28 @@ static const luaL_Reg Date_class_methods[] = {
 };
 
 static const luaL_Reg Date_instance_methods[] = {
-  {"wday",	Date_wday},
+  //  {"wday",	Date_wday},
   {"omni",	Date_omni_holiday},
   {"monthly",	Date_omni_monthly},
   {"strftime",	Date_strftime},
   {0, 0}
 };
 
+static const luaL_Reg Date_instance_getters[] = {
+  {"wday", Date_wday_get},
+  {"mday", Date_mday_get},
+  {"mon",  Date_mon_get},
+  {"year", Date_year_get},
+  {0, 0}
+};
+  
 static const luaL_Reg Date_meta[] = {
   {"__tostring", Date_tostring},
   {"__add", Date_add},
   {"__sub", Date_sub},
   {0, 0}
 };
+
 
 int luaopen_date(lua_State *L)
 {
@@ -217,27 +284,37 @@ int luaopen_date(lua_State *L)
 
   
   /* --------------------
-     Add Date object
+     Add Date class
      -------------------- */
 
   lua_newtable(L);
   luaL_setfuncs(L, Date_class_methods, 0);
   lua_setglobal(L, "Date");            /* Set global with class methods */
 
+  /* --------------------
+     Add class methods
+     -------------------- */
+     
   luaL_newmetatable(L, "Date");          /* create metatable for Date, and add it to the Lua registry */
   luaL_setfuncs(L, Date_meta, 0);
-
-  lua_pushliteral(L, "__index");
+  
   lua_newtable(L);
   luaL_setfuncs(L, Date_instance_methods, 0);
-  lua_rawset(L, -3);                  /* metatable.__index = methods */
+
+  lua_newtable(L);
+  luaL_setfuncs(L, Date_instance_getters, 0);
+
+  lua_pushcclosure(L, Date___index, 2); lua_setfield(L, -2, "__index");
+  lua_pop(L, 1);
+
+  // lua_pushliteral(L, "__index");
+  //  lua_rawset(L, -3);                  /* metatable.__index = methods */
 
   //  lua_pushliteral(L, "__metatable");
   //  lua_pushvalue(L, -3);               /* dup methods table*/
   //  lua_rawset(L, -3);                  /* hide metatable:
   //                                         metatable.__metatable = methods */
-  lua_pop(L, 1);                      /* drop metatable */
-
+  // lua_pop(L, 1);                      /* drop metatable */
   //  lua_pop(L, 1);
 
   return 1;
