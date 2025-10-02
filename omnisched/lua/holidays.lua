@@ -13,11 +13,11 @@ require "date"
 -- --------------------
 
 function cascade(a)
-   if (a:wday() == 6)
+   if (a.wday == 6)
    then
       return a + 2;
    end
-   if (a:wday() == 0)
+   if (a.wday == 0)
    then
       return a + 1;
    end
@@ -33,7 +33,7 @@ end
 function christmas(year)
    local a = Date.new("december 25 " .. year)
    for i = 0,4 do
-      local wday = (a + i):wday()
+      local wday = (a + i).wday
       if (wday == 6)
       then
 	 a = a + 2
@@ -51,7 +51,7 @@ function newyear(year)
   local i = 0
   while i < c do
     omni(a + i)
-    local wday = (a + i):wday()
+    local wday = (a + i).wday
     if (wday == 6)
     then
       c = c + 1
@@ -74,11 +74,9 @@ function omni(a)
    print(a:omni())
 end
 
-if (#arg < 1) then
-   print "Must pass year on command line"
-else
-   local year = arg[1]
-
+if (#arg >= 1) then
+   year = arg[1]
+end
    christmas(year - 1)
    newyear(year)
    easter(year)
@@ -88,4 +86,3 @@ else
    omni(Date.new("last monday of aug"))
    christmas(year)
    newyear(year + 1)
-end
