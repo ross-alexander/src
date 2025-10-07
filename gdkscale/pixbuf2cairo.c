@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
   uint32_t height = gdk_pixbuf_get_height(px);
   uint32_t alpha = gdk_pixbuf_get_has_alpha(px);
   uint32_t depth = gdk_pixbuf_get_bits_per_sample(px);
-  GdkColorspace color = gdk_pixbuf_get_colorspace(px);
+  // GdkColorspace color = gdk_pixbuf_get_colorspace(px);
 
   /* Report image details */
   
@@ -81,20 +81,20 @@ int main(int argc, char *argv[])
 				 babl_component("G"),
 				 babl_component("R"),
 				 babl_component("A"),
-				 0);
+				 NULL);
   else
     src_format = babl_format_new(babl_model("R'G'B'"), babl_type("u8"),
 				 babl_component("R'"),
 				 babl_component("G'"),
 				 babl_component("B'"),
-				 0);
+				 NULL);
 
   /* Check if alpha is in destination */
   
   if (alpha & keep_alpha)
     {
       cairo_format = CAIRO_FORMAT_ARGB32;
-      dst_format = babl_format("cairo-ARGB32");      
+      dst_format = babl_format("cairo-ARGB32");
     }
   else
     {
@@ -104,12 +104,22 @@ int main(int argc, char *argv[])
 
   /* Create destination surface */
   
-  cairo_surface_t *surface = cairo_image_surface_create (cairo_format, width, height);
-  
+  cairo_surface_t *surface = cairo_image_surface_create(cairo_format, width, height);
+
+
+  /*
   babl_process (babl_fish(src_format, dst_format),
 		gdk_pixbuf_get_pixels(px),
 		cairo_image_surface_get_data(surface),
 		width * height);
+  */
+  babl_process_rows(babl_fish(src_format, dst_format),
+		    gdk_pixbuf_get_pixels(px),
+		    gdk_pixbuf_get_rowstride(px),
+		    cairo_image_surface_get_data(surface),
+		    cairo_image_surface_get_stride(surface),
+		    width,
+		    height);
 
   /* Save to PNG */
   
