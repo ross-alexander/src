@@ -9,7 +9,6 @@ function compose(index, tn, cols, size, border)
    local images = tn.image_table
    local rows = ((#images-1)//cols)+1
    local fontsize = 16
-   print("rows ", rows)
 
    local width = (size + border) * cols + border
    local height = (size + border + fontsize) * rows + border
@@ -48,8 +47,8 @@ tn:dir_scan()
 --    print(path)
 -- end
 
-local rows = 3
-local cols = 8
+local rows = 4
+local cols = 10
 
 -- split into integer indexed table of thumbnails
 

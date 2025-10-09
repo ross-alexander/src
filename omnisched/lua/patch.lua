@@ -22,11 +22,12 @@ end
 print(table.concat(keys))
 print(table.concat(sep))
 
-for year = 2025, 2026
-do
-   for month = 1, 12
-   do
-      tuesday = Date.new(string.format("second tuesday of %d, %d", month, year))
+today = Date.now()
+for i = 0, 11 do
+   local t = (today.year * 12 + today.mon) + i
+   local y = (t // 12) + 1900
+   local m = (t % 12) + 1
+      tuesday = Date.new(string.format("second tuesday of %d, %d", m, y))
 --      print(tuesday:strftime("Patching for %B %Y\n"))
       local phases = {
 	 tuesday + 0,
@@ -40,5 +41,4 @@ do
 	 phases[k] = string.format("%-20s", v:strftime("%a %b %d %Y"))
       end
       print(string.format("%-20s%s", tuesday:strftime("%B %Y"), table.concat(phases)))
-   end
 end

@@ -17,183 +17,58 @@ int luaL_typerror (lua_State *L, int narg, const char *tname)
 }
 #endif
 
-static Date *toDate (lua_State *L, int index);
-
 /* ----------------------------------------------------------------------
---
--- lua_date
---
----------------------------------------------------------------------- */
+   --
+   -- C to lua (and back) functions
+   --
+   ---------------------------------------------------------------------- */
 
-int lua_date(lua_State *L)
+static Date *pushDate(lua_State *L)
 {
-  /* --------------------
-     Get year from lua globals
-     -------------------- */
-
-#if LUA_VERSION_NUM > 501
-  lua_pushglobaltable(L);
-  lua_getfield(L, -1, "year");
-  lua_remove(L, -2);
-#else
-  lua_pushstring(L, "year");
-  lua_gettable(L, LUA_GLOBALSINDEX);
-#endif
-  assert(lua_isnumber(L, -1));
-
-  pstate p;
-  p.year = (int)lua_tonumber(L, -1);
-
-  /* --------------------
-     Make sure passed value is a string
-     -------------------- */
-
-  assert(lua_isstring(L, -2));
-  parse_date(&p, (char*)lua_tostring(L, -2));
-
-  /* --------------------
-     Return result as a number on the stack
-     -------------------- */
-
-  lua_pushnumber(L, p.res);
-  return 1;
+  Date *d = (Date*)lua_newuserdata(L, sizeof(Date));
+  luaL_getmetatable(L, "Date");
+  lua_setmetatable(L, -2);
+  return d;
 }
 
 static Date *toDate(lua_State *L, int index)
 {
-  Date *bar = (Date *)luaL_checkudata(L, index, "Date");
-  if (bar == NULL) luaL_typerror(L, index, "Date");
-  return bar;
-}
-
-static Date *pushDate(lua_State *L)
-{
-  Date *bar = (Date*)lua_newuserdata(L, sizeof(Date));
-  luaL_getmetatable(L, "Date");
-  lua_setmetatable(L, -2);
-  return bar;
-}
-
-static int Date_tostring(lua_State *L)
-{
-  char buff[1024];
-  strftime(buff, 1024, "%c", &toDate(L, 1)->tm);
-  lua_pushfstring(L, "Date(%s)", buff);
-  return 1;
-}
-
-static int Date_new(lua_State *L)
-{
-  lua_date(L);
-  lua_Number a = lua_tonumber(L, -1);
-  Date *bar = pushDate(L);
-  //  lua_number2int(bar->tick, a);
-  bar->tick = (time_t)(a);
-  localtime_r(&bar->tick, &bar->tm);
-  return 1;
-}
-
-static int Date_now(lua_State *L)
-{
-  Date *bar = pushDate(L);
-  bar->tick = (time_t)(time(0));
-  localtime_r(&bar->tick, &bar->tm);
-  return 1;
-}
-
-static int Date_wday(lua_State *L)
-{
-  Date *bar = toDate(L, 1);
-  int a = bar->tm.tm_wday;
-  lua_pushnumber(L, a);
-  return 1;
-}
-
-static int Date_wday_get(lua_State *L)
-{
-  Date *bar = toDate(L, 1);
-  int a = bar->tm.tm_wday;
-  lua_pushinteger(L, a);
-  return 1;
-}
-
-static int Date_mday_get(lua_State *L)
-{
-  Date *bar = toDate(L, 1);
-  int a = bar->tm.tm_mday;
-  lua_pushinteger(L, a);
-  return 1;
-}
-
-static int Date_mon_get(lua_State *L)
-{
-  Date *bar = toDate(L, 1);
-  int a = bar->tm.tm_mon;
-  lua_pushinteger(L, a);
-  return 1;
-}
-
-static int Date_year_get(lua_State *L)
-{
-  Date *bar = toDate(L, 1);
-  int a = bar->tm.tm_year;
-  lua_pushinteger(L, a);
-  return 1;
+  Date *d = (Date *)luaL_checkudata(L, index, "Date");
+  if (d == NULL) luaL_typerror(L, index, "Date");
+  return d;
 }
 
 /* ----------------------------------------------------------------------
- * 
- * Date_strftime
- *
- ---------------------------------------------------------------------- */
+   --
+   -- metamethods
+   --
+   ---------------------------------------------------------------------- */
 
-static int Date_strftime(lua_State *L)
+static int Date___tostring(lua_State *L)
 {
-  Date *bar = toDate(L, 1);
-  localtime_r(&bar->tick, &bar->tm);
-  assert(lua_isstring(L, 2));
-  char buf[1024];
-  strftime(buf, sizeof(buf), lua_tostring(L, 2), &bar->tm);
-  lua_pushstring(L, buf);
+  char buffer[1024];
+  strftime(buffer, 1024, "%c", &(toDate(L, 1)->tm));
+  lua_pushfstring(L, "Date(%s)", buffer);
   return 1;
 }
 
-
-static int Date_add(lua_State *L)
+static int Date___add(lua_State *L)
 {
   Date *d = toDate(L, 1);
-  int a;
-  a = (int)(lua_tonumber(L, 2));
+  int a = lua_tointeger(L, 2);
   Date *r = pushDate(L);
   r->tick = d->tick + a * 86400;
   localtime_r(&r->tick, &r->tm);
   return 1;
 }
 
-static int Date_sub(lua_State *L)
+static int Date___sub(lua_State *L)
 {
   Date *d = toDate(L, 1);
-  int a = (int)(lua_tonumber(L, 2));
+  int a = lua_tointeger(L, 2);
   Date *r = pushDate(L);
   r->tick = d->tick - a * 86400;
   localtime_r(&r->tick, &r->tm);
-
-  return 1;
-}
-
-static int Date_omni_holiday(lua_State *L)
-{
-  char s[1024];
-  strftime(s, 1024, "%j%t%b %d\t\t# %a %d %b %Y", &toDate(L, 1)->tm);
-  lua_pushfstring(L, "%s", s);
-  return 1;
-}
-
-static int Date_omni_monthly(lua_State *L)
-{
-  char s[1024];
-  strftime(s, 1024, "\t-day %d -month %b", &toDate(L, 1)->tm);
-  lua_pushfstring(L, "%s", s);
   return 1;
 }
 
@@ -223,6 +98,123 @@ static int Date___index(lua_State *L)
   return 1;
 }
 
+/* ----------------------------------------------------------------------
+ *
+ * class methods
+ *
+ ---------------------------------------------------------------------- */
+
+
+static int lua_parse_date(lua_State *L)
+{
+  /* --------------------
+     Get year from lua globals
+     -------------------- */
+
+#if LUA_VERSION_NUM > 501
+  lua_pushglobaltable(L);
+  lua_getfield(L, -1, "year");
+  lua_remove(L, -2);
+#else
+  lua_pushstring(L, "year");
+  lua_gettable(L, LUA_GLOBALSINDEX);
+#endif
+  assert(lua_isinteger(L, -1));
+
+  pstate p;
+  p.year = lua_tointeger(L, -1);
+
+  /* --------------------
+     Make sure passed value is a string
+     -------------------- */
+
+  assert(lua_isstring(L, -2));
+  parse_date(&p, (char*)lua_tostring(L, -2));
+
+  /* --------------------
+     Return result as a number on the stack
+     -------------------- */
+
+  lua_pushinteger(L, p.res);
+  return 1;
+}
+
+
+
+static int Date_new(lua_State *L)
+{
+  lua_parse_date(L);
+  int a = lua_tointeger(L, -1);
+  Date *d = pushDate(L);
+  d->tick = (time_t)(a);
+  localtime_r(&d->tick, &d->tm);
+  return 1;
+}
+
+static int Date_now(lua_State *L)
+{
+  Date *d = pushDate(L);
+  d->tick = (time_t)(time(0));
+  localtime_r(&d->tick, &d->tm);
+  return 1;
+}
+
+/* ----------------------------------------------------------------------
+   --
+   -- instance methods
+   --
+   ---------------------------------------------------------------------- */
+
+static int Date_wday_get(lua_State *L)
+{
+  Date *d = toDate(L, 1);
+  int a = d->tm.tm_wday;
+  lua_pushinteger(L, a);
+  return 1;
+}
+
+static int Date_mday_get(lua_State *L)
+{
+  Date *d = toDate(L, 1);
+  int a = d->tm.tm_mday;
+  lua_pushinteger(L, a);
+  return 1;
+}
+
+static int Date_mon_get(lua_State *L)
+{
+  Date *d = toDate(L, 1);
+  int a = d->tm.tm_mon;
+  lua_pushinteger(L, a);
+  return 1;
+}
+
+static int Date_year_get(lua_State *L)
+{
+  Date *d = toDate(L, 1);
+  int a = d->tm.tm_year;
+  lua_pushinteger(L, a);
+  return 1;
+}
+
+
+static int Date_strftime(lua_State *L)
+{
+  assert(lua_isstring(L, 2));
+  Date *d = toDate(L, 1);
+  localtime_r(&d->tick, &d->tm);
+  char buffer[1024];
+  strftime(buffer, sizeof(buffer), lua_tostring(L, 2), &d->tm);
+  lua_pushstring(L, buffer);
+  return 1;
+}
+
+/* ----------------------------------------------------------------------
+ * 
+ * lalL_Reg tables
+ *
+ ---------------------------------------------------------------------- */
+
 static const luaL_Reg Date_class_methods[] = {
   {"new",	Date_new},
   {"now",	Date_now},
@@ -230,9 +222,6 @@ static const luaL_Reg Date_class_methods[] = {
 };
 
 static const luaL_Reg Date_instance_methods[] = {
-  //  {"wday",	Date_wday},
-  {"omni",	Date_omni_holiday},
-  {"monthly",	Date_omni_monthly},
   {"strftime",	Date_strftime},
   {0, 0}
 };
@@ -246,9 +235,9 @@ static const luaL_Reg Date_instance_getters[] = {
 };
   
 static const luaL_Reg Date_meta[] = {
-  {"__tostring", Date_tostring},
-  {"__add", Date_add},
-  {"__sub", Date_sub},
+  {"__tostring", Date___tostring},
+  {"__add", Date___add},
+  {"__sub", Date___sub},
   {0, 0}
 };
 

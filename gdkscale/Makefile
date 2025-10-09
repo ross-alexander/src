@@ -5,7 +5,7 @@ CFLAGS_SCALE	= `pkg-config --cflags gdk-3.0 gegl-0.4`
 ALL: scale gdkscale pixbuf2cairo draw
 
 pixbuf2cairo: pixbuf2cairo.c
-	$(CC) -std=c17 `pkg-config --cflags --libs gdk-pixbuf-2.0 cairo babl-0.1` $< -o $@
+	$(CC) -std=c17 -Wall `pkg-config --cflags --libs gdk-pixbuf-2.0 cairo babl-0.1` $< -o $@
 
 
 scale	: scale.o

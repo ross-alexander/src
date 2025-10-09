@@ -1,5 +1,5 @@
-CFLAGS		= -Wall -std=c99 -g -D_GNU_SOURCE -fPIC -I.
-CXXFLAGS	= -Wall -std=c++14 -g -D_GNU_SOURCE -fPIC -I.
+CFLAGS		= -Wall -std=c17 -g -D_GNU_SOURCE -fPIC -I.
+CXXFLAGS	= -Wall -std=c++17 -g -D_GNU_SOURCE -fPIC -I.
 LDFLAGS	=
 
 CFLAGS_GDK	= `pkg-config --cflags gdk-3.0`

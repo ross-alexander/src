@@ -1,6 +1,6 @@
 LEX		= flex
 YACC		= bison
-CFLAGS		= -g -I/usr/include/lua/5.4 -fPIC -DLUA_COMPAT_5_1 -DLUA_COMPAT_5_2 -DLUA_COMPAT_5_3
+CFLAGS		= -Wall -g -I/usr/include/lua/5.4 -fPIC -DLUA_COMPAT_5_1 -DLUA_COMPAT_5_2 -DLUA_COMPAT_5_3
 LDLIBS		= -L/usr/lib64/lua/5.4 -llua -lm -ldl
 OBJS		= time.o tokenize.o parse.o date.o date.so
 GENERATED	= tokenize.c tokenize.h parse.h parse.c
