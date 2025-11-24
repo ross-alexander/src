@@ -7,7 +7,6 @@ ALL: scale gdkscale pixbuf2cairo draw
 pixbuf2cairo: pixbuf2cairo.c
 	$(CC) -std=c17 -Wall `pkg-config --cflags --libs gdk-pixbuf-2.0 cairo babl-0.1` $< -o $@
 
-
 scale	: scale.o
 	$(CXX) $(LDFLAGS) $^ -rdynamic $(LDLIBS_SCALE) -o $@
 
@@ -19,7 +18,6 @@ gdkscale	: gdkscale.o
 
 gdkscale.o : gdkscale.c
 	$(CC) $(CFLAGS) $(CFLAGS_SCALE)  -c $< -o $@
-
 
 draw	: draw.o
 	$(CC) $(CFLAGS) $< `pkg-config --libs gtk+-3.0` -o $@
