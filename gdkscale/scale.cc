@@ -178,7 +178,7 @@ int scale_gegl(scale_t *s)
 --
 ---------------------------------------------------------------------- */
 
-int scale(char *file, int size, std::string alg, std::string format)
+int scale(char *file, int size, double ratio, std::string alg, std::string format)
 {
   GError *error = NULL;
 
@@ -201,22 +201,29 @@ int scale(char *file, int size, std::string alg, std::string format)
      scale image to longest side = size
      -------------------- */
 
-  double ratio = (double)s.src_width / s.src_height;
-
-  if (ratio > 1.0)
+  if (size > 0)
     {
-      s.dst_width = size;
-      s.dst_height = size / ratio;
-      s.scale = (double)size / s.src_width;
+      ratio = (double)s.src_width / s.src_height;
+      if (ratio > 1.0)
+	{
+	  s.dst_width = size;
+	  s.dst_height = size / ratio;
+	  s.scale = (double)size / s.src_width;
+	}
+      else
+	{
+	  s.dst_width = size * ratio;
+	  s.dst_height = size;
+	  s.scale = (double)size / s.src_height;
+	}
     }
   else
     {
-      s.dst_width = size * ratio;
-      s.dst_height = size;
-      s.scale = (double)size / s.src_height;
+      s.dst_width = s.src_width * ratio;
+      s.dst_height = s.src_height * ratio;
+      s.scale = ratio;
     }
-
-
+  
   // Check if algorithm exists
   
   if (!fmap.count(alg))
@@ -267,15 +274,20 @@ int main(int argc, char *argv[])
   gegl_init(&argc, &argv);
 
   int ch;
-  int s = 1000;
+  int size = 0;
+  double ratio = 1.0;
+
   std::string alg = "pixbuf";
   std::string format = "png";
   
-  while ((ch = getopt(argc, argv, "a:s:f:")) != EOF)
+  while ((ch = getopt(argc, argv, "a:r:s:f:")) != EOF)
     switch(ch)
       {
       case 's':
-	s = strtol(optarg, NULL, 10);
+	size = strtol(optarg, NULL, 10);
+	break;
+      case 'r':
+	ratio = strtod(optarg, NULL);
 	break;
       case 'a':
 	alg = optarg;
@@ -291,7 +303,7 @@ int main(int argc, char *argv[])
       exit(1);
     }
   for (int i = optind; i < argc; i++)
-    scale(argv[i], s, alg, format);
+    scale(argv[i], size, ratio, alg, format);
 
   gegl_exit();
   return 0;
