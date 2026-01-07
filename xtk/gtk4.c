@@ -39,7 +39,7 @@ static void resize_cb (GtkWidget *widget, int width, int height, gpointer data)
 --
 ---------------------------------------------------------------------- */
 
-static void draw_cb (GtkDrawingArea *drawing_area, cairo_r* cr, int width, int height, gpointer data)
+static void draw_cb (GtkDrawingArea *drawing_area, cairo_t* cr, int width, int height, gpointer data)
 {
   xtk_gtk4_t *gtk4 = (xtk_gtk4_t*)data;
   xtk_draw_cairo(gtk4->xtk, cr);
