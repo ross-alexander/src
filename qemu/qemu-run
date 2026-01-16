@@ -98,14 +98,16 @@ sub model_riscv64 {
 
 sub model_x86_64 {
     my ($run) = @_;
-    my @cmd;
-
     my $confdir = $run->{confdir};
     my $basedir = $run->{basedir};
+    my $imagedir = $run->{imagedir};
+
     my $vm = $run->{vm};
+    
     my $smp = $vm->{smp} // 1;
     my $mem = $vm->{mem} // 1024;
     
+    my @cmd;
     push(@cmd, 'qemu-system-x86_64', '-name', $vm->{name}, '-enable-kvm', '-machine', 'q35', '-m', $mem, '-cpu', 'host', '-smp', $smp);
 
     # --------------------
@@ -114,9 +116,9 @@ sub model_x86_64 {
     
     if ($vm->{firmware} eq 'uefi')
     {
-	my $ovmf_code = catfile($confdir, "uefi", "OVMF_CODE.fd");
+	my $ovmf_code = catfile($basedir, "uefi", "OVMF_CODE.fd");
 	croak sprintf("$0: OVMF code file %s missing", $ovmf_code) if (! -f $ovmf_code);
-	my $ovmf_vars = catfile($basedir, "OVMF_VARS.fd");
+	my $ovmf_vars = catfile($imagedir, "OVMF_VARS.fd");
 	croak "$0: OVMF vars file $ovmf_vars missing" if (! -f $ovmf_vars);
 	$run->{ovmf_code} = $ovmf_code;
 	$run->{ovmf_vars} = $ovmf_vars;
@@ -394,7 +396,8 @@ sub main()
     # --------------------
     
     my $opts = {
-	confdir => '/srv/kvm/vm/',
+	basedir => '/srv/kvm',
+	confdir => '/srv/kvm/vm',
 	vmdefdir => '/srv/kvm/vm/vmdef',
 	yamlfile => undef,
 	demon => 0,
@@ -411,6 +414,7 @@ sub main()
 	'daemon' => \$opts->{daemon},
 	'systemd' => \$opts->{systemd},
 	'basedir=s' => \$opts->{basedir},
+	'imagedir=s' => \$opts->{basedir},
 	'vmname=s' => \$opts->{vmname},
 	'vga' => \$opts->{vga}
 	);
@@ -421,6 +425,12 @@ sub main()
 	exit 0;
     }
 
+    # --------------------
+    # Get basedir
+    # --------------------
+
+    my $basedir = $opts->{basedir};
+    
     # --------------------
     # confdir is important as it has the networking callbacks
     # --------------------
@@ -486,27 +496,28 @@ sub main()
 
     my $image_key = $run->{vm}->{image};
 	
-    my $basedir;
+    my $imagedir;
 
-    if ($opts->{basedir})
+    if ($opts->{imagedir})
     {
-	$basedir = catfile(rel2abs($opts->{basedir}), $name);
+	$imagedir = $opts->{imagedir};
     }
     elsif ($run->{vm}->{image}->{directory})
     {
-	$basedir = $run->{vm}->{image}->{directory};
+	$imagedir = $run->{vm}->{image}->{directory};
     }
     else
     {
-	$basedir = catfile(rel2abs("."), $name);
+	$imagedir = catfile(rel2abs($opts->{basedir}), "dstore", $name);
     }
+    
     # --------------------
     # Check if basedir exists
     # --------------------
     
-    if (!-d $basedir)
+    if (!-d $imagedir)
     {
-	printf(STDERR "$0: image base directory $basedir missing\n");
+	printf(STDERR "$0: image base directory %s missing\n", $imagedir);
 	exit(1);
     }
 
@@ -516,7 +527,7 @@ sub main()
     
     my $format => $run->{format} = $run->{vm}->{image}->{format};
     my $image = $image_key->{file} // sprintf("%s.%s", $name, $run->{format});
-    $image = file_name_is_absolute($image) ? $image : catfile($basedir, $image);
+    $image = file_name_is_absolute($image) ? $image : catfile($imagedir, $image);
     croak "$0: image file $image missing" if (! -f $image);
 
     # --------------------
@@ -525,6 +536,7 @@ sub main()
 
     $run->{confdir} = $confdir;
     $run->{basedir} = $basedir;
+    $run->{imagedir} = $imagedir;
     $run->{device} = $run->{vm}->{image}->{device} if (exists($run->{vm}->{image}->{device}));
 
     # --------------------
@@ -538,7 +550,7 @@ sub main()
 	    $run->{partition} = $part->{root}->{id};
 	}
     }
-    
+
     $run->{image} = $image;
     $run->{netdb} = catfile($opts->{confdir}, "net.db");
     $run->{daemon} = $opts->{daemon};
