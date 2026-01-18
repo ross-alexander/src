@@ -31,63 +31,6 @@ use Carp::Assert;
 use JSON;
 use Getopt::Long;
 
-# ----------------------------------------------------------------------
-#
-# m3u_find
-#
-# Recursively find all .m3u files in a directory.
-#
-# ----------------------------------------------------------------------
-
-sub m3u_find {
-    my ($base, $path) = @_;
-
-    # --------------------
-    # $path may be undefined
-    # --------------------
-    
-    my $dir = catdir($base, $path);
-
-    # --------------------
-    # decode_utf8 added as filenames are encoded utf8
-    # --------------------
-    
-    my $dirp;
-    opendir($dirp, $dir) || return;
-    my @files = map({decode_utf8($_)} grep(!(m:(^\.$)|(^\.\.$):), readdir($dirp)));
-    closedir($dirp);
-
-    my $res = [];
-
-    for my $f (sort(@files))
-    {
-	my $full = catfile($dir, $f);
-	my $st = stat($full);
-	if (!$st)
-	{
-	    printf(STDERR "Failed to stat $full: $!\n");
-	    exit(1);
-	}
-
-	# --------------------
-	# Recurse if directory
-	# --------------------
-
-	push(@$res, @{m3u_find($base, $path ? catdir($path, $f) : $f)}) if (-d $st);
-
-	# --------------------
-	# If .m3u then add to list
-	# --------------------
-
-	push(@$res, {
-	    base => $base,
-	    dir => $path,
-	    file => $f,
-	    mtime => $st->mtime,
-	     }) if (-f $st && $f =~ m:\.m3u$:);
-    }
-    return $res;
-}
 
 # ----------------------------------------------------------------------
 #
@@ -164,6 +107,64 @@ sub m3u_check {
     } @files ];
 
     return $m3u;
+}
+
+# ----------------------------------------------------------------------
+#
+# m3u_find
+#
+# Recursively find all .m3u files in a directory.
+#
+# ----------------------------------------------------------------------
+
+sub m3u_find {
+    my ($base, $path) = @_;
+
+    # --------------------
+    # $path may be undefined
+    # --------------------
+    
+    my $dir = catdir($base, $path);
+
+    # --------------------
+    # decode_utf8 added as filenames are encoded utf8
+    # --------------------
+    
+    my $dirp;
+    opendir($dirp, $dir) || return;
+    my @files = map({decode_utf8($_)} grep(!(m:(^\.$)|(^\.\.$):), readdir($dirp)));
+    closedir($dirp);
+
+    my $res = [];
+
+    for my $f (sort(@files))
+    {
+	my $full = catfile($dir, $f);
+	my $st = stat($full);
+	if (!$st)
+	{
+	    printf(STDERR "Failed to stat $full: $!\n");
+	    exit(1);
+	}
+
+	# --------------------
+	# Recurse if directory
+	# --------------------
+
+	push(@$res, @{m3u_find($base, $path ? catdir($path, $f) : $f)}) if (-d $st);
+
+	# --------------------
+	# If .m3u then add to list
+	# --------------------
+
+	push(@$res, {
+	    base => $base,
+	    dir => $path,
+	    file => $f,
+	    mtime => $st->mtime,
+	     }) if (-f $st && $f =~ m:\.m3u$:);
+    }
+    return $res;
 }
 
 # ----------------------------------------------------------------------

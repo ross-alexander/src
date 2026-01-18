@@ -4,6 +4,7 @@ public:
   std::map<std::string, int> dir_table;
   std::map<std::string, image_t*> image_table;
   std::string dst_dir;
+  int valid;
   thumbnail_t();
   int dir_add(std::string);
   int dir_scan();

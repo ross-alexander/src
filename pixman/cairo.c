@@ -75,12 +75,10 @@ pixman_image_t *pixman_image_from_file (const char *filename, pixman_format_code
 	    *d++ = pixel;
 	    gdk_line += n_channels;
 	}
-
 	gdk_data += stride;
     }
 
-    image = pixman_image_create_bits (
-	format, width, height, data, width * 4);
+    image = pixman_image_create_bits(format, width, height, data, width * 4);
 
 out:
     g_object_unref (pixbuf);

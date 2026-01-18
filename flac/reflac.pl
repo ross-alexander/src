@@ -112,7 +112,7 @@ sub m3u_check {
 	printf(STDERR "m3u file $path seems to be empty.\n");
 	exit 1;
     }
-        
+    
     # --------------------
     # get subdir if exists
     # --------------------

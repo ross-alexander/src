@@ -23,6 +23,7 @@ client = discord.Client(intents=intents)
 @client.event
 async def on_ready():
     print(f'We have logged in as {client.user}')
+    
 
 @client.event
 async def on_message(message):
@@ -50,6 +51,8 @@ token_group = parser.add_mutually_exclusive_group(required=True)
 token_group.add_argument("--token_file", action="store", help="json file which has discord bot token")
 token_group.add_argument("--token", action="store", help="bot token")
 
+# parser.add_argument("--database", "-d", action="store", help="json file which has song file path and info", required=True)
+
 args = parser.parse_args()
 
 print("Initializing...")
@@ -59,6 +62,9 @@ if not (args.token_file is None):
         token = tmp["token"]
 elif not (args.token is None):
     token = args.token
+
+# with open(args.database, "r") as f:
+#    db = json.load(f)
 
 print("Token loaded.")
 

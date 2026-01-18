@@ -32,15 +32,19 @@ void xtk_draw_cairo(xtk_t *xtk, cairo_t *cr)
     }
   else
     {
-      cairo_pattern_t *p = cairo_pattern_create_linear(0, 0, xtk->width, xtk->height);
-
-      /* offset, red, green, blue, alpha */
-      cairo_pattern_add_color_stop_rgba(p, 0, 1, 0, 0, 0.1);
-      cairo_pattern_add_color_stop_rgba(p, 1, 0, 1, 0, 0.9);
-      
-      cairo_set_source(cr, p);
       cairo_new_path(cr);
       cairo_rectangle(cr, 0, 0, xtk->width, xtk->height);
+      cairo_set_source_rgb(cr, 0, 0, 1);
+      cairo_fill(cr);
+
+      /* offset, red, green, blue, alpha */
+      cairo_pattern_t *p = cairo_pattern_create_linear(0, 0, xtk->width, xtk->height);
+      cairo_pattern_add_color_stop_rgba(p, 0.0, 1.0, 0.0, 0.0, 0.1);
+      cairo_pattern_add_color_stop_rgba(p, 1.0, 0.0, 1.0, 0.0, 0.9);
+      
+      cairo_new_path(cr);
+      cairo_rectangle(cr, 0, 0, xtk->width, xtk->height);
+      cairo_set_source(cr, p);
       cairo_fill(cr);
 
       cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);

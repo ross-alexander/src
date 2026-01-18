@@ -10,7 +10,6 @@ import json
 import os
 import sys
 import argparse
-import codecs
 
 # --------------------
 # Parse arguments with argparse
@@ -34,7 +33,7 @@ if (not args.out_path):
 # Open file and decode JSON
 # --------------------
 
-f = codecs.open(args.in_path, 'r', 'utf-8')
+f = open(args.in_path, 'r', encoding='utf-8')
 media = json.load(f)
 
 if len(media) < 1:
@@ -76,5 +75,5 @@ for m3u in media0['m3u']:
 # Write out and force utf-8
 # --------------------
 
-stream = codecs.open(args.out_path, 'w', 'utf-8')
+stream = open(args.out_path, 'w', encoding='utf-8')
 json.dump(result, stream, indent=4, ensure_ascii=False)

@@ -49,7 +49,7 @@ end
 -- ----------------------------------------------------------------------
 
 local tn = thumbnail_t.new()
-tn:dir_add("/locker/images/202507/")
+tn:dir_add("/home/ralexand/src/lizards/cxx/svg")
 tn:dir_scan()
 
 -- for path, image in pairs(tn.image_table) do

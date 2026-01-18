@@ -1326,7 +1326,7 @@ my $opts = {
     pkg_base => '/locker/pkg/x86',
     conf_base => '/srv/kvm/vm/',
     vmdef_base => '/srv/kvm/vm/vmdef',
-    ovmf_base => '/srv/kvm/uefi',
+    ovmf_base => '/srv/kvm/vm/uefi',
     install_base => undef,
     force => 0,
 };

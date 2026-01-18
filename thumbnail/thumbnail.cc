@@ -30,6 +30,7 @@ namespace fs = std::filesystem;
 
 thumbnail_t::thumbnail_t()
 {
+  valid = 0;
 };
 
 void thumbnail_t::dst_set(std::string d)
@@ -80,9 +81,15 @@ int thumbnail_t::dir_scan()
 
 void thumbnail_t::scale(int dimen)
 {
+  if (!valid)
+    validate();
   for (auto &i : image_table)
     {
       image_t *image = i.second;
+      if (image == nullptr)
+	{
+	  image = new image_t(i.first);
+	}
       image->load();
       image_t *scaled = image->scale(100);
 
@@ -113,6 +120,7 @@ void thumbnail_t::validate()
 	    image_table.erase(path);
 	}
     }
+  valid = 1;
 }
 
 
@@ -161,6 +169,6 @@ int main(int argc, char* argv[])
   if (options.count("src"))
     thumbnail.dir_add(options["src"].as<std::string>());
   thumbnail.dir_scan();
+  thumbnail.validate();
   thumbnail.scale(100);
-  
 }

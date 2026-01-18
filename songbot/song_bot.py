@@ -30,9 +30,9 @@ class MusicBot(commands.Cog):
         print("Music files will be loaded from {}.".format(self.song_parent))
         self.song_database = db["songs"]
         print("songs: ", end="")
-        for x in self.song_database:
-            print(x["song_keys"][0], ", ", end="")
-        print("")
+#        for x in self.song_database:
+#            print(x["song_keys"][0], ", ", end="")
+#        print("")
         self.playlist = []
         self.current = "#NA"
 
@@ -47,7 +47,7 @@ class MusicBot(commands.Cog):
         self.parser.add_argument("--random", action="store_true")
         self.parser.add_argument("--all", action="store_true")
 
-    @commands.command()
+    @commands.command(name="join")
     async def join(self, ctx, *, channel: discord.VoiceChannel):
         if ctx.voice_client is not None:
             return await ctx.voice_client.move_to(channel)
@@ -107,14 +107,14 @@ class MusicBot(commands.Cog):
 
         return target_songs
 
-    @commands.command()
+    @commands.command(name="add", aliases=["a"], help="Add track")
     async def add(self, ctx, *, query):
         self.ctx = ctx
 
         target_songs = self.parse(query)
         self.playlist = [*self.playlist, *target_songs]
 
-    @commands.command()
+    @commands.command(name="play")
     async def play(self, ctx, *, query):
         self.ctx = ctx
         print("Incoming query: ", query)
@@ -179,17 +179,17 @@ class MusicBot(commands.Cog):
 
         return
 
-    @commands.command()
+    @commands.command(name="pause")
     async def pause(self, ctx):
         if ctx.voice_client.is_playing():
             ctx.voice_client.pause()
 
-    @commands.command()
+    @commands.command(name="resume")
     async def resume(self, ctx):
         if ctx.voice_client.is_paused():
             ctx.voice_client.resume()
 
-    @commands.command()
+    @commands.command(name="skip")
     async def skip(self, ctx, *, how_many=0):
         m_del = int(how_many)
         m_del = m_del if m_del <= len(self.playlist) else len(self.playlist)
@@ -198,7 +198,7 @@ class MusicBot(commands.Cog):
         # await self.play_song(None)
         ctx.voice_client.stop()
 
-    @commands.command()
+    @commands.command(name="show")
     async def show(self, ctx):
         to_show = [
             "Now playing: " + self.current,
@@ -212,7 +212,7 @@ class MusicBot(commands.Cog):
 
         await ctx.send("\n".join(to_show))
 
-    @commands.command()
+    @commands.command(name="quit")
     async def quit(self, ctx):
         self.playlist = []
 
@@ -220,11 +220,11 @@ class MusicBot(commands.Cog):
 
         await ctx.voice_client.disconnect()
 
-    @commands.command()
+    @commands.command(name="q")
     async def q(self, ctx):
         await self.quit(ctx)
 
-    @commands.command()
+    @commands.command(name="volume")
     async def volume(self, ctx, volume: int):
         if ctx.voice_client is None:
             return await ctx.send("Not connected to a voice channel.")
@@ -273,7 +273,6 @@ def main(args):
     async def on_ready():
         print("Logged in as {0} ({0.id})".format(bot.user))
         print('------')
-
     bot.add_cog(MusicBot(bot, db))
     bot.run(token)
 
