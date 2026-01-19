@@ -1,13 +1,15 @@
 #include <stdio.h>
+#include <getopt.h>
+
 #include <gegl.h>
 
 /* ----------------------------------------------------------------------
    --
-   -- image_mask
+   -- image_mask_buffer
    --
    ---------------------------------------------------------------------- */
 
-void image_mask(const char *path_image, const char *path_mask, const char *path_output)
+void image_mask_buffer(const char *path_image, const char *path_mask, const char *path_output)
 {
   GeglBuffer *buffer_f, *buffer_b;
   GeglNode *graph, *load, *convert, *alpha, *sink, *over;
@@ -81,6 +83,66 @@ void image_mask(const char *path_image, const char *path_mask, const char *path_
   g_object_unref(graph);
 }  
 
+
+/* ----------------------------------------------------------------------
+   --
+   -- image_mask
+   --
+   ---------------------------------------------------------------------- */
+
+void image_mask(const char *path_image, const char *path_mask, const char *path_output)
+{
+  GeglNode *graph, *load_image, *convert_image, *load_mask, *convert_mask, *alpha, *sink, *over;
+
+  /* Do color & format ahead of time */
+  
+  GeglColor *black = gegl_color_new ("rgb(0.0,0.0,0.0)");
+  const Babl*cairo = babl_format("cairo-ARGB32");
+  
+  graph = gegl_node_new();
+
+  /* Load mask and convert to alpha */
+  
+  load_mask = gegl_node_new_child(graph,
+				   "operation", "gegl:load",
+				   "path", path_mask,
+				   0);
+  convert_mask = gegl_node_new_child(graph,
+				      "operation", "gegl:convert-format",
+				      "format", cairo,
+				      0);
+  alpha = gegl_node_new_child(graph,
+			      "operation", "gegl:color-to-alpha",
+			      "color", black,
+			      "transparency-threshold", 0.0,
+			      "opacity-threshold", 1.0,
+			      0);
+
+  gegl_node_link_many(load_mask, convert_mask, alpha, 0);
+
+  /* load image */
+  
+  load_image = gegl_node_new_child(graph, "operation", "gegl:load", "path", path_image, 0);
+  convert_image = gegl_node_new_child(graph, "operation", "gegl:convert-format", "format", cairo, 0);
+  gegl_node_link_many(load_image, convert_image, 0);
+
+  /* Merge buffers using multiply operation */
+  
+  over = gegl_node_new_child(graph,
+			     "operation", "gegl:multiply",
+			     0);
+  sink = gegl_node_new_child(graph,
+			     "operation", "gegl:save",
+			     "path", path_output,
+			     0);
+  
+  gegl_node_connect(alpha, "output", over, "input");
+  gegl_node_connect(convert_image, "output", over, "aux");
+  gegl_node_connect(over, "output", sink, "input");
+  gegl_node_process(sink);
+  g_object_unref(graph);
+}  
+
 /* ----------------------------------------------------------------------
    --
    -- main
@@ -96,8 +158,67 @@ int main(int argc, char *argv[])
 
   gegl_init(&argc, &argv);
 
-  image_mask("/locker/gaming/cairn/tokens/rations-f.png",
-	     "/locker/gaming/cairn/tokens/rations-b.png",
-	     "/locker/gaming/cairn/tokens/rations.png");
+  static struct option long_options[] = {
+    {"image",      required_argument, 0, 'i' },
+    {"mask",       required_argument, 0, 'm' },
+    {"output",     required_argument, 0, 'o' },
+    {0,            0,                 0, 0 }
+  };
+
+  char *path_image = 0;
+  char *path_mask = 0;
+  char *path_output = 0;
+  
+  int c, option_index;
+  while ((c = getopt_long_only(argc, argv, "", long_options, &option_index)) != EOF)
+    {
+      switch(c)
+	{
+	case 'i':
+	  path_image = optarg;
+	  break;
+	case 'm':
+	  path_mask = optarg;
+	  break;
+	case 'o':
+	  path_output = optarg;
+	  break;
+	}
+    }
+
+  if (!path_image)
+    {
+      fprintf(stderr, "%s: --image <image path>\n", argv[0]);
+      exit(1);
+    }
+  if (!path_mask)
+    {
+      fprintf(stderr, "%s: --mask <mask path>\n", argv[0]);
+      exit(1);
+    }
+  if (!path_mask)
+    {
+      fprintf(stderr, "%s: --output <output path>\n", argv[0]);
+      exit(1);
+    }
+
+  FILE *stream;
+  if (!(stream = fopen(path_image, "r")))
+    {
+      fprintf(stderr, "%s: failed to open %s (%s)\n", path_image, strerror(errno));
+      exit(1);
+    }
+  if (!(stream = fopen(path_mask, "r")))
+    {
+      fprintf(stderr, "%s: failed to open %s (%s)\n", path_mask, strerror(errno));
+      exit(1);
+    }
+  
+  image_mask(path_image, path_mask, path_output);
+  /*
+    "/locker/gaming/cairn/tokens/rations-f.png",
+    "/locker/gaming/cairn/tokens/rations-b.png",
+    "/locker/gaming/cairn/tokens/rations.png");
+  */
   return 0;
 }
