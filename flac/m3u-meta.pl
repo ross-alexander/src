@@ -21,7 +21,7 @@
 #
 # ----------------------------------------------------------------------
 
-use 5.34.0;
+use 5.42.0;
 use utf8;
 use open qw(:std :utf8);
 use Encode qw(decode_utf8 encode_utf8);
@@ -45,9 +45,8 @@ sub m3u_check {
     # Somewhat complicated three part directory structure
     # --------------------
 
-    my $path = catdir($m3u->{base}, $m3u->{dir});
-    my $file = catfile($path, $m3u->{file});
-    print $file, "\n";
+    my $path = $m3u->{path};
+    my $file = catfile($m3u->{path}, $m3u->{file});
 
     # --------------------
     # Read in .m3u file
@@ -118,20 +117,20 @@ sub m3u_check {
 # ----------------------------------------------------------------------
 
 sub m3u_find {
-    my ($base, $path) = @_;
+    my ($base, $subdir) = @_;
 
     # --------------------
     # $path may be undefined
     # --------------------
     
-    my $dir = catdir($base, $path);
+    my $path = defined($subdir) ? catdir($base, $subdir) : $base;
 
     # --------------------
     # decode_utf8 added as filenames are encoded utf8
     # --------------------
     
     my $dirp;
-    opendir($dirp, $dir) || return;
+    opendir($dirp, $path) || return;
     my @files = map({decode_utf8($_)} grep(!(m:(^\.$)|(^\.\.$):), readdir($dirp)));
     closedir($dirp);
 
@@ -139,7 +138,7 @@ sub m3u_find {
 
     for my $f (sort(@files))
     {
-	my $full = catfile($dir, $f);
+	my $full = catfile($path, $f);
 	my $st = stat($full);
 	if (!$st)
 	{
@@ -151,7 +150,7 @@ sub m3u_find {
 	# Recurse if directory
 	# --------------------
 
-	push(@$res, @{m3u_find($base, $path ? catdir($path, $f) : $f)}) if (-d $st);
+	push(@$res, @{m3u_find($base, $subdir ? catdir($subdir, $f) : $f)}) if (-d $st);
 
 	# --------------------
 	# If .m3u then add to list
@@ -159,7 +158,8 @@ sub m3u_find {
 
 	push(@$res, {
 	    base => $base,
-	    dir => $path,
+	    dir => $subdir,
+	    path => $path,
 	    file => $f,
 	    mtime => $st->mtime,
 	     }) if (-f $st && $f =~ m:\.m3u$:);
@@ -183,11 +183,24 @@ binmode(STDOUT, ":utf8");
 # Options processing
 # --------------------
 
-my $opts = {};
+my $opts = {
+    in => [],
+    out => "",
+};
 GetOptions(
     'in=s@' => \$opts->{in},
     'out=s' => \$opts->{out}
     );
+
+# --------------------
+# Sanity check options
+# --------------------
+
+if (!scalar(@{$opts->{in}}))
+{
+    printf(STDERR "$0: --in <directory> --out <json fille>\n");
+    exit(0);
+}
 
 # --------------------
 # Find all m3u files
@@ -207,10 +220,15 @@ for my $dir (@{$opts->{in} || []})
 # Write out as JSON.  This will be in utf8 format
 # --------------------
 
-if (defined($opts->{out}))
+if (length($opts->{out}))
 {
     my $stream;
-    open($stream, ">", $opts->{out});
+    open($stream, ">:encoding(utf-8)", $opts->{out});
     print $stream to_json($res, { pretty => 1 });
     close($stream);
 }
+else
+{
+    print(to_json($res, {pretty=>1}));
+}
+
