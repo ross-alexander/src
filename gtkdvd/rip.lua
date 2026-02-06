@@ -12,7 +12,7 @@
 -- ----------------------------------------------------------------------
 
 require("dvd")
-require("json")
+-- require("json")
 
 
 -- Set device - should be commandline option
