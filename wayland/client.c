@@ -8,6 +8,7 @@
 #define _GNU_SOURCE
 
 #include <assert.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -21,6 +22,17 @@
 #include "xdg-shell-client-protocol.h"
 
 #include <cairo.h>
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
+struct tile_surface_t {
+  int width;
+  int height;
+  cairo_surface_t *surface;
+  cairo_t *cairo;
+};
+
 
 /* Shared memory support code */
 static void randname(char *buf)
@@ -39,16 +51,16 @@ static int create_shm_file(void)
 {
   int retries = 100;
   do {
-      char name[] = "/wl_shm-XXXXXX";
-      randname(name + sizeof(name) - 7);
-      --retries;
-      int fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
-      if (fd >= 0)
-	{
-	  shm_unlink(name);
-	  return fd;
-	}
-    } while (retries > 0 && errno == EEXIST);
+    char name[] = "/wl_shm-XXXXXX";
+    randname(name + sizeof(name) - 7);
+    --retries;
+    int fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
+    if (fd >= 0)
+      {
+	shm_unlink(name);
+	return fd;
+      }
+  } while (retries > 0 && errno == EEXIST);
   return -1;
 }
 
@@ -113,6 +125,8 @@ struct client_state {
   struct wl_pointer *wl_pointer;
   struct wl_touch *wl_touch;
   struct pointer_event pointer_event;
+  /* Lua */
+  lua_State *luastate;
 };
 
 static void wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
@@ -122,8 +136,8 @@ static void wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
   struct client_state *client_state = data;
   client_state->pointer_event.event_mask |= POINTER_EVENT_ENTER;
   client_state->pointer_event.serial = serial;
-  client_state->pointer_event.surface_x = surface_x,
-    client_state->pointer_event.surface_y = surface_y;
+  client_state->pointer_event.surface_x = surface_x;
+  client_state->pointer_event.surface_y = surface_y;
 }
 
 static void wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
@@ -315,17 +329,37 @@ static struct wl_buffer *draw_frame(struct client_state *state)
   
   cairo_surface_t *surface = cairo_image_surface_create_for_data((void*)data, CAIRO_FORMAT_ARGB32, width, height, stride);
   cairo_t *cairo = cairo_create(surface);
-  cairo_set_source_rgb(cairo, 1.0, 0.0, 0.0);
+
+  int draw_type = lua_getglobal(state->luastate, "draw");
+  if (draw_type != LUA_TNIL)
+    {
+      if (draw_type == LUA_TFUNCTION)
+	{
+	  struct tile_surface_t *tile_surface = calloc(sizeof(struct tile_surface_t), 1);
+	  tile_surface->width = width;
+	  tile_surface->height = height;
+	  tile_surface->surface = surface;
+	  tile_surface->cairo = cairo;
+	  struct tile_surface_t **handle = lua_newuserdata(state->luastate, sizeof(struct tile_surface_t*));
+	  *handle = tile_surface;
+	  lua_getfield(state->luastate, LUA_REGISTRYINDEX, "tile_surface_t");
+	  lua_setmetatable(state->luastate, -2);
+	  lua_pcall(state->luastate, 1, 0, 0);
+	}
+    }
+  else
+    {
+      cairo_set_source_rgb(cairo, 1.0, 0.0, 0.0);
+      cairo_pattern_t *p = cairo_pattern_create_linear(0, 0, width, height);
   
-  cairo_pattern_t *p = cairo_pattern_create_linear(0, 0, width, height);
-  
-  /* offset, red, green, blue, alpha */
-  cairo_pattern_add_color_stop_rgba(p, 0, 1, 0, 0, 1.0);
-  cairo_pattern_add_color_stop_rgba(p, 1, 0, 1, 0, 1.0);
-  
-  cairo_set_source(cairo, p);
-  cairo_rectangle(cairo, 0, 0, width, height);
-  cairo_fill(cairo);
+      /* offset, red, green, blue, alpha */
+      cairo_pattern_add_color_stop_rgba(p, 0, 1, 0, 0, 1.0);
+      cairo_pattern_add_color_stop_rgba(p, 1, 0, 1, 0, 1.0);
+      
+      cairo_set_source(cairo, p);
+      cairo_rectangle(cairo, 0, 0, width, height);
+      cairo_fill(cairo);
+    }
   cairo_destroy(cairo);
   cairo_surface_destroy(surface);
   
@@ -440,6 +474,107 @@ static const struct wl_registry_listener wl_registry_listener = {
 
 /* ----------------------------------------------------------------------
 
+   tile_surface_init
+
+   ---------------------------------------------------------------------- */
+
+int tile_surface_t___tostring(lua_State *L)
+{
+  lua_pushstring(L, "surface_t");
+  return 1;
+}
+
+int tile_surface_t_new(lua_State *L)
+{
+  struct tile_surface_t *surface = calloc(sizeof(struct tile_surface_t), 1);
+  struct tile_surface_t **handle = (struct tile_surface_t**)lua_newuserdata(L, sizeof(struct tile_surface_t*));
+  lua_getfield(L, LUA_REGISTRYINDEX, "tile_surface_t");
+  lua_setmetatable(L, -2);
+
+  *handle = surface;
+  return 1;
+}
+
+int tile_surface_t_set_source_rgb(lua_State *L)
+{
+  struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
+  double r = lua_tonumber(L, 2);
+  double g = lua_tonumber(L, 3);
+  double b = lua_tonumber(L, 4);
+  printf("set_source_rgb(%4.2f %4.2f %4.2f)\n", r, g, b);
+  cairo_set_source_rgb((*handle)->cairo, r, g, b);
+  return 0;
+}
+
+int tile_surface_t_rectangle(lua_State *L)
+{
+  struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
+  double x = lua_tonumber(L, 2);
+  double y = lua_tonumber(L, 3);
+  double w = lua_tonumber(L, 4);
+  double h = lua_tonumber(L, 5);
+  printf("set_rectangle(%4.2f %4.2f %4.2f %4.2f)\n", x, y, w, h);
+  cairo_rectangle((*handle)->cairo, x, y, w, h);
+  return 0;
+}
+
+int tile_surface_t_fill(lua_State *L)
+{
+  struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
+  printf("fill()\n");
+  cairo_fill((*handle)->cairo);
+  return 0;
+}
+
+int tile_surface_t_configuration(lua_State *L)
+{
+  struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
+  lua_newtable(L);
+  lua_pushnumber(L, (**handle).width);
+  lua_setfield(L, -2, "width");
+  lua_pushnumber(L, (**handle).height);
+  lua_setfield(L, -2, "height");
+  return 1;
+}
+
+static const luaL_Reg tile_surface_t_instance_methods[] = {
+  {"set_source_rgb",	tile_surface_t_set_source_rgb},
+  {"rectangle",		tile_surface_t_rectangle},
+  {"fill",		tile_surface_t_fill},
+  {"configuration",     tile_surface_t_configuration},
+  {0, 0}
+};
+
+static const luaL_Reg tile_surface_t_meta[] = {
+  {"__tostring", tile_surface_t___tostring},
+  {0, 0},
+};
+
+void tile_surface_init(lua_State *L)
+{
+  luaL_newmetatable(L, "tile_surface_t");
+  luaL_setfuncs(L, tile_surface_t_meta, 0);
+
+  /* instance methods */
+
+  lua_newtable(L);
+  luaL_setfuncs(L, tile_surface_t_instance_methods, 0);
+  lua_setfield(L, -2, "__index");
+
+  //  lua_pushliteral(L, "__index");
+  //  lua_rawset(L, -2);                  /* metatable.__index = methods */
+
+  lua_pop(L, 1);
+  
+  lua_pushglobaltable(L);
+
+  lua_newtable(L);
+  lua_pushcclosure(L, tile_surface_t_new, 0); lua_setfield(L, -2, "new");
+  lua_setfield(L, -2, "tile_surface_t");
+}
+
+/* ----------------------------------------------------------------------
+
    main
 
    ---------------------------------------------------------------------- */
@@ -447,6 +582,20 @@ static const struct wl_registry_listener wl_registry_listener = {
 int main(int argc, char *argv[])
 {
   struct client_state state = { 0 };
+
+  /* lua */
+  state.luastate = luaL_newstate();
+  tile_surface_init(state.luastate);
+  luaL_openselectedlibs(state.luastate, LUA_GLIBK|LUA_IOLIBK, 0);
+  int ret = luaL_dofile(state.luastate, "client.lua");
+  if (ret != 0)
+    {
+      fprintf(stderr, "%s\n", lua_tostring(state.luastate, -1));
+      exit(1);
+    }
+
+  
+  /* wayland display */
   state.wl_display = wl_display_connect(NULL);
   assert(state.wl_display);
 

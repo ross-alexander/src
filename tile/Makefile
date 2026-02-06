@@ -8,7 +8,7 @@ DESTDIR		= /locker/pkg/x86/tile
 
 LUA_LIB_DIR	= /usr/lib64/lua/5.4
 
-ALL = Scanner.so cairobg tile fs # dt
+ALL = Scanner.so cairobg tile # fs dt
 
 all:  $(ALL)
 

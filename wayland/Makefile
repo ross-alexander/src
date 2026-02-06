@@ -9,6 +9,8 @@ XDG_SHELL_PROTOCOL = $(WAYLAND_PROTOCOLS_DIR)/stable/xdg-shell/xdg-shell.xml
 CAIRO_FLAGS = $(shell $(PKG_CONFIG) cairo --cflags --libs)
 CAIRO_CFLAGS = $(shell $(PKG_CONFIG) cairo --cflags)
 CAIRO_LIBS = $(shell $(PKG_CONFIG) cairo --libs)
+LUA_CFLAGS = -Ilua/include
+LUA_LIBS = -Llua/lib -llua -lm
 
 ALL: connect registry shell surface client cairo surfers wt_example
 
@@ -34,10 +36,10 @@ xdg-shell-client.o: xdg-shell-client.c xdg-shell-client-protocol.h
 	$(CC) -g -o $@ -c $<  $(CAIRO_FLAGS)
 
 client.o: client.c xdg-shell-client-protocol.h
-	$(CC) -g -o $@ -c $<  $(CAIRO_FLAGS)
+	$(CC) -g -o $@ -c $<  $(CAIRO_FLAGS) $(LUA_CFLAGS)
 
 client: xdg-shell-client.o client.o
-	$(CC) -g -o $@ $^ $(CAIRO_FLAGS) -lwayland-client
+	$(CC) -g -o $@ $^ $(CAIRO_LIBS) $(LUA_LIBS) -lwayland-client
 
 cairo: cairo.c
 	$(CC) -g -o $@ $^ $(CAIRO_FLAGS)
