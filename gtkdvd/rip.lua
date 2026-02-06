@@ -4,6 +4,8 @@
 --
 -- rip using libdvdread
 --
+-- 2026-02-06: Remove json requirement
+--
 -- 2023-02-01:
 --   Improve text output
 --
