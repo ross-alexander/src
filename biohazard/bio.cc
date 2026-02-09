@@ -199,9 +199,8 @@ public:
     y += p.y;
     return *this;
   }
-  Point& rotate(double theta)
+  Point& rotate(double theta) // in radians
   {
-    //    theta = deg2rad(theta);
     double xr = cos(theta) * x - sin(theta) * y;
     double yr = sin(theta) * x + cos(theta) * y;
     x = xr;
@@ -221,8 +220,6 @@ public:
       phi = theta + 2*M_PI;
     else
       phi = theta;
-
-    //    printf("polar(%f, %f = %f)\n", double(x), double(y), rad2deg(phi));
     return phi;
   }
   Point normal()
@@ -253,7 +250,7 @@ public:
   void translate(double s)
   {
     Point x = (p[1] - p[0]).normal();
-    x.rotate(-90);
+    x.rotate(90);
     p[0] += x * s;
     p[1] += x * s;
   }
@@ -323,13 +320,13 @@ bool within(double x1, double y1, double x2, double y2, double x, double y) {
     }
 }
 
-double fx(double A, double B, double C, double x) {
+  double fx(double A, double B, double C, double x) {
     return -(A * x + C) / B;
-}
+  }
 
-double fy(double A, double B, double C, double y) {
+  double fy(double A, double B, double C, double y) {
     return -(B * y + C) / A;
-}
+  }
 
   // Prints the intersection points (if any) of a circle, center 'cp' with radius 'r',
   // and either an infinite line containing the points 'p1' and 'p2'
@@ -426,11 +423,231 @@ double fy(double A, double B, double C, double y) {
 };
 
 /* ----------------------------------------------------------------------
+   --
+   -- bio_cairo_1
+   --
+   ---------------------------------------------------------------------- */
+
+void bio_cairo_1(cairo_t *cr, bio_t &v)
+{
+  int w = v.width;
+  int h = v.height;
+
+  cairo_save(cr);
+
+  // Move center to middle of page
+  cairo_translate(cr, w/2, h/2);
+
+  // Y-Invert
+  cairo_scale(cr, 1.0, -1.0);
+
+  double scale = v.scale;
+
+  /* The trefoil is made from three rotationally symetric parts.
+     Each part has 7 points.
+  */
+
+  Circle inner[3];
+  Circle outer[3];
+
+  Point in_out[3][2];
+  Point out_out[3][2];
+
+  double u = scale;
+
+  /* --------------------
+     Define the six basic circles
+     -------------------- */
+
+  Circle center(0, 0, u * v.center_radius);
+
+  for(int i = 0; i < 3; i++)
+    {
+      double theta = 120 * i;
+
+      outer[i] = Circle(u * sin(deg2rad(theta)) * v.outer_offset,
+			u * cos(deg2rad(theta)) * v.outer_offset,
+			u * v.outer_radius);
+
+      inner[i] = Circle(u * sin(deg2rad(theta)) * v.inner_offset,
+			u * cos(deg2rad(theta)) * v.inner_offset,
+			u * v.inner_radius);
+    }
+  /* --------------------
+     Intersect the circles (inner/outer) & (outer/outer)
+     -------------------- */
+
+  for (int i = 0; i < 3; i++)
+    {
+      int j = (i+1)%3;
+      outer[i].intersect(inner[i], in_out[i][0], in_out[i][1]);
+      outer[i].intersect(outer[j], out_out[i][0], out_out[i][1]);
+    }
+
+  /* --------------------
+     Trefoil
+     -------------------- */
+
+  cairo_set_line_width(cr, v.line_width);
+  
+  if (v.debug > 2)
+    {
+      cairo_set_line_width(cr, 1);
+      cairo_set_source_rgb(cr, 0, 0, 1);
+      for (int i = 0; i < 6; i++)
+	{
+	  cairo_save (cr);
+	  cairo_move_to(cr, 0, 0);
+	  cairo_rotate(cr, deg2rad(30 + i * 60));
+	  cairo_line_to(cr, u * (v.outer_offset + v.outer_radius), 0);
+	  cairo_stroke(cr);
+	  cairo_restore(cr);
+	}
+      for (int i = 0; i < 3; i++)
+	{
+	  int j = (i+1)%3;
+	  cairo_set_source_rgb(cr, 1, 0, 0);
+	  inner[i].draw(cr);
+	  inner[j].draw(cr);
+	  cairo_stroke(cr);
+	  Line(Point(0.0, 0.0), in_out[i][0]).draw(cr);
+	  Line(Point(0.0, 0.0), out_out[i][0]).draw(cr);
+	  Line(Point(0.0, 0.0), in_out[i][1]).draw(cr);
+	  cairo_set_source_rgb(cr, 1, 1, 0);
+	  outer[i].draw(cr);
+	  outer[j].draw(cr);
+	  cairo_stroke(cr);
+	}
+      cairo_restore(cr);
+    }
+    
+  for (int i = 0; i < 3; i++)
+    {
+      int j = (i+1)%3;
+
+      /* l0 - from center to inner first circle */
+
+      Line l0 = Line(Point(0,0), inner[i].c);
+
+      /* l3 - from center to second inner circle */
+
+      Line l3 = Line(Point(0,0), inner[j].c);
+
+      /* shift lines around their normals */
+
+      l0.translate(-u * v.center_offset);
+      l3.translate(u * v.center_offset);
+
+      /* Intersect line with inner circle */
+
+      Line l1; /* line_left_inner */
+      inner[i].intersect(l0, l1.p[0], l1.p[1]);
+
+      
+      double ang_inner_l_start = (l1.p[1] - inner[i].c).polar();
+      double ang_inner_l_end = (in_out[i][1] - inner[i].c).polar();
+
+      double ang_outer_l_start = (in_out[i][1] - outer[i].c).polar();
+      double ang_outer_l_end = (out_out[i][0] - outer[i].c).polar();
+      double ang_outer_r_start = (out_out[i][0] - outer[j].c).polar();
+      double ang_outer_r_end = (in_out[j][0] - outer[j].c).polar();
+      double ang_inner_r_start = (in_out[j][0] - inner[j].c).polar();
+
+      Line l4; /* line_right_center_inner */
+
+      inner[j].intersect(l3, l4.p[0], l4.p[1]);
+
+      double ang_inner_r_end = (l4.p[1] - inner[j].c).polar();
+
+      Line l5; /* center circle and right offset */
+      center.intersect(l3, l5.p[0], l5.p[1]);
+      double center_start = l5.p[0].polar();
+
+      Line l2; /* center cirle and left offset */
+      center.intersect(l0, l2.p[0], l2.p[1]);
+
+      double center_end = l2.p[0].polar();
+
+      cairo_new_path(cr);
+
+      /* outside right hand side arc of horn */
+      cairo_arc_negative(cr, double(outer[j].c.x), double(outer[j].c.y), outer[j].r, ang_outer_r_start, ang_outer_r_end);
+
+      /* inside right hand side arc of horn */
+      cairo_arc(cr, double(inner[j].c.x), double(inner[j].c.y), inner[j].r, ang_inner_r_start, ang_inner_r_end);
+
+      /* Center arc - the lines between the arcs are implicit in the path */
+      cairo_arc(cr, 0.0, 0.0, v.center_radius * u, center_start, center_end);
+
+      /* inside arc of horn */
+      cairo_arc(cr, double(inner[i].c.x), double(inner[i].c.y), inner[i].r, ang_inner_l_start, ang_inner_l_end);
+
+      /* outside arc of horn */
+      cairo_arc_negative(cr, double(outer[i].c.x), double(outer[i].c.y), outer[i].r, ang_outer_l_start, ang_outer_l_end);
+
+      cairo_close_path(cr);
+      cairo_set_source_rgba(cr, v.fill[0], v.fill[1], v.fill[2], v.fill[3]);
+      cairo_fill_preserve(cr);
+      cairo_set_source_rgba(cr, v.stroke[0], v.stroke[1], v.stroke[2], v.stroke[3]);
+      cairo_stroke(cr);
+      
+      //      path = cairo_copy_path(cr);
+    }
+
+
+  /* --------------------
+     Ring
+     -------------------- */
+
+  if (v.debug)
+    {
+      printf(" ---- Ring ----\n");
+    }
+  
+  for (int i = 0; i < 3; i++)
+    {
+      Circle inner_small = inner[i];
+      inner_small.r -= u * v.ring_offset;
+
+      Circle ring_outer(0, 0, v.ring_outer);
+      ring_outer.scale(scale);
+      Circle ring_inner(0, 0, v.ring_inner);
+      ring_inner.scale(scale);
+
+      cairo_new_path(cr);
+
+      Line l1;
+      ring_inner.intersect(inner_small, l1.p[0], l1.p[1]);
+      Line l2;
+      ring_outer.intersect(inner_small, l2.p[0], l2.p[1]);
+
+      cairo_arc_negative(cr, double(ring_inner.c.x), double(ring_inner.c.y),
+			 ring_inner.r, l1.p[0].polar(), l1.p[1].polar());
+
+      cairo_arc(cr, double(inner_small.c.x), double(inner_small.c.y), inner_small.r,
+		(l1.p[1] - inner_small.c).polar(),
+		(l2.p[1] - inner_small.c).polar());
+
+      cairo_arc(cr, double(ring_outer.c.x), double(ring_outer.c.y), ring_outer.r, l2.p[1].polar(), l2.p[0].polar());
+
+      cairo_arc(cr, double(inner_small.c.x), double(inner_small.c.y), inner_small.r,
+		(l2.p[0] - inner_small.c).polar(),
+		(l1.p[0] - inner_small.c).polar());
+      cairo_close_path(cr);
+      cairo_set_source_rgb(cr, v.fill[0], v.fill[1], v.fill[2]);
+      cairo_fill_preserve(cr);
+      cairo_set_source_rgb(cr, v.stroke[0], v.stroke[1], v.stroke[2]);
+      cairo_stroke(cr);
+    }      
+
+  cairo_restore(cr);
+}
+
+/* ----------------------------------------------------------------------
 --
 -- bio_cairo_2
 --
 ---------------------------------------------------------------------- */
-
 
 void bio_cairo_2(cairo_t *cr, bio_t &v)
 {
@@ -482,12 +699,12 @@ void bio_cairo_2(cairo_t *cr, bio_t &v)
       // center_circle.draw(cr);
       
       Line vertical_left(Point(0, 0), Point(0, scale * v.inner_offset));
-      vertical_left.translate(-scale * v.center_offset);
+      vertical_left.translate(scale * v.center_offset);
 
       // vertical_left.draw(cr);
       
       Line vertical_right(Point(0, 0), Point(0, scale * v.inner_offset));
-      vertical_right.translate(+scale * v.center_offset);
+      vertical_right.translate(-scale * v.center_offset);
 
       // vertical_right.draw(cr);
       
@@ -629,227 +846,6 @@ void bio_cairo_2(cairo_t *cr, bio_t &v)
 
 /* ----------------------------------------------------------------------
    --
-   -- bio_cairo
-   --
-   ---------------------------------------------------------------------- */
-
-void bio_cairo(cairo_t *cr, bio_t &v)
-{
-  int w = v.width;
-  int h = v.height;
-
-  cairo_save(cr);
-
-  // Move center to middle of page
-  cairo_translate(cr, w/2, h/2);
-
-  // Y-Invert
-  cairo_scale(cr, 1.0, -1.0);
-
-  double scale = v.scale;
-
-  /* The trefoil is made from three rotationally symetric parts.
-     Each part has 7 points.
-  */
-
-  Circle inner[3];
-  Circle outer[3];
-
-  Point in_out[3][2];
-  Point out_out[3][2];
-
-  double u = scale;
-
-  /* --------------------
-     Define the six basic circles
-     -------------------- */
-
-  Circle center(0, 0, u * v.center_radius);
-
-  for(int i = 0; i < 3; i++)
-    {
-      double theta = 120 * i;
-
-      outer[i] = Circle(u * sin(deg2rad(theta)) * v.outer_offset,
-			u * cos(deg2rad(theta)) * v.outer_offset,
-			u * v.outer_radius);
-
-      inner[i] = Circle(u * sin(deg2rad(theta)) * v.inner_offset,
-			u * cos(deg2rad(theta)) * v.inner_offset,
-			u * v.inner_radius);
-    }
-  /* --------------------
-     Intersect the circles (inner/outer) & (outer/outer)
-     -------------------- */
-
-  for (int i = 0; i < 3; i++)
-    {
-      int j = (i+1)%3;
-      outer[i].intersect(inner[i], in_out[i][0], in_out[i][1]);
-      outer[i].intersect(outer[j], out_out[i][0], out_out[i][1]);
-    }
-
-  /* --------------------
-     Trefoil
-     -------------------- */
-
-  cairo_set_line_width(cr, v.line_width);
-  
-  if (v.debug > 2)
-    {
-      cairo_set_line_width(cr, 1);
-      cairo_set_source_rgb(cr, 0, 0, 1);
-      for (int i = 0; i < 6; i++)
-	{
-	  cairo_save (cr);
-	  cairo_move_to(cr, 0, 0);
-	  cairo_rotate(cr, deg2rad(30 + i * 60));
-	  cairo_line_to(cr, u * (v.outer_offset + v.outer_radius), 0);
-	  cairo_stroke(cr);
-	  cairo_restore(cr);
-	}
-      for (int i = 0; i < 3; i++)
-	{
-	  int j = (i+1)%3;
-	  cairo_set_source_rgb(cr, 1, 0, 0);
-	  inner[i].draw(cr);
-	  inner[j].draw(cr);
-	  cairo_stroke(cr);
-	  Line(Point(0.0, 0.0), in_out[i][0]).draw(cr);
-	  Line(Point(0.0, 0.0), out_out[i][0]).draw(cr);
-	  Line(Point(0.0, 0.0), in_out[i][1]).draw(cr);
-	  cairo_set_source_rgb(cr, 1, 1, 0);
-	  outer[i].draw(cr);
-	  outer[j].draw(cr);
-	  cairo_stroke(cr);
-	}
-      cairo_restore(cr);
-    }
-    
-  for (int i = 0; i < 3; i++)
-    {
-      int j = (i+1)%3;
-
-      /* l0 - from center to inner first circle */
-
-      Line l0 = Line(Point(0,0), inner[i].c);
-
-      /* l3 - from center to second inner circle */
-
-      Line l3 = Line(Point(0,0), inner[j].c);
-
-      /* shift lines around their normals */
-
-      l0.translate(u * v.center_offset);
-      l3.translate(-u * v.center_offset);
-
-      /* Intersect line with inner circle */
-
-      Line l1; /* line_left_inner */
-      inner[i].intersect(l0, l1.p[0], l1.p[1]);
-
-      
-      double ang_inner_l_start = (l1.p[1] - inner[i].c).polar();
-      double ang_inner_l_end = (in_out[i][1] - inner[i].c).polar();
-
-      double ang_outer_l_start = (in_out[i][1] - outer[i].c).polar();
-      double ang_outer_l_end = (out_out[i][0] - outer[i].c).polar();
-      double ang_outer_r_start = (out_out[i][0] - outer[j].c).polar();
-      double ang_outer_r_end = (in_out[j][0] - outer[j].c).polar();
-      double ang_inner_r_start = (in_out[j][0] - inner[j].c).polar();
-
-      Line l4; /* line_right_center_inner */
-
-      inner[j].intersect(l3, l4.p[0], l4.p[1]);
-
-      double ang_inner_r_end = (l4.p[1] - inner[j].c).polar();
-
-      Line l5; /* center circle and right offset */
-      center.intersect(l3, l5.p[0], l5.p[1]);
-      double center_start = l5.p[0].polar();
-
-      Line l2; /* center cirle and left offset */
-      center.intersect(l0, l2.p[0], l2.p[1]);
-
-      double center_end = l2.p[0].polar();
-
-      cairo_new_path(cr);
-
-      /* outside right hand side arc of horn */
-      cairo_arc_negative(cr, double(outer[j].c.x), double(outer[j].c.y), outer[j].r, ang_outer_r_start, ang_outer_r_end);
-
-      /* inside right hand side arc of horn */
-      cairo_arc(cr, double(inner[j].c.x), double(inner[j].c.y), inner[j].r, ang_inner_r_start, ang_inner_r_end);
-
-      /* Center arc - the lines between the arcs are implicit in the path */
-      cairo_arc(cr, 0.0, 0.0, v.center_radius * u, center_start, center_end);
-
-      /* inside arc of horn */
-      cairo_arc(cr, double(inner[i].c.x), double(inner[i].c.y), inner[i].r, ang_inner_l_start, ang_inner_l_end);
-
-      /* outside arc of horn */
-      cairo_arc_negative(cr, double(outer[i].c.x), double(outer[i].c.y), outer[i].r, ang_outer_l_start, ang_outer_l_end);
-
-      cairo_close_path(cr);
-      cairo_set_source_rgba(cr, v.fill[0], v.fill[1], v.fill[2], v.fill[3]);
-      cairo_fill_preserve(cr);
-      cairo_set_source_rgba(cr, v.stroke[0], v.stroke[1], v.stroke[2], v.stroke[3]);
-      cairo_stroke(cr);
-      
-      //      path = cairo_copy_path(cr);
-    }
-
-
-  /* --------------------
-     Ring
-     -------------------- */
-
-  if (v.debug)
-    {
-      printf(" ---- Ring ----\n");
-    }
-  
-  for (int i = 0; i < 3; i++)
-    {
-      Circle inner_small = inner[i];
-      inner_small.r -= u * v.ring_offset;
-
-      Circle ring_outer(0, 0, v.ring_outer);
-      ring_outer.scale(scale);
-      Circle ring_inner(0, 0, v.ring_inner);
-      ring_inner.scale(scale);
-
-      cairo_new_path(cr);
-
-      Line l1;
-      ring_inner.intersect(inner_small, l1.p[0], l1.p[1]);
-      Line l2;
-      ring_outer.intersect(inner_small, l2.p[0], l2.p[1]);
-
-      cairo_arc_negative(cr, double(ring_inner.c.x), double(ring_inner.c.y),
-			 ring_inner.r, l1.p[0].polar(), l1.p[1].polar());
-
-      cairo_arc(cr, double(inner_small.c.x), double(inner_small.c.y), inner_small.r,
-		(l1.p[1] - inner_small.c).polar(),
-		(l2.p[1] - inner_small.c).polar());
-
-      cairo_arc(cr, double(ring_outer.c.x), double(ring_outer.c.y), ring_outer.r, l2.p[1].polar(), l2.p[0].polar());
-
-      cairo_arc(cr, double(inner_small.c.x), double(inner_small.c.y), inner_small.r,
-		(l2.p[0] - inner_small.c).polar(),
-		(l1.p[0] - inner_small.c).polar());
-      cairo_close_path(cr);
-      cairo_set_source_rgb(cr, v.fill[0], v.fill[1], v.fill[2]);
-      cairo_fill_preserve(cr);
-      cairo_set_source_rgb(cr, v.stroke[0], v.stroke[1], v.stroke[2]);
-      cairo_stroke(cr);
-    }      
-
-  cairo_restore(cr);
-}
-
-/* ----------------------------------------------------------------------
-   --
    -- bio_cairo_3
    --
    ---------------------------------------------------------------------- */
@@ -860,148 +856,154 @@ void bio_cairo_3(cairo_t *cr, bio_t &bio)
 
   // Sizing based on "official" construction
 
-  double a = scale;
-  double b = 3.5 * a;
-  double c = 4.0 * a;
-  double d = 6.0 * a;
-  double e = 11.0 * a;
-  double f = 15.0 * a;
-  double g = 21.0 * a;
-  double h = 30.0 * a;
+  double a = 1.0 * scale;
+  double b = 3.5 * scale;
+  double c = 4.0 * scale;
+  double d = 6.0 * scale;
+  double e = 11.0 * scale;
+  double f = 15.0 * scale;
+  double g = 21.0 * scale;
+  double h = 30.0 * scale;
 
-  cairo_path_t *trefoil_path;
-  cairo_path_t* ring_path;
+  // The symbol is rotationally symetric around 120 deg axis so only
+  // need to create one ring segment and one trefoil segment and then
+  // repeat the path three times under rotation.
 
-  {  
-      // Create lower trefoil starting from the center circle (radius d/2)
+  // This assumes the Y axis is going up, so 0,0 is the lower left corner
+    
+  // Create lower trefoil starting from the center circle (radius d/2)
+  
+  Circle center_circle(Point(0, 0), d/2);
+  
+  // Line at 210°
 
-      Circle center_circle(Point(0, 0), d/2);
-
-      // Line at 210°
-      
-      Line center_210(Point(0, 0), Point(1,0).rotate(deg2rad(210)));
-      center_210.translate(-a/2);
+  Line center_210(Point(0, 0), Point(1, 0).rotate(deg2rad(210)));
+  center_210.translate(a/2);
 
       // Create left and right circles
       
-      Circle inner_left(Point(f, 0).rotate(deg2rad(210)), g/2);
-      Circle outer_left(Point(e, 0).rotate(deg2rad(210)), h/2);
-      Circle inner_right(Point(f, 0).rotate(deg2rad(330)), g/2);
-      Circle outer_right(Point(e, 0).rotate(deg2rad(330)), h/2);
+  Circle inner_left(Point(f, 0).rotate(deg2rad(210)), g/2);
+  Circle outer_left(Point(e, 0).rotate(deg2rad(210)), h/2);
+  Circle inner_right(Point(f, 0).rotate(deg2rad(330)), g/2);
+  Circle outer_right(Point(e, 0).rotate(deg2rad(330)), h/2);
+  
+  Point p_center_left_inner[2];
+  center_circle.intersect(center_210, p_center_left_inner[0], p_center_left_inner[1]);
+
+  Point p_inner_left[2];
+  inner_left.intersect(center_210, p_inner_left[0], p_inner_left[1]);
       
-      Point p_center_left_inner[2];
-      center_circle.intersect(center_210, p_center_left_inner[0], p_center_left_inner[1]);
+  Line outer_left_bar(Point(0,0), Point(e+h, 0).rotate(deg2rad(210)));
+  outer_left_bar.translate(c/2);
       
-      Point p_inner_left[2];
-      inner_left.intersect(center_210, p_inner_left[0], p_inner_left[1]);
+  Point outer_left_bar_inner[2];
+  Point outer_left_bar_outer[2];
       
-      Line outer_left_bar(Point(0,0), Point(e+h, 0).rotate(deg2rad(210)));
-      outer_left_bar.translate(-c/2);
+  inner_left.intersect(outer_left_bar, outer_left_bar_inner[0], outer_left_bar_inner[1]);
+  outer_left.intersect(outer_left_bar, outer_left_bar_outer[0], outer_left_bar_outer[1]);
+  
+  Line outer_middle(Point(0,0), Point(e+f, 0).rotate(deg2rad(-90)));
+  Point middle[2];
+  outer_left.intersect(outer_middle, middle[0], middle[1]);
+  
+  Line outer_right_bar(Point(0,0), Point(e+h, 0).rotate(deg2rad(330)));
+  outer_right_bar.translate(-c/2);
       
-      Point outer_left_bar_inner[2];
-      Point outer_left_bar_outer[2];
+  Point outer_right_bar_outer[2];
+  Point outer_right_bar_inner[2];
+  outer_right.intersect(outer_right_bar, outer_right_bar_outer[0], outer_right_bar_outer[1]);
+  inner_right.intersect(outer_right_bar, outer_right_bar_inner[0], outer_right_bar_inner[1]);
+  
+  Line inner_right_bar(Point(0,0), Point(e, 0).rotate(deg2rad(330)));
+  inner_right_bar.translate(-a/2);
       
-      inner_left.intersect(outer_left_bar, outer_left_bar_inner[0], outer_left_bar_inner[1]);
-      outer_left.intersect(outer_left_bar, outer_left_bar_outer[0], outer_left_bar_outer[1]);
-      
-      Line outer_middle(Point(0,0), Point(e+f, 0).rotate(deg2rad(-90)));
-      Point middle[2];
-      outer_left.intersect(outer_middle, middle[0], middle[1]);
-      
-      Line outer_right_bar(Point(0,0), Point(e+h, 0).rotate(deg2rad(330)));
-      outer_right_bar.translate(c/2);
-      
-      Point outer_right_bar_outer[2];
-      Point outer_right_bar_inner[2];
-      outer_right.intersect(outer_right_bar, outer_right_bar_outer[0], outer_right_bar_outer[1]);
-      inner_right.intersect(outer_right_bar, outer_right_bar_inner[0], outer_right_bar_inner[1]);
-      
-      Line inner_right_bar(Point(0,0), Point(e, 0).rotate(deg2rad(330)));
-      inner_right_bar.translate(a/2);
-      
-      Point inner_right_bar_outer[2];
-      Point inner_right_bar_inner[2];
-      inner_right.intersect(inner_right_bar, inner_right_bar_outer[0], inner_right_bar_outer[1]);
-      center_circle.intersect(inner_right_bar, inner_right_bar_inner[0], inner_right_bar_inner[1]);
+  Point inner_right_bar_outer[2];
+  Point inner_right_bar_inner[2];
+  inner_right.intersect(inner_right_bar, inner_right_bar_outer[0], inner_right_bar_outer[1]);
+  center_circle.intersect(inner_right_bar, inner_right_bar_inner[0], inner_right_bar_inner[1]);
+  
+  // With cairo it is possible to create a path and save it
+  
+  cairo_path_t *trefoil_path;
+  cairo_path_t* ring_path;
 
       // Actual drawing
 
-      cairo_new_path(cr);
-      cairo_arc_negative(cr, 0, 0, d/2, deg2rad(-90), p_center_left_inner[0].polar());
-      cairo_line_to(cr, p_inner_left[1].x, p_inner_left[1].y);
-      
-      cairo_arc_negative(cr, inner_left.c.x, inner_left.c.y, inner_left.r,
-			 (p_inner_left[1]-inner_left.c).polar(),
-			 (outer_left_bar_inner[0]-inner_left.c).polar());
-      
-      cairo_line_to(cr, outer_left_bar_outer[0].x, outer_left_bar_outer[0].y);
-      
-      cairo_arc(cr, outer_left.c.x, outer_left.c.y, outer_left.r,
-		(outer_left_bar_outer[0]-outer_left.c).polar(),
-		(middle[0]-outer_left.c).polar());
-      
-      cairo_arc(cr, outer_right.c.x, outer_right.c.y, outer_right.r,
-		(middle[0]-outer_right.c).polar(),
-		(outer_right_bar_outer[0]-outer_right.c).polar());
-      
-      cairo_line_to(cr, outer_right_bar_inner[0].x, outer_right_bar_inner[0].y);
-      
-      cairo_arc_negative(cr, inner_right.c.x, inner_right.c.y, inner_right.r,
-			 (outer_right_bar_inner[0]-inner_right.c).polar(),
-			 (inner_right_bar_outer[1]-inner_right.c).polar());
-      
-      cairo_line_to(cr, inner_right_bar_inner[0].x, inner_right_bar_inner[0].y);
-      
-      cairo_arc_negative(cr, center_circle.c.x, center_circle.c.y, center_circle.r,
-			 inner_right_bar_inner[0].polar(),
-			 deg2rad(270));
-      cairo_close_path(cr);
-      trefoil_path = cairo_copy_path(cr);
-      
-      //      cairo_set_source_rgb(cr, 1, 1, 0);
-      //      cairo_fill_preserve(cr);
-      //      cairo_set_source_rgb(cr, 0, 0, 0);
-      //      cairo_stroke(cr);
-
-      /* Ring */
-
-      Circle ring_inner(Point(0,0), e-a);
-      Circle ring_outer(Point(0,0), e-a+b);
-      Circle inner(Point(0, f), g/2 - a);
-      
-      Point p_ring_inner[2];
-      Point p_ring_outer[2];
-      
-      ring_inner.intersect(inner, p_ring_inner[0], p_ring_inner[1]);
-      ring_outer.intersect(inner, p_ring_outer[0], p_ring_outer[1]);
-
-      cairo_new_path(cr);
-      cairo_move_to(cr, 0, e-a);
-      
-      cairo_arc(cr, ring_inner.c.x, ring_inner.c.y, ring_inner.r,
-		deg2rad(90),
-		p_ring_inner[0].polar());
-      
-      cairo_arc_negative(cr, inner.c.x, inner.c.y, inner.r,
-			 (p_ring_inner[0]-inner.c).polar(),
-			 (p_ring_outer[0]-inner.c).polar());
-      
-      cairo_arc_negative(cr, ring_outer.c.x, ring_outer.c.y, ring_outer.r,
-			 p_ring_outer[0].polar(),
-			 p_ring_outer[1].polar());
-      
-      cairo_arc_negative(cr, inner.c.x, inner.c.y, inner.r,
-			 (p_ring_outer[1]-inner.c).polar(),
-			 (p_ring_inner[1]-inner.c).polar());
-      
-      
-      cairo_arc(cr, ring_inner.c.x, ring_inner.c.y, ring_inner.r,
-		p_ring_inner[1].polar(),
-		deg2rad(90));      
-      cairo_close_path(cr);
-      ring_path = cairo_copy_path(cr);
-    }
+  cairo_new_path(cr);
+  cairo_arc_negative(cr, 0, 0, d/2, deg2rad(-90), p_center_left_inner[0].polar());
+  cairo_line_to(cr, p_inner_left[1].x, p_inner_left[1].y);
   
+  cairo_arc_negative(cr, inner_left.c.x, inner_left.c.y, inner_left.r,
+		     (p_inner_left[1]-inner_left.c).polar(),
+		     (outer_left_bar_inner[0]-inner_left.c).polar());
+  
+  cairo_line_to(cr, outer_left_bar_outer[0].x, outer_left_bar_outer[0].y);
+  
+  cairo_arc(cr, outer_left.c.x, outer_left.c.y, outer_left.r,
+	    (outer_left_bar_outer[0]-outer_left.c).polar(),
+	    (middle[0]-outer_left.c).polar());
+  
+  cairo_arc(cr, outer_right.c.x, outer_right.c.y, outer_right.r,
+	    (middle[0]-outer_right.c).polar(),
+	    (outer_right_bar_outer[0]-outer_right.c).polar());
+  
+  cairo_line_to(cr, outer_right_bar_inner[0].x, outer_right_bar_inner[0].y);
+  
+  cairo_arc_negative(cr, inner_right.c.x, inner_right.c.y, inner_right.r,
+		     (outer_right_bar_inner[0]-inner_right.c).polar(),
+		     (inner_right_bar_outer[1]-inner_right.c).polar());
+  
+  cairo_line_to(cr, inner_right_bar_inner[0].x, inner_right_bar_inner[0].y);
+  
+  cairo_arc_negative(cr, center_circle.c.x, center_circle.c.y, center_circle.r,
+		     inner_right_bar_inner[0].polar(),
+		     deg2rad(270));
+  cairo_close_path(cr);
+  trefoil_path = cairo_copy_path(cr);
+  
+  //      cairo_set_source_rgb(cr, 1, 1, 0);
+  //      cairo_fill_preserve(cr);
+  //      cairo_set_source_rgb(cr, 0, 0, 0);
+  //      cairo_stroke(cr);
+  
+  /* Ring */
+  
+  Circle ring_inner(Point(0,0), e-a);
+  Circle ring_outer(Point(0,0), e-a+b);
+  Circle inner(Point(0, f), g/2 - a);
+  
+  Point p_ring_inner[2];
+  Point p_ring_outer[2];
+  
+  ring_inner.intersect(inner, p_ring_inner[0], p_ring_inner[1]);
+  ring_outer.intersect(inner, p_ring_outer[0], p_ring_outer[1]);
+  
+  cairo_new_path(cr);
+  cairo_move_to(cr, 0, e-a);
+  
+  cairo_arc(cr, ring_inner.c.x, ring_inner.c.y, ring_inner.r,
+	    deg2rad(90),
+	    p_ring_inner[0].polar());
+  
+  cairo_arc_negative(cr, inner.c.x, inner.c.y, inner.r,
+		     (p_ring_inner[0]-inner.c).polar(),
+		     (p_ring_outer[0]-inner.c).polar());
+  
+  cairo_arc_negative(cr, ring_outer.c.x, ring_outer.c.y, ring_outer.r,
+		     p_ring_outer[0].polar(),
+		     p_ring_outer[1].polar());
+  
+  cairo_arc_negative(cr, inner.c.x, inner.c.y, inner.r,
+		     (p_ring_outer[1]-inner.c).polar(),
+		     (p_ring_inner[1]-inner.c).polar());
+  
+  
+  cairo_arc(cr, ring_inner.c.x, ring_inner.c.y, ring_inner.r,
+	    p_ring_inner[1].polar(),
+	    deg2rad(90));      
+  cairo_close_path(cr);
+  ring_path = cairo_copy_path(cr);
+
   // Fill background
 
   cairo_new_path(cr);
@@ -1059,8 +1061,7 @@ void bio_cairo_3(cairo_t *cr, bio_t &bio)
       cairo_rotate(cr, deg2rad(120));
     }
   // Rotate
-      
-   
+
   cairo_path_destroy(ring_path);
   cairo_path_destroy(trefoil_path);
 }  
