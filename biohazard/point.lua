@@ -391,22 +391,39 @@ function trefoil(params, cr)
    -- --------------------
 
    cr:set_line_width(0.5)
+
+   cr:new_path()
    for i = 0,2,1 do
       cr:save()
       cr:rotate(deg2rad(120.0) * i)
-      cr:new_path()
       cr:append_path(trefoil_path)
-      cr:set_source_rgb(1.0, 0.0, 0.0)
-      cr:fill_preserve()
-      cr:set_source_rgb(0.0, 0.0, 0.0)
-      cr:stroke()
-      cr:new_path()
       cr:append_path(ring_path)
-      cr:set_source_rgb(1.0, 0.0, 0.0)
-      cr:fill_preserve()
-      cr:set_source_rgb(0.0, 0.0, 0.0)
-      cr:stroke()
       cr:restore()
+   end
+   cr:set_source_rgb(1.0, 0.0, 0.0)
+   cr:fill_preserve()
+   cr:set_source_rgb(0.0, 0.0, 0.0)
+   cr:stroke()
+
+   local old = false
+   if old then   
+      for i = 0,2,1 do
+	 cr:save()
+	 cr:rotate(deg2rad(120.0) * i)
+	 cr:new_path()
+	 cr:append_path(trefoil_path)
+	 cr:set_source_rgb(1.0, 0.0, 0.0)
+	 cr:fill_preserve()
+	 cr:set_source_rgb(0.0, 0.0, 0.0)
+	 cr:stroke()
+	 cr:new_path()
+	 cr:append_path(ring_path)
+	 cr:set_source_rgb(1.0, 0.0, 0.0)
+	 cr:fill_preserve()
+	 cr:set_source_rgb(0.0, 0.0, 0.0)
+	 cr:stroke()
+	 cr:restore()
+      end
    end
    
 
@@ -447,82 +464,6 @@ function trefoil(params, cr)
    end
 end
 
-
-
-function old()
-   outer_center = Point:new { x = 0.0, y = params.outer_offset }
-outer = Circle:new {center = outer_center, radius = params.outer_radius}
-inner = Circle:new {center = Point:new {x = 0.0, y = params.inner_offset}, radius = params.inner_radius}
-
-left_horn = Line:new {a = Point:new {x = -params.horn_gap/2.0, y = 0 }, b = Point:new {x = -params.horn_gap, y = params.outer_offset + 2.0 * params.outer_radius}}
-right_horn = Line:new {a = Point:new {x = params.horn_gap/2.0, y = 0 }, b = Point:new {x = params.horn_gap, y = params.outer_offset + 2.0 * params.outer_radius}}
-
-outer_center_120 = Point:new {x = outer_center.x, y = outer_center.y}
-outer_center_120:rotate(deg2rad(120.0))
-outer_120 = Circle:new {center = outer_center_120, radius = params.outer_radius}
-
-cr:new_path()
-outer:stroke(cr)
-inner:stroke(cr)
-left_horn:stroke(cr)
-right_horn:stroke(cr)
-outer_120:stroke(cr);
-
-
-cr:set_source_rgb(1.0, 0.0, 0.0)
-
-
-local left_horn_outer, _ = left_horn:circle_intersect(outer)
-local left_horn_inner, _ = left_horn:circle_intersect(inner)
-
-local right_horn_outer, _ = right_horn:circle_intersect(outer)
-local right_horn_inner, _ = right_horn:circle_intersect(inner)
-
-
-left_horn_outer:fill(cr, 4.0)
-left_horn_inner:fill(cr, 4.0)
-right_horn_outer:fill(cr, 4.0)
-right_horn_inner:fill(cr, 4.0)
-
-local ip1, ip2 = outer:circle_intersect(outer_120)
-
-Circle:new {center = ip1, radius = 4.0}:fill(cr)
-Circle:new {center = ip2, radius = 4.0}:fill(cr)
-
--- Circle:new {center = Point:new {x = x1, y = y1}, radius = 4.0}:fill(cr)
--- Circle:new {center = Point:new {x = x2, y = y2}, radius = 4.0}:fill(cr)
-
--- local i = Point:new {x = x2, y = y2}
--- local c = Circle:new {center = Point:new {x = 0.0, y = 0.0}, radius = i:metric()}
--- c:stroke(cr)
--- print(i:metric(),rad2deg(i:polar()))
--- print(x1, y1, x2, y2)
-
-local p = Point:new{x=0.0,y=0.0}
-
-local p2 = Point:copy(p)
-
-cr:set_source_rgb(0,0,1)
-local p = Point:new{x = 0.0, y = params.outer_offset + params.outer_radius*2.0}:rotate(deg2rad(210))
-
-local l1_l = Line:new {a = Point:new {x = 0.0, y = 0.0}, b = Point:new{x = params.outer_offset + params.outer_radius*2.0, y = 0.0}:rotate(deg2rad(210.0))}
-local l1_r = Line:new {a = Point:new {x = 0.0, y = 0.0}, b = Point:new{x = params.outer_offset + params.outer_radius*2.0, y = 0.0}:rotate(deg2rad(210.0))}
-local l2_l = Line:new {a = Point:new {x = 0.0, y = 0.0}, b = Point:new{x = params.outer_offset + params.outer_radius*2.0, y = 0.0}:rotate(deg2rad(330.0))}
-local l2_r = Line:new {a = Point:new {x = 0.0, y = 0.0}, b = Point:new{x = params.outer_offset + params.outer_radius*2.0, y = 0.0}:rotate(deg2rad(330.0))}
-
-local lx = Line:new{a = Point:new{x = 0.0, y = 0.0}, b = l1_l.b:normal():rotate(deg2rad(90.0))}
-print(lx)
-lx:stroke(cr)
-
-l1_l:translate(10.0);
-l1_r:translate(-10.0);
-
-cr:set_source_rgb(0,0,1)
-l1_l:stroke(cr)
-cr:set_source_rgb(0,1,0)
-l1_r:stroke(cr)
-end
-
 -- ----------------------------------------------------------------------
 --
 -- main
@@ -549,7 +490,6 @@ local cr = cairo.Context.create(surface)
 cr:translate(params.width/2.0, params.height/2.0)
 local scale = 4.0 / 3.0;
 cr:scale(scale, -scale)
-cr:set_source_rgb(1,0,1)
 cr:select_font_face('URW Gothic L', 'normal', 'bold');
 cr:set_font_size(14);
 trefoil(params, cr)
