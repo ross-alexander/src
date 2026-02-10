@@ -136,12 +136,15 @@ Point = {
    fill = function(self, cr, radius)
       Circle:new {center = self, radius = radius}:fill(cr)
    end,
-   text = function(self, cr, text)
+   text = function(self, cr, text, offset)
       cr:save()
       cr:translate(self.x, self.y)
       cr:scale(1.0, -1.0)
       local extents = cr:text_extents(text)
       cr:move_to(-extents.width/2.0, extents.height/2.0)
+      if not (offset == nil) then
+	 cr:rel_move_to(offset.x, offset.y)
+      end
       cr:show_text(text)
       cr:restore()
    end,
@@ -162,7 +165,12 @@ function Point:new(o)
 end
 
 function Point:copy(o)
-   if (getmetatable(o) == self)
+   if o == nil then
+      o = {x = self.x, y = self.y}
+      setmetatable(o, getmetatable(self))
+      o.__index = Point
+      return o
+   elseif (getmetatable(o) == self)
    then
       o = {x=o.x, y=o.y}
       setmetatable(o, self)
@@ -192,7 +200,6 @@ Circle = {
       cr:new_path()
       cr:arc(self.center.x, self.center.y, self.radius, 0, 2.0 * math.pi)
       cr:fill()
-      print(string.format("Circle:fill(%f %f %f)", self.center.x, self.center.y, self.radius))
    end,
    circle_intersect= function(self, c) 
       local x1, y1, x2, y2 = circle_circle_intersection(self.center.x,
@@ -251,7 +258,6 @@ Line = {
    end,
    translate = function(self, s)
       local x = Point:new{x = self.b.x - self.a.x, y = self.b.y - self.a.y}:normal():rotate(deg2rad(90.0))
-      print("--", x)
       return Line:new{a = Point:new {x = self.a.x + x.x*s, y = self.a.y + x.y*s},
 		      b = Point:new {x = self.b.x + x.x*s, y = self.b.y + x.y*s}}
    end,
@@ -405,62 +411,80 @@ function trefoil(params, cr)
    cr:set_source_rgb(0.0, 0.0, 0.0)
    cr:stroke()
 
-   local old = false
-   if old then   
-      for i = 0,2,1 do
-	 cr:save()
-	 cr:rotate(deg2rad(120.0) * i)
-	 cr:new_path()
-	 cr:append_path(trefoil_path)
-	 cr:set_source_rgb(1.0, 0.0, 0.0)
-	 cr:fill_preserve()
-	 cr:set_source_rgb(0.0, 0.0, 0.0)
-	 cr:stroke()
-	 cr:new_path()
-	 cr:append_path(ring_path)
-	 cr:set_source_rgb(1.0, 0.0, 0.0)
-	 cr:fill_preserve()
-	 cr:set_source_rgb(0.0, 0.0, 0.0)
-	 cr:stroke()
-	 cr:restore()
-      end
-   end
-   
+   -- Add marking
 
-   -- Add dots
-
-   local marking = false
-   if marking then
-      left_horn_outer:fill(cr, 4.0)
-      right_horn_outer:fill(cr, 4.0)
-      outer_intersect:fill(cr, 4.0)
-      right_horn_inner:fill(cr, 4.0)
-      right_inner_gap:fill(cr, 4.0)
-      right_circle_gap:fill(cr, 4.0)
-      left_circle_gap:fill(cr, 4.0)
-      left_inner_gap:fill(cr, 4.0)
-      left_horn_inner:fill(cr, 4.0)
-      ring_inner_left:fill(cr, 4.0) -- J
-      ring_inner_right:fill(cr, 4.0) -- K
-      ring_outer_left:fill(cr, 4.0) -- L
-      ring_outer_right:fill(cr, 4.0) -- M
-      
-      -- Add labels
-      
-      cr:set_source_rgb(0.0, 0.0, 0.0)
-      left_horn_outer:text(cr, 'A')
-      outer_intersect:text(cr, 'B')
-      right_horn_outer:text(cr, 'C')
-      right_horn_inner:text(cr, 'D')
-      right_inner_gap:text(cr, 'E')
-      right_circle_gap:text(cr, 'F')
-      left_circle_gap:text(cr, 'G')
-      left_inner_gap:text(cr, 'H')
-      left_horn_inner:text(cr, 'I')
-      ring_inner_left:text(cr, 'J')
-      ring_inner_right:text(cr, 'K')
-      ring_outer_right:text(cr, 'L')
-      ring_outer_left:text(cr, 'M')
+   local marks = {
+      A = {
+	 desc = 'left_horn_outer',
+	 point = left_horn_outer:copy(),
+	 offset = Point:new {x = -5.0, y = 8.0},
+      },
+      B = {
+	 desc = 'outer_intersect',
+	 point = outer_intersect:copy(),
+	 offset = Point:new {x = 0.0, y = 10.0},
+      },
+      C = {
+	 desc = 'right_horn_outer',
+	 point = right_horn_outer:copy(),
+	 offset = Point:new {x = 0.0, y = 8.0},
+      },
+      D = {
+	 desc = 'right_horn_inner',
+	 point = right_horn_inner:copy(),
+	 offset = Point:new {x = 0.0, y = -8.0},
+      },
+      E = {
+	 desc = 'right_inner_gap',
+	 point = right_inner_gap:copy(),
+	 offset = Point:new {x = 8.0, y = 0.0},
+      },
+      F = {
+	 desc = 'right_circle_gap',
+	 point = right_circle_gap:copy(),
+	 offset = Point:new {x = -8.0, y = -4.0},
+      },
+      G = {
+	 desc = 'left_circle_gap',
+	 point = left_circle_gap:copy(),
+	 offset = Point:new {x = 8.0, y = -4.0},
+      },
+      H = {
+	 desc = 'left_inner_gap',
+	 point = left_inner_gap:copy(),
+	 offset = Point:new {x = -9.0, y = 0.0},
+      },
+      I = {
+	 desc = 'left_horn_inner',
+	 point = left_horn_inner:copy(),
+	 offset = Point:new {x = 0.0, y = -8.0},
+      },
+      J = {
+	 desc = 'ring_inner_left',
+	 point = ring_inner_left:copy(),
+	 offset = Point:new {x = 4.0, y = 4.0},
+      },
+      K = {
+	 desc = 'ring_inner_right',
+	 point = ring_inner_right:copy(),
+	 offset = Point:new {x = -4.0, y = 4.0},
+      },
+      L = {
+	 desc = 'ring_outer_right',
+	 point = ring_outer_right:copy(),
+	 offset = Point:new {x = 0.0, y = -8.0},
+      },
+      M = {
+	 desc = 'ring_outer_left',
+	 point = ring_outer_left:copy(),
+	 offset = Point:new {x = -2.0, y = -8.0},
+      },
+   }
+   for k,v in pairs(marks) do
+      cr:set_source_rgb(0, 0, 1)
+      v.point:fill(cr, 2.0)
+      cr:set_source_rgb(0, 0, 0)
+      v.point:text(cr, k, v.offset)
    end
 end
 
