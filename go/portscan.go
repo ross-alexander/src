@@ -110,7 +110,7 @@ Loop over remaining options (minimum one entry)
 	for _, path := range flag.Args() {
 
 /* --------------------
-Read file into string to die
+Read file into string or exit out with error
 -------------------- */
 
 		content, err := ioutil.ReadFile(path)
