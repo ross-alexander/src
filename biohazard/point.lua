@@ -1,3 +1,11 @@
+-- ----------------------------------------------------------------------
+--
+-- bioharzard symbol using cairo
+--
+-- 2026-02-21
+--
+-- ----------------------------------------------------------------------
+
 local lgo = require('LuaGObject')
 local cairo = lgo.cairo
 
@@ -104,7 +112,7 @@ end
 Point = {
    x, y = 0.0, 0.0, 
    __tostring = function(self)
-      return string.format("Point(%6.2f, %6.2f)", self.x, self.y)
+      return string.format("Point(%7.2f, %7.2f)", self.x, self.y)
    end,
    rotate = function(self, theta)
       return Point:new{x = math.cos(theta) * self.x - math.sin(theta) * self.y, y = math.sin(theta) * self.x + math.cos(theta) * self.y}
@@ -116,7 +124,7 @@ Point = {
       return Point:new{x = self.x + x, y = self.y + y}
    end,
    polar = function(self)
-      local theta = math.atan(self.y / self.x)
+      local theta = math.atan(self.y, self.x)
       local phi
 
       if ((self.x < 0.0) and (self.y > 0.0)) then
@@ -128,7 +136,7 @@ Point = {
       else
 	 phi = theta
       end
-      return phi, math.sqrt(self.x * self.x + self.y * self.y)
+      return theta, math.sqrt(self.x * self.x + self.y * self.y)
    end,
    metric = function(self)
       return math.sqrt(self.x * self.x + self.y * self.y)
@@ -480,11 +488,27 @@ function trefoil(params, cr)
 	 offset = Point:new {x = -2.0, y = -8.0},
       },
    }
-   for k,v in pairs(marks) do
+
+   local function key_sort (t, f)
+      local a = {}
+      for n in pairs(t) do table.insert(a, n) end
+      table.sort(a, f)
+      local i = 0      -- iterator variable
+      local iter = function ()   -- iterator function
+	 i = i + 1
+	 if a[i] == nil then return nil
+	 else return a[i], t[a[i]]
+	 end
+      end
+      return iter
+   end
+   
+   for k,v in key_sort(marks) do
       cr:set_source_rgb(0, 0, 1)
       v.point:fill(cr, 2.0)
       cr:set_source_rgb(0, 0, 0)
       v.point:text(cr, k, v.offset)
+      print(string.format("%s [%-20s]: %s", k, v.desc, v.point))
    end
 end
 
