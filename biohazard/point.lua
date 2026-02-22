@@ -125,17 +125,6 @@ Point = {
    end,
    polar = function(self)
       local theta = math.atan(self.y, self.x)
-      local phi
-
-      if ((self.x < 0.0) and (self.y > 0.0)) then
-	 phi = theta + math.pi;
-      elseif ((self.x < 0.0) and ((self.y) < 0.0)) then
-      phi = theta + math.pi;
-      elseif ((self.x > 0.0) and (self.y < 0.0)) then
-	 phi = theta + 2.0 * math.pi;
-      else
-	 phi = theta
-      end
       return theta, math.sqrt(self.x * self.x + self.y * self.y)
    end,
    metric = function(self)
