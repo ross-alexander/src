@@ -191,14 +191,14 @@ Circle = {
       cr:new_path()
       cr:arc(self.center.x, self.center.y, self.radius, 0, 2.0 * math.pi)
       cr:stroke()
-      print(string.format("Circle:draw(%f %f %f)", self.center.x, self.center.y, self.radius))
+      -- print(string.format("Circle:draw(%f %f %f)", self.center.x, self.center.y, self.radius))
    end,
    fill = function(self, cr)
       cr:new_path()
       cr:arc(self.center.x, self.center.y, self.radius, 0, 2.0 * math.pi)
       cr:fill()
    end,
-   circle_intersect= function(self, c) 
+   circle_intersect = function(self, c) 
       local x1, y1, x2, y2 = circle_circle_intersection(self.center.x,
 							self.center.y,
 							self.radius,
@@ -234,7 +234,6 @@ Line = {
       cr:new_path()
       cr:move_to(self.p[1].x, self.p[1].y)
       cr:line_to(self.p[2].x, self.p[2].y)
-      print(self.a, self.b)
       cr:stroke()
    end,
    circle_intersect = function(self, c)
@@ -521,8 +520,7 @@ local params = {
    height = 800.0,
 }
 
-local surface = cairo.SvgSurface.create('point.svg', params.width, params.height)
-
+local surface = cairo.SvgSurface.create('bio-lua.svg', params.width, params.height)
 local cr = cairo.Context.create(surface)
 cr:translate(params.width/2.0, params.height/2.0)
 local scale = 4.0 / 3.0;
@@ -531,3 +529,80 @@ cr:select_font_face('URW Gothic L', 'normal', 'bold');
 cr:set_font_size(14);
 trefoil(params, cr)
 
+function rad(params, surface)
+   local cr = cairo.Context.create(surface)
+   cr:translate(params.width/2.0, params.height/2.0)
+   cr:scale(1.0, -1.0)
+
+   cr:save()
+   cr:translate(0.0, params.triangle_offset)
+
+   for i = 0,3,1 do
+      local p = Point:new{x = 1.0, y = 0.0}:rotate(deg2rad(90.0 + 120.0 * i)):scale(params.triangle_radius)
+      if i == 0 then
+	 cr:move_to(p.x, p.y)
+      else
+	 cr:line_to(p.x, p.y)
+      end
+   end
+   cr:close_path()
+   cr:set_source_rgb(0.97, 0.65, 0.0)
+   cr:fill_preserve()
+   cr:set_source_rgb(0.0, 0.0, 0.0)
+   cr:set_line_width(params.triangle_width)
+   cr:stroke()
+   cr:restore()
+   
+   cr:set_source_rgb(0.0, 0.0, 0.0)
+   cr:save()
+   cr:translate(0.0, params.symbol_offset)
+   
+   local outer = Circle:new{center = Point:new{x=0.0, y=0.0}, radius = params.outer_radius}
+   local inner = Circle:new{center = Point:new{x=0.0, y=0.0}, radius = params.inner_radius}
+   for i = 0, 2, 1 do
+      local left = Line:new{p = {Point:new{x = params.inner_radius, y = 0.0}:rotate(deg2rad(120.0 * i)),
+				 Point:new{x = params.outer_radius, y = 0.0}:rotate(deg2rad(120.0 * i))}}
+      local right = Line:new{p = {Point:new{x = params.inner_radius, y = 0.0}:rotate(deg2rad(60.0 + 120.0 * i)),
+				  Point:new{x = params.outer_radius, y = 0.0}:rotate(deg2rad(60.0 + 120.0 * i))}}
+
+
+      local left_inner, _ = left:circle_intersect(inner)
+      local left_outer, _ = left:circle_intersect(outer)
+      local right_inner, _ = right:circle_intersect(inner)
+      local right_outer, _ = right:circle_intersect(outer)
+
+      local ang_left_outer, _ = left_outer:polar()
+      local ang_right_outer, _ = right_outer:polar()
+      local ang_right_inner = right_inner:polar()
+      local ang_left_inner = left_inner:polar()
+
+      cr:move_to(left_inner.x, left_inner.y)
+      cr:line_to(left_outer.x, left_outer.y)
+      cr:move_to(left_outer.x, left_outer.y)
+      cr:arc(0.0, 0.0, params.outer_radius, ang_left_outer, ang_right_outer)
+      cr:line_to(right_inner.x, right_inner.y)
+      cr:arc_negative(0.0, 0.0, params.inner_radius, ang_right_inner, ang_left_inner)
+      cr:close_path()
+      cr:fill()
+   end
+   cr:move_to(params.center_radius, 0.0)
+   cr:arc(0.0, 0.0, params.center_radius, 0.0, deg2rad(360.0))
+   cr:close_path()
+   cr:fill()
+   cr:restore()
+end
+
+local rad_params = {
+   width = 1000.0,
+   height = 800.0,
+   outer_radius = 240.0,
+   inner_radius = 80.0,
+   center_radius = 60.0,
+   triangle_offset = -132.0,
+   triangle_radius = 520.0,
+   triangle_width = 15.0,
+   symbol_offset = -132.0,
+}
+
+local rad_surface = cairo.SvgSurface.create('bio-rad.svg', rad_params.width, rad_params.height)
+rad(rad_params, rad_surface)
