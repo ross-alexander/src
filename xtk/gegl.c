@@ -28,14 +28,14 @@ xtk_t* create(int w, int h, char *path)
   GeglRectangle size;
   cairo_surface_t *image;
 
-  load = gegl_node_new ();
+  load = gegl_node_new();
   
-  gegl_node_set (load,
-		 "operation", "gegl:load",
-		 "path", path,
-		 NULL);
-
-  size = gegl_node_get_bounding_box (load);
+  gegl_node_set(load,
+		"operation", "gegl:load",
+		"path", path,
+		NULL);
+  size = gegl_node_get_bounding_box(load);
+  printf("%5d %5d %5d %5d\n", size.x, size.y, size.width, size.height);
 
   image = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
 				      size.width,

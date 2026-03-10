@@ -1,4 +1,4 @@
-CC	= gcc
+CC	= gcc -g -Wall
 CXX	= g++ -g -Wall
 
 PKG_CONFIG ?= pkg-config
@@ -6,9 +6,10 @@ PKG_CONFIG ?= pkg-config
 WAYLAND_PROTOCOLS_DIR = $(shell $(PKG_CONFIG) wayland-protocols --variable=pkgdatadir)
 WAYLAND_SCANNER = $(shell pkg-config --variable=wayland_scanner wayland-scanner)
 XDG_SHELL_PROTOCOL = $(WAYLAND_PROTOCOLS_DIR)/stable/xdg-shell/xdg-shell.xml
-CAIRO_FLAGS = $(shell $(PKG_CONFIG) cairo --cflags --libs)
 CAIRO_CFLAGS = $(shell $(PKG_CONFIG) cairo --cflags)
 CAIRO_LIBS = $(shell $(PKG_CONFIG) cairo --libs)
+GEGL_CFLAGS = $(shell $(PKG_CONFIG) gegl-0.4 --cflags)
+GEGL_LIBS = $(shell $(PKG_CONFIG) gegl-0.4 --libs)
 LUA_CFLAGS = -Ilua/include
 LUA_LIBS = -Llua/lib -llua -lm
 
@@ -36,13 +37,13 @@ xdg-shell-client.o: xdg-shell-client.c xdg-shell-client-protocol.h
 	$(CC) -g -o $@ -c $<  $(CAIRO_FLAGS)
 
 client.o: client.c xdg-shell-client-protocol.h
-	$(CC) -g -o $@ -c $<  $(CAIRO_FLAGS) $(LUA_CFLAGS)
+	$(CC) -g -o $@ -c $<  $(CAIRO_CFLAGS) $(LUA_CFLAGS) $(GEGL_CFLAGS)
 
 client: xdg-shell-client.o client.o
-	$(CC) -g -o $@ $^ $(CAIRO_LIBS) $(LUA_LIBS) -lwayland-client
+	$(CC) -g -o $@ $^ $(CAIRO_LIBS) $(LUA_LIBS) $(GEGL_LIBS) -lwayland-client
 
 cairo: cairo.c
-	$(CC) -g -o $@ $^ $(CAIRO_FLAGS)
+	$(CC) -g -o $@ $^ $(CAIRO_CFLAGS) $(CAIRO_LIBS)
 
 xdg-shell-client-protocol.h:
 	$(WAYLAND_SCANNER) client-header $(XDG_SHELL_PROTOCOL) xdg-shell-client-protocol.h

@@ -22,6 +22,9 @@
 #include "xdg-shell-client-protocol.h"
 
 #include <cairo.h>
+
+#include <gegl.h>
+
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -537,21 +540,64 @@ int tile_surface_t_configuration(lua_State *L)
   return 1;
 }
 
-static const luaL_Reg tile_surface_t_instance_methods[] = {
-  {"set_source_rgb",	tile_surface_t_set_source_rgb},
-  {"rectangle",		tile_surface_t_rectangle},
-  {"fill",		tile_surface_t_fill},
-  {"configuration",     tile_surface_t_configuration},
-  {0, 0}
-};
+/* ----------------------------------------------------------------------
+   --
+   -- tile_surface_set_source_file
+   --
+   ---------------------------------------------------------------------- */
 
-static const luaL_Reg tile_surface_t_meta[] = {
-  {"__tostring", tile_surface_t___tostring},
-  {0, 0},
-};
+int tile_surface_t_set_source_file_signal(GeglNode *node, GeglRectangle *rect, void *context)
+{
+  printf("Callback\n");
+  return 0;
+}
+
+int tile_surface_t_set_source_file(lua_State *L)
+{
+  struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
+  const char *path = luaL_checkstring(L, 2);
+  GeglNode *load;
+  GeglRectangle size;
+  //  cairo_surface_t *image;
+
+  printf("tile_surface_t_set_source_file(%s)\n", path);
+  
+  load = gegl_node_new();
+
+  g_signal_connect (load, "invalidated", G_CALLBACK (tile_surface_t_set_source_file_signal), 0);
+  
+  gegl_node_set(load,
+		"operation", "gegl:load",
+		"path", path,
+		NULL);
+
+  size = gegl_node_get_bounding_box(load);
+  printf("%5d %5d %5d %5d\n", size.x, size.y, size.width, size.height);
+  return 0;
+}
+
+/* ----------------------------------------------------------------------
+   --
+   -- lua init
+   --
+   ---------------------------------------------------------------------- */
 
 void tile_surface_init(lua_State *L)
 {
+  const luaL_Reg tile_surface_t_instance_methods[] = {
+    {"set_source_file",		tile_surface_t_set_source_file},
+    {"set_source_rgb",		tile_surface_t_set_source_rgb},
+    {"rectangle",		tile_surface_t_rectangle},
+    {"fill",			tile_surface_t_fill},
+    {"configuration",		tile_surface_t_configuration},
+    {0, 0}
+  };
+
+  const luaL_Reg tile_surface_t_meta[] = {
+    {"__tostring", tile_surface_t___tostring},
+    {0, 0},
+  };
+
   luaL_newmetatable(L, "tile_surface_t");
   luaL_setfuncs(L, tile_surface_t_meta, 0);
 
@@ -582,6 +628,7 @@ void tile_surface_init(lua_State *L)
 int main(int argc, char *argv[])
 {
   struct client_state state = { 0 };
+  gegl_init(&argc, &argv);
 
   /* lua */
   state.luastate = luaL_newstate();
