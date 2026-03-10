@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use 5.34.0;
+use 5.42.0;
 use Music::Tag;
 use Audio::Opusfile;
 

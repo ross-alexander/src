@@ -502,32 +502,9 @@ end
 
 -- ----------------------------------------------------------------------
 --
--- main
+-- rad
 --
 -- ----------------------------------------------------------------------
-
-local params = {
-   center_radius = 30.0,
-   outer_offset = 110.0,
-   outer_radius = 150.0,
-   inner_offset = 150.0,
-   inner_radius = 105.0,
-   ring_inner_radius = 100.0,
-   ring_outer_radius = 135.0,
-   horn_gap = 40.0,
-   circle_gap = 10.0,
-   width = 800.0,
-   height = 800.0,
-}
-
-local surface = cairo.SvgSurface.create('bio-lua.svg', params.width, params.height)
-local cr = cairo.Context.create(surface)
-cr:translate(params.width/2.0, params.height/2.0)
-local scale = 4.0 / 3.0;
-cr:scale(scale, -scale)
-cr:select_font_face('URW Gothic L', 'normal', 'bold');
-cr:set_font_size(14);
-trefoil(params, cr)
 
 function rad(params, surface)
    local cr = cairo.Context.create(surface)
@@ -549,7 +526,12 @@ function rad(params, surface)
    cr:set_source_rgb(0.97, 0.65, 0.0)
    cr:fill_preserve()
    cr:set_source_rgb(0.0, 0.0, 0.0)
+   
    cr:set_line_width(params.triangle_width)
+
+   cr:set_line_join(1)
+   print(cr:get_line_join())
+
    cr:stroke()
    cr:restore()
    
@@ -591,6 +573,36 @@ function rad(params, surface)
    cr:fill()
    cr:restore()
 end
+
+
+-- ----------------------------------------------------------------------
+--
+-- main
+--
+-- ----------------------------------------------------------------------
+
+local params = {
+   center_radius = 30.0,
+   outer_offset = 110.0,
+   outer_radius = 150.0,
+   inner_offset = 150.0,
+   inner_radius = 105.0,
+   ring_inner_radius = 100.0,
+   ring_outer_radius = 135.0,
+   horn_gap = 40.0,
+   circle_gap = 10.0,
+   width = 800.0,
+   height = 800.0,
+}
+
+local surface = cairo.SvgSurface.create('bio-lua.svg', params.width, params.height)
+local cr = cairo.Context.create(surface)
+cr:translate(params.width/2.0, params.height/2.0)
+local scale = 4.0 / 3.0;
+cr:scale(scale, -scale)
+cr:select_font_face('URW Gothic L', 'normal', 'bold');
+cr:set_font_size(14);
+trefoil(params, cr)
 
 local rad_params = {
    width = 1000.0,

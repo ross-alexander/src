@@ -38,20 +38,17 @@ int circle_circle_intersection(double x0, double y0, double r0,
                                double *xi, double *yi,
                                double *xi_prime, double *yi_prime)
 {
-  double a, dx, dy, d, h, rx, ry;
-  double x2, y2;
-
   /* dx and dy are the vertical and horizontal distances between
    * the circle centers.
    */
-  dx = x1 - x0;
-  dy = y1 - y0;
+  double dx = x1 - x0;
+  double dy = y1 - y0;
 
   /* Determine the straight-line distance between the centers. */
   
   //d = sqrt((dy*dy) + (dx*dx));
   
-  d = hypot(dx, dy); // Suggested by Keith Briggs
+  double d = hypot(dx, dy); // Suggested by Keith Briggs
 
   assert(!(d > (r0 + r1)));
 
@@ -74,22 +71,26 @@ int circle_circle_intersection(double x0, double y0, double r0,
    */
 
   /* Determine the distance from point 0 to point 2. */
-  a = ((r0*r0) - (r1*r1) + (d*d)) / (2.0 * d) ;
+
+  double a = ((r0*r0) - (r1*r1) + (d*d)) / (2.0 * d) ;
 
   /* Determine the coordinates of point 2. */
-  x2 = x0 + (dx * a/d);
-  y2 = y0 + (dy * a/d);
+  
+  double x2 = x0 + (dx * a/d);
+  double y2 = y0 + (dy * a/d);
 
   /* Determine the distance from point 2 to either of the
    * intersection points.
    */
-  h = sqrt((r0*r0) - (a*a));
+  
+  double h = sqrt((r0*r0) - (a*a));
 
   /* Now determine the offsets of the intersection points from
    * point 2.
    */
-  rx = -dy * (h/d);
-  ry = dx * (h/d);
+  
+  double rx = -dy * (h/d);
+  double ry = dx * (h/d);
 
   /* Determine the absolute intersection points. */
   *xi = x2 + rx;
@@ -116,13 +117,10 @@ int circle_line_intersection (double x1, double y1,
   // This function returns a pointer array which first index indicates
   // the number of intersection point, followed by coordinate pairs.
   
-  double x, y, z;
-  double a, b, c, mu, i;
-
-  a =  square(x2 - x1) + square(y2 - y1);
-  b =  2 * ((x2 - x1)*(x1 - x3) + (y2 - y1)*(y1 - y3));
-  c =  square(x3) + square(y3) + square(x1) + square(y1) - 2* ( x3*x1 + y3*y1) - square(r) ;
-  i =   b * b - 4 * a * c ;
+  double a =  square(x2 - x1) + square(y2 - y1);
+  double b =  2 * ((x2 - x1)*(x1 - x3) + (y2 - y1)*(y1 - y3));
+  double c =  square(x3) + square(y3) + square(x1) + square(y1) - 2* ( x3*x1 + y3*y1) - square(r) ;
+  double i =  b * b - 4 * a * c;
   
   if (i < 0.0)
     {
@@ -132,7 +130,7 @@ int circle_line_intersection (double x1, double y1,
   
   if (i == 0.0)
     {
-      mu = -b/(2*a) ;
+      double mu = -b/(2*a) ;
       *rx1 = x1 + mu*(x2-x1);
       *ry1 = y1 + mu*(y2-y1);
       return 1;
@@ -140,12 +138,12 @@ int circle_line_intersection (double x1, double y1,
   if (i > 0.0)
     {
       // first intersection
-      mu = (-b + sqrt( square(b) - 4*a*c )) / (2*a);
+      double mu = (-b + sqrt( square(b) - 4*a*c )) / (2*a);
       *rx1 = x1 + mu*(x2-x1);
       *ry1 = y1 + mu*(y2-y1);
+      
       // second intersection
       mu = (-b - sqrt(square(b) - 4*a*c )) / (2*a);
-
       *rx2 = x1 + mu*(x2-x1);
       *ry2 = y1 + mu*(y2-y1);
       return 2;
@@ -743,7 +741,6 @@ void bio_cairo_2(cairo_t *cr, bio_t &v)
       cairo_arc(cr, inner_circle.c.x, inner_circle.c.y, inner_circle.r, ang_inner_r_start, ang_inner_r_end);
       
       /* outside right hand side arc of horn */
-
 
       cairo_arc_negative(cr, outer_circle.c.x, outer_circle.c.y, outer_circle.r, ang_outer_r_start, ang_outer_r_end);
 

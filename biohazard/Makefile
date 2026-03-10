@@ -1,14 +1,17 @@
-CXXFLAGS = -D_GNU_SOURCE `pkg-config --cflags gtk+-3.0 cairo freetype2 fontconfig json-c`
-CXX	= g++ -std=c++17
-LDLIBS	= `pkg-config --libs gtk+-3.0 cairo freetype2 fontconfig json-c`
+CXXFLAGS	= -D_GNU_SOURCE `pkg-config --cflags gtk+-3.0 cairo freetype2 fontconfig json-c`
+CXX		= g++ -std=c++17
+LDLIBS		= `pkg-config --libs gtk+-3.0 cairo freetype2 fontconfig json-c`
 
-ALL	: bio.png bio.svg bio-gtk construct.svg
+ALL: bio.png bio.svg bio-gtk construct.svg bio-lua.svg
 
-bio.png : bio.svg
+bio-lua.svg: bio-lua.lua
+	lua $<
+
+bio.png: bio.svg
 	rsvg-convert --format=png $< > $@
 
-bio.svg: bio-svg construct.js
-	./bio-svg defaults.js # bio.js
+bio.svg: bio-svg defaults.js
+	./bio-svg defaults.js
 
 construct.svg: construct.pl
 	perl construct.pl

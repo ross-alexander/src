@@ -288,7 +288,7 @@ impl Circle {
 --
 ---------------------------------------------------------------------- */
 
-fn draw_surface(params: &Params, surface: &cairo::Surface) -> Result<(), Box<dyn Error>>
+fn draw_bio_surface(params: &Params, surface: &cairo::Surface) -> Result<(), Box<dyn Error>>
 {
     let origin = Point {x: 0.0, y: 0.0 };
     let unit_point = Point {x: 1.0, y: 0.0 };
@@ -443,14 +443,48 @@ fn main() -> Result<(), Box<dyn Error>> {
     -------------------- */
     
     let svg = SvgSurface::new(params.width as f64, params.height as f64, Some("output.svg")).expect("Could not create SVG surface");
-    draw_surface(&params, &svg)?;
+    draw_bio_surface(&params, &svg)?;
 
     /* --------------------
     -- PDF
     -------------------- */
 
     let pdf = PdfSurface::new(params.width as f64, params.height as f64, "output.pdf").expect("Could not create PDF surface");
-    draw_surface(&params, &pdf)?;
+    draw_bio_surface(&params, &pdf)?;
+
+    let rad_svg = SvgSurface::new(1000.0, 800.0, Some("rad-rs.svg")).expect("Could not create SVG surface");
+
+    let rad_cr = Context::new(rad_svg).expect("Could not create context");
+
+    rad_cr.translate(500.0, 400.0);
+    rad_cr.scale(1.0, -1.0);
+
+    rad_cr.save()?;
+    rad_cr.translate(0.0, -125.0);
+
+    for i in 0..3 {
+        let p = Point {x: 1.0, y: 0.0}.rotate(deg2rad(90.0 + 120.0 * i as f64)).scale(500.0);
+        if i == 0
+        {
+	    rad_cr.move_to(p.x, p.y);
+        }
+        else
+        {
+	    rad_cr.line_to(p.x, p.y);
+        }
+    }
+    rad_cr.close_path();
+    rad_cr.set_source_rgb(0.97, 0.65, 0.0);
+    rad_cr.fill_preserve()?;
+    rad_cr.set_source_rgb(0.0, 0.0, 0.0);
+   
+    rad_cr.set_line_width(20.0);
+
+    rad_cr.set_line_join(cairo::LineJoin::Round);
+    rad_cr.set_line_cap(cairo::LineCap::Round);
+    
+    rad_cr.stroke()?;
+    rad_cr.restore()?;
 
     Ok(())
 }

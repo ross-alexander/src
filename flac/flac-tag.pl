@@ -8,7 +8,7 @@
 #
 # ----------------------------------------------------------------------
 
-use 5.26.1;
+use 5.42.0;
 use Audio::FLAC::Header;
 use Music::Tag (traditional => 1);
 use Getopt::Long;

@@ -205,12 +205,12 @@ int main(int argc, char *argv[])
   FILE *stream;
   if (!(stream = fopen(path_image, "r")))
     {
-      fprintf(stderr, "%s: failed to open %s (%s)\n", path_image, strerror(errno));
+      fprintf(stderr, "%s: failed to open %s (%s)\n", argv[0], path_image, strerror(errno));
       exit(1);
     }
   if (!(stream = fopen(path_mask, "r")))
     {
-      fprintf(stderr, "%s: failed to open %s (%s)\n", path_mask, strerror(errno));
+      fprintf(stderr, "%s: failed to open %s (%s)\n", argv[0], path_mask, strerror(errno));
       exit(1);
     }
   
