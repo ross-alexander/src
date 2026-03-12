@@ -61,6 +61,23 @@ void collect::kv(std::string k, long v)
     }
 }
 
+void collect::kv(std::string k, double v)
+{
+#ifdef WITH_JS
+  if (js) (*js)[k] = v;
+#endif
+
+  if (cl)
+    {
+      int top = lua_gettop(cl->L);
+      assert(lua_istable(cl->L, top));
+      lua_pushnumber(cl->L, v);
+      lua_setfield(cl->L, top, k.c_str());
+    }
+}
+
+
+
 void collect::kv(std::string k, collect &c)
 {
 #ifdef WITH_JS
