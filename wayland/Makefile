@@ -8,12 +8,20 @@ WAYLAND_SCANNER = $(shell pkg-config --variable=wayland_scanner wayland-scanner)
 XDG_SHELL_PROTOCOL = $(WAYLAND_PROTOCOLS_DIR)/stable/xdg-shell/xdg-shell.xml
 CAIRO_CFLAGS = $(shell $(PKG_CONFIG) cairo --cflags)
 CAIRO_LIBS = $(shell $(PKG_CONFIG) cairo --libs)
-GEGL_CFLAGS = $(shell $(PKG_CONFIG) gegl-0.4 --cflags)
-GEGL_LIBS = $(shell $(PKG_CONFIG) gegl-0.4 --libs)
+BABL_CFLAGS = $(shell $(PKG_CONFIG) babl-0.1 --cflags)
+BABL_LIBS = $(shell $(PKG_CONFIG) babl-0.1 --libs)
+GLYCIN_CFLAGS = $(shell $(PKG_CONFIG) glycin-2 --cflags)
+GLYCIN_LIBS = $(shell $(PKG_CONFIG) glycin-2 --libs)
 LUA_CFLAGS = -Ilua/include
 LUA_LIBS = -Llua/lib -llua -lm
 
 ALL: connect registry shell surface client cairo surfers wt_example
+
+client.o: client.c xdg-shell-client-protocol.h
+	$(CC) -g -o $@ -c $<  $(CAIRO_CFLAGS) $(LUA_CFLAGS) $(BABL_CFLAGS) $(GLYCIN_CFLAGS)
+
+client: xdg-shell-client.o client.o
+	$(CC) -g -o $@ $^ $(CAIRO_LIBS) $(LUA_LIBS) $(BABL_LIBS) $(GLYCIN_LIBS) -lwayland-client
 
 wt_example: w.c
 	$(CXX) -o $@ $< xdg-shell-client.o -lwayland-client
@@ -35,12 +43,6 @@ surface: surface.c
 
 xdg-shell-client.o: xdg-shell-client.c xdg-shell-client-protocol.h
 	$(CC) -g -o $@ -c $<  $(CAIRO_FLAGS)
-
-client.o: client.c xdg-shell-client-protocol.h
-	$(CC) -g -o $@ -c $<  $(CAIRO_CFLAGS) $(LUA_CFLAGS) $(GEGL_CFLAGS)
-
-client: xdg-shell-client.o client.o
-	$(CC) -g -o $@ $^ $(CAIRO_LIBS) $(LUA_LIBS) $(GEGL_LIBS) -lwayland-client
 
 cairo: cairo.c
 	$(CC) -g -o $@ $^ $(CAIRO_CFLAGS) $(CAIRO_LIBS)
