@@ -44,10 +44,14 @@ double tstod(const char *s)
   strncpy(zeit + len_date + 1, s + len_date + 1, len_time);
   zeit[len_date + len_time + 1] = '\0';
 
+  char *deci = (char*)alloca(len_deci + 3);
+  strncpy(deci, s + len_date + len_time + 1, len_deci + 1);
+  deci[len_deci + 2] = '\0';
   struct tm tm;
   strptime(zeit, "%Y-%m-%d %H:%M:%S", &tm);
   time_t epoch = timegm(&tm);
-  return epoch;
+  double res = (double)epoch + strtod(deci, nullptr);
+  return res;
 }
 
 /* ----------------------------------------------------------------------
