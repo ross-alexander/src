@@ -1,11 +1,13 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <gegl.h>
-#include <cairo/cairo.h>
 
+#include <gegl.h>
+#include <cairo.h>
 
 #include "common.h"
+
+xtk_info_t info = {.id = "gegl"};
 
 const char* id(void)
 {
@@ -14,7 +16,6 @@ const char* id(void)
 
 void init(gint *argc, char ***argv)
 {
-  printf("gegl-init\n");
   gegl_init(argc, argv);
 }
 
@@ -35,22 +36,11 @@ xtk_t* create(int w, int h, char *path)
 		"path", path,
 		NULL);
   size = gegl_node_get_bounding_box(load);
-  printf("%5d %5d %5d %5d\n", size.x, size.y, size.width, size.height);
 
-  image = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
-				      size.width,
-				      size.height);
+  image = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+				     size.width,
+				     size.height);
   cairo_surface_flush(image);
-
-  /*
-  const Babl *format = babl_format_new (babl_model ("R'aG'aB'aA"),
-					babl_type ("u8"),
-					babl_component ("B'a"),
-					babl_component ("G'a"),
-					babl_component ("R'a"),
-					babl_component ("A"),
-					NULL);
-  */
   
   gegl_node_blit (load,
 		  1.0 /*scale*/,
@@ -65,5 +55,6 @@ xtk_t* create(int w, int h, char *path)
   xtk->width = size.width;
   xtk->height = size.height;
   xtk->source = image;
+  xtk->title = strdup(path);
   return xtk;
 }

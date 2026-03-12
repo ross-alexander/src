@@ -1,9 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <cairo/cairo.h>
+#include <cairo.h>
 
 #include "common.h"
+
+const char* id(void)
+{
+  return "cairo";
+}
+
+xtk_info_t info = {.id = "cairo"};
 
 /* ----------------------------------------------------------------------
 --
@@ -35,7 +42,3 @@ xtk_t* create(int w, int h, char *path)
   return xtk;
 }
 
-const char* id(void)
-{
-  return "cairo";
-}

@@ -1,19 +1,18 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include <X11/Intrinsic.h>	/* Include standard Toolkit Header file.
-				   We do no need "StringDefs.h" */
+#include <X11/Intrinsic.h>	/* Include standard Toolkit Header file. We do no need "StringDefs.h" */
 #include <X11/StringDefs.h>
 #include <X11/Shell.h>
 #include <X11/Xaw/Label.h>	/* Include the Label widget's header file. */
 #include <X11/Xaw/Cardinals.h>	/* Definition of ZERO. */
-
 
 #include <X11/Xaw/Box.h>
 #include <X11/Xaw/Form.h>
 #include <X11/Xaw/Label.h>
 
 #include <cairo/cairo-xlib.h>
+
 #include "common.h"
 #include "visual.h"
 
@@ -30,6 +29,9 @@ typedef struct xtk_xaw_t {
   cairo_surface_t *surface;
 } xtk_xaw_t;
 
+xtk_info_t info = {.id = "xaw"};
+
+const char* id() { return "xaw"; }
 
 /* ----------------------------------------------------------------------
 --
@@ -46,7 +48,6 @@ void do_configure(Widget w, XtPointer client_data, XEvent *ev, Boolean *cont)
 
   x->xtk->width = x->width = width;
   x->xtk->height = x->height = height;
-  //  cairo_xlib_surface_set_size(x->surface, x->width, x->height);
   printf("Xaw: Configure %d × %d\n", width, height);
 }
 
@@ -124,11 +125,7 @@ int do_xtk(int argc, char *argv[], unsigned nwin, xtk_t **xtk)
       XtAddEventHandler(t->draw, ExposureMask, 0, do_expose, (void*)t);
       XtAddEventHandler(t->draw, StructureNotifyMask, 0, (XtEventHandler)do_configure, (void*)t);
       XtRealizeWidget(t->toplevel);
-      //      t->surface = cairo_xlib_surface_create(dpy, XtWindow(t->draw), t->vis, t->xtk->width, t->xtk->height);
-      //      assert(cairo_surface_status(t->surface) == CAIRO_STATUS_SUCCESS);
     }
   XtAppMainLoop(appContext);
   return 1;
 }
-
-const char* id() { return "xaw"; }

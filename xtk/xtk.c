@@ -17,8 +17,6 @@
 #include <dirent.h>
 #include <stdint.h>
 
-#include <X11/Xutil.h>
-
 #include <cairo/cairo.h>
 
 #include "common.h"
@@ -32,7 +30,7 @@ void** load_dynlib(const char *dir)
 {
   DIR *dirp = opendir(dir);
   struct dirent *dirent;
-  int dlcnt = 0;
+  int lib_count = 0;
 
   /* could use fnmatch */
 
@@ -40,21 +38,23 @@ void** load_dynlib(const char *dir)
     {
       unsigned int l = strlen(dirent->d_name);
       if (strcmp(".so", dirent->d_name + l - 3) == 0)
-	dlcnt++;
+	lib_count++;
     }
-  void **handle = calloc(sizeof(void*), dlcnt+1);
-  dlcnt = 0;
+  void **handle = calloc(sizeof(void*), lib_count+1);
+  
   rewinddir(dirp);
+  lib_count = 0;
+  
   while ((dirent = readdir(dirp)) != 0)
     {
       unsigned int l = strlen(dirent->d_name);
       if (strcmp(".so", dirent->d_name + l - 3) == 0)
 	{
-	  int plen = strlen(dir) + l + 2;
+	  int path_len = strlen(dir) + l + 2;
 	  char path[strlen(dir) + l + 2];
-	  snprintf(path, plen, "%s/%s", dir, dirent->d_name);
-	  dlerror();
-	  handle[dlcnt] = dlopen(path, RTLD_LAZY|RTLD_LOCAL);
+	  snprintf(path, path_len, "%s/%s", dir, dirent->d_name);
+	  //	  dlerror();
+	  handle[lib_count] = dlopen(path, RTLD_LAZY|RTLD_LOCAL);
 	  char *error = dlerror();
 	  if (error)
 	    {
@@ -63,13 +63,22 @@ void** load_dynlib(const char *dir)
 	  else
 	    {
 	      printf("Found dynamic library %s\n", path);
-	      dlcnt++;
+	      lib_count++;
 	    }
 	}
     }
   printf("\n");
-  handle[dlcnt] = 0;
+  handle[lib_count] = 0;
   closedir(dirp);
+
+  for (int i = 0; handle[i]; i++)
+    {
+      xtk_info_t *info = (xtk_info_t*)dlsym(handle[i], "info");
+      if (info != nullptr)
+	{
+	  printf("id: %s\n", info->id);
+	}
+    }
   return handle;
 }
 
@@ -89,7 +98,7 @@ int main(int argc, char *argv[])
   unsigned int nwin;
   xtk_t* (*create)(uint32_t, uint32_t, const char*) = 0;
   
-  xtk_t **xtk;
+  xtk_t **xtk = nullptr;
 
   while ((ch = getopt(argc, argv, "w:h:d:r:")) != EOF)
     switch(ch)

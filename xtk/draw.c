@@ -1,8 +1,8 @@
+#include <stdio.h>
 #include <assert.h>
 
-#include <X11/Xlib.h>
-#include <cairo/cairo.h>
-#include <gdk/gdk.h>
+#include <cairo.h>
+
 #include "common.h"
 
 /* ----------------------------------------------------------------------
@@ -20,7 +20,7 @@ void xtk_draw_cairo(xtk_t *xtk, cairo_t *cr)
 
       printf("xtk_draw_cairo: src: %d × %d  dst:  %d × %d\n", (int)width, (int)height, xtk->width, xtk->height);
 
-      cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.0);
+      cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 1.0);
       cairo_rectangle(cr, 0, 0, xtk->width, xtk->height);
       cairo_fill(cr);
 
@@ -33,8 +33,8 @@ void xtk_draw_cairo(xtk_t *xtk, cairo_t *cr)
   else
     {
       cairo_new_path(cr);
-      cairo_rectangle(cr, 0, 0, xtk->width, xtk->height);
-      cairo_set_source_rgb(cr, 0, 0, 1);
+      cairo_rectangle(cr, 0.0, 0.0, (double)xtk->width, (double)xtk->height);
+      cairo_set_source_rgb(cr, 0.0, 0.0, 1.0);
       cairo_fill(cr);
 
       /* offset, red, green, blue, alpha */
@@ -43,19 +43,19 @@ void xtk_draw_cairo(xtk_t *xtk, cairo_t *cr)
       cairo_pattern_add_color_stop_rgba(p, 1.0, 0.0, 1.0, 0.0, 0.9);
       
       cairo_new_path(cr);
-      cairo_rectangle(cr, 0, 0, xtk->width, xtk->height);
+      cairo_rectangle(cr, 0.0, 0.0, xtk->width, xtk->height);
       cairo_set_source(cr, p);
       cairo_fill(cr);
 
       cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-      cairo_move_to(cr, 100, 100);
+      cairo_move_to(cr, 100.0, 100.0);
       cairo_select_font_face(cr, "Helvetica", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-      cairo_set_font_size(cr, 20);
+      cairo_set_font_size(cr, 20.0);
       cairo_show_text(cr, "helvetica test");
       
-      cairo_move_to(cr, 100, 160);
+      cairo_move_to(cr, 100.0, 160.0);
       cairo_select_font_face(cr, "Corbel", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-      cairo_set_font_size(cr, 20);
+      cairo_set_font_size(cr, 20.0);
       cairo_show_text(cr, "corbel test");
     }
   cairo_show_page(cr);

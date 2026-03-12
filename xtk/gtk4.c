@@ -17,6 +17,12 @@ typedef struct xtk_gtk4_t {
   xtk_t *xtk;
 } xtk_gtk4_t;
 
+
+const char *id()
+{
+  return "gtk4";
+}
+
 /* ----------------------------------------------------------------------
 --
 -- resize_cb
@@ -105,11 +111,9 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
   int status;
 
   GtkApplication *app;
-  app = gtk_application_new ("net.hepazulian.xtk", G_APPLICATION_DEFAULT_FLAGS);
-  g_signal_connect (app, "activate", G_CALLBACK (activate), xtk);
-  status = g_application_run (G_APPLICATION(app), 0, argv);
+  app = gtk_application_new("net.hepazulian.xtk", G_APPLICATION_DEFAULT_FLAGS);
+  g_signal_connect(app, "activate", G_CALLBACK (activate), xtk);
+  status = g_application_run(G_APPLICATION(app), 0, argv);
   g_object_unref(app);
   return status;
 }
-
-const char *id() { return "gtk4"; }

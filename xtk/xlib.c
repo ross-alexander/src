@@ -31,6 +31,10 @@ struct xtk_xlib_t {
   xtk_t *xtk;
 };
 
+const char *id()
+{
+  return "xlib";
+}
 
 /* ----------------------------------------------------------------------
 --
@@ -165,7 +169,7 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 		
 		t->xtk->width = t->width = event.xconfigure.width;
 		t->xtk->height = t->height = event.xconfigure.height;
-		printf("xlib-event: ConfigureNotify (%d × %d)\n", t->xtk->width, t->xtk->height);
+		//		printf("xlib-event: ConfigureNotify (%d × %d)\n", t->xtk->width, t->xtk->height);
 	      }
 	    break;
 	  }
@@ -210,9 +214,4 @@ int do_xtk(int argc, char *argv[], unsigned int nwin, xtk_t **xtk)
 	  break;
 	}
     }
-}
-
-const char *id()
-{
-  return "xlib";
 }
