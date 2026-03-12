@@ -1,35 +1,36 @@
-CFLAGS		= -Wall -std=c17 -g -D_GNU_SOURCE -fPIC -I.
+CFLAGS		= -Wall -std=c23 -g -D_GNU_SOURCE -fPIC -I.
 CXXFLAGS	= -Wall -std=c++17 -g -D_GNU_SOURCE -fPIC -I.
 LDFLAGS	=
 
+CFLAGS_CAIRO	= `pkg-config --cflags cairo`
+CFLAGS_XAW	= `pkg-config --cflags cairo-xlib xaw7`
+CFLAGS_XLIB	= `pkg-config --cflags cairo-xlib x11`
+CFLAGS_XCB	= `pkg-config --cflags cairo-xcb xcb`
 CFLAGS_GDK	= `pkg-config --cflags gdk-3.0`
-CFLAGS_CAIRO	= `pkg-config --cflags gdk-3.0 cairo`
 CFLAGS_GTK2	= `pkg-config --cflags gtk+-2.0`
 CFLAGS_GTK3	= `pkg-config --cflags gtk+-3.0`
 CFLAGS_GTK4	= `pkg-config --cflags gtk4`
 CFLAGS_GLX	= `pkg-config --cflags x11`
-CFLAGS_XAW	= `pkg-config --cflags cairo-xlib xaw7`
-CFLAGS_XM	= `motif-config --cflags`
-CFLAGS_XLIB	= `pkg-config --cflags cairo-xlib x11`
-CFLAGS_XCB	= `pkg-config --cflags cairo-xcb xcb`
-CFLAGS_XTK	= `pkg-config --cflags x11`
 CFLAGS_GEGL	= `pkg-config --cflags gegl-0.4`
+CFLAGS_BABL	= `pkg-config --cflags babl-0.1`
+CFLAGS_GLYCIN	= `pkg-config --cflags glycin-2`
 
-LDLIBS_GDK	= `pkg-config --libs gdk-3.0`
+LDLIBS_CAIRO	= `pkg-config --libs cairo`
 LDLIBS_GLX	= `pkg-config --libs x11` -lGLU
 LDLIBS_XAW	= `pkg-config --libs xaw7`
 LDLIBS_XCB	= `pkg-config --libs xcb-aux xcb-atom xcb`
-LDLIBS_XM	= `motif-config --libs`
+LDLIBS_GDK	= `pkg-config --libs gdk-3.0`
 LDLIBS_GTK2	= `pkg-config --libs gtk+-2.0`
 LDLIBS_GTK3	= `pkg-config --libs gtk+-3.0`
 LDLIBS_GTK4	= `pkg-config --libs gtk4`
-LDLIBS_XTK	= `pkg-config --libs gegl-0.4 cairo`
+LDLIBS_GEGL     = `pkg-config --libs gegl-0.4`
+LDLIBS_BABL     = `pkg-config --libs babl-0.1`
+LDLIBS_GLYCIN	= `pkg-config --libs glycin-2`
 
-RENDER = render/gegl.so render/gdk.so render/cairo.so 
-DISPLAY = display/xcb.so display/xlib.so display/xaw.so display/gtk3.so display/gtk4.so # display/gtk2.so
+RENDER = render/gegl.so render/gdk.so render/cairo.so render/glycin.so
+DISPLAY = display/xcb.so display/xlib.so display/xaw.so display/gtk3.so display/gtk4.so
 
 ALL	= xtk $(RENDER) $(DISPLAY)
-
 
 .suffix	: .so
 
@@ -39,7 +40,7 @@ ALL	= xtk $(RENDER) $(DISPLAY)
 all	: $(ALL)
 
 xtk	: draw.o xtk.o
-	$(CC) $(CFLAGS) $^ -rdynamic $(LDLIBS_XTK) -ldl -o $@
+	$(CC) $(CFLAGS) $^ -rdynamic $(LDLIBS_CAIRO) -ldl -o $@
 
 xtk.o	: xtk.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_XTK) -c $< -o $@
@@ -109,19 +110,25 @@ cairo.o: cairo.c common.h
 	$(CC) $(CFLAGS) $(CFLAGS_CAIRO) -c $< -o $@
 
 render/cairo.so : cairo.o | render
-	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_XTK) -o $@
+	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_CAIRO) -o $@
 
 gdk.o : gdk.c common.h
-	$(CC) $(CFLAGS) $(CFLAGS_GDK) -c $< -o $@
+	$(CC) $(CFLAGS) $(CFLAGS_GDK) $(CFLAGS_CAIRO) -c $< -o $@
 
 render/gdk.so : gdk.o | render
 	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_GDK) -o $@
 
 gegl.o : gegl.c common.h
-	$(CC) $(CFLAGS) $(CFLAGS_GEGL) -c $< -o $@
+	$(CC) $(CFLAGS) $(CFLAGS_GEGL) $(CFLAGS_CAIRO) -c $< -o $@
 
 render/gegl.so : gegl.o | render
-	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_GEGL) -o $@
+	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_GEGL) $(LDLIBS_CAIRO) -o $@
+
+glycin.o : glycin.c common.h
+	$(CC) $(CFLAGS) $(CFLAGS_GLYCIN) $(CFLAGS_BABL) $(CFLAGS_CAIRO) -c $< -o $@
+
+render/glycin.so : glycin.o | render
+	$(CC) $(LDFLAGS) $^ -shared $(LDLIBS_GLYCIN) $(LDLIBS_BABL)  -o $@
 
 render:
 	mkdir -p $@
