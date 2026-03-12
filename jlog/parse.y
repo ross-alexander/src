@@ -46,10 +46,12 @@ file : line { }
 line : IDENT TS TS IDENT IDENT IDENT LSQUARE IDENT sink RSQUARE EOL
 {
   collect *c = new collect(cl);
-  c->kv("linenum", cl->linenum++);
+  c->kv("facility", *$1);
+  c->kv("linenum", (long)cl->linenum++);
 
   c->kv("syslog-ts", tstod($2->c_str()));
   c->kv("timestamp", tstod($3->c_str()));
+  c->kv("source", *$4);
   c->kv("action", *$6);
   c->kv("jlog", *$9);
   int ret = cl->update(c);
