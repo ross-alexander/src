@@ -1,4 +1,5 @@
-CFLAGS = -I.
+CC	= gcc -std=gnu23
+CFLAGS	= -I. -Wall
 
 eval: parse.tab.o tokenize.o expr.o main.o
 	$(CC) $^ -o $@
@@ -17,3 +18,6 @@ parse.tab.c parse.tab.h : parse.y
 
 tokenize.h tokenize.c: tokenize.lex
 	flex --outfile tokenize.c --header-file=tokenize.h $<
+
+clean:
+	rm -f *.o *~ eval
