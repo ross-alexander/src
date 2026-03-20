@@ -12,7 +12,7 @@ using jsoncons::json;
 
 #include "common.h"
 
-extern void yyerror(collector*, const char*);
+extern void yyerror(collector_t*, const char*);
 
 #define YYDEBUG 1
 
@@ -24,14 +24,14 @@ extern void yyerror(collector*, const char*);
   std::string *s;
   std::map<std::string, std::string> *m;
   jsoncons::json *j;
-  collect *c;
+  collect_t *c;
 }
 
 %type <s> IDENT INTEGER TS STRING IPV4 TIME
 %type <j> line file
 %type <c> sink res
 
-%parse-param { collector *cl }
+%parse-param { collector_t *cl }
 
 %%
 res : file { /* *res = $1; */ }
@@ -45,7 +45,7 @@ file : line { }
 
 line : IDENT TS TS IDENT IDENT IDENT LSQUARE IDENT sink RSQUARE EOL
 {
-  collect *c = new collect(cl);
+  collect_t *c = new collect_t(cl);
   c->kv("facility", *$1);
   c->kv("linenum", (long)cl->linenum++);
 
@@ -62,7 +62,7 @@ line : IDENT TS TS IDENT IDENT IDENT LSQUARE IDENT sink RSQUARE EOL
 }
 ;
 
-sink : IDENT ASSIGN STRING { $$ = new collect(cl); $$->kv(*$1, *$3); delete $1; delete $3;}
+sink : IDENT ASSIGN STRING { $$ = new collect_t(cl); $$->kv(*$1, *$3); delete $1; delete $3; }
 | sink IDENT ASSIGN STRING { $$ = $1;  $1->kv(*$2, *$4); delete $2; delete $4; }
 ;
 
@@ -74,7 +74,7 @@ sink : IDENT ASSIGN STRING { $$ = new collect(cl); $$->kv(*$1, *$3); delete $1; 
 --
 ---------------------------------------------------------------------- */
 
-void yyerror(collector *cl, const char *s)
+void yyerror(collector_t *cl, const char *s)
 {
   //  printf("%s\n", (*js)->stringify());
   fprintf(stderr, "%s on line %d\n", s, 0);

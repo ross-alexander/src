@@ -11,14 +11,14 @@ using jsoncons::json;
 
 #include "common.h"
 
-collector::collector(lua_State *lua)
+collector_t::collector_t(lua_State *lua)
 {
   linenum = 1;
   limit = 0;
   L = lua;
 }
 
-int collector::update(collect *c)
+int collector_t::update(collect_t *c)
 {
   int top = lua_gettop(L);
   if (lua_istable(L, lua_gettop(L)))
@@ -39,7 +39,7 @@ int collector::update(collect *c)
   return 0;
 }
 
-void collector::dump()
+void collector_t::dump()
 {
   if (lua_getglobal(L, "dump") == LUA_TFUNCTION)
     lua_call(L, 0, 0);

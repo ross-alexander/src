@@ -27,7 +27,7 @@ using jsoncons::json;
 --
 -- tstod
 --
--- Currently doesn't not handle TZ or decimal
+-- Currently doesn't not handle TZ
 --
 ---------------------------------------------------------------------- */
 
@@ -134,7 +134,7 @@ int main(int argc, char * const argv[])
   lua_pushinteger(L, 0);
   lua_setglobal(L, "resolve");
 
-  collector *cl = new collector(L);
+  collector_t *cl = new collector_t(L);
 
   yystart(stream_in);
 

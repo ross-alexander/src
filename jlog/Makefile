@@ -1,11 +1,13 @@
-LUALIB		= -L/usr/lib64 -llua
-LUAINC		= -I/usr/include
+LUALIB		= -L/usr/lib64/lua/5.5 -llua
+LUAINC		= -I/usr/include/lua/5.5
 LDLIBS		=  $(LUALIB)
-JSONCONSINC	= -Ijsoncons-0.172.1/include
-CXXFLAGS	= -g -std=c++11 -fPIC -D_DEFAULT_SOURCE -D_POSIX_SOURCE $(JSONCONSINC) $(LUAINC)
+JSONCONSINC	= -Ijsoncons-1.5.0/include
+CXXFLAGS	= -g -std=c++17 -fPIC -D_DEFAULT_SOURCE $(JSONCONSINC) $(LUAINC)
 CXX		= g++
+CC		= gcc
+CFLAGS		= -std=c23 -Wall -fPIC -D_DEFAULT_SOURCE $(JSONCONSINC) $(LUAINC)
 
-ALL		= jlog NetAddr.so
+ALL		= jlog NetAddr.so luahacks.so
 
 all	: $(ALL)
 
@@ -13,7 +15,7 @@ jlog : parse.tab.o lex.yy.o collector.o collect.o main.o
 	$(CXX) $^ -rdynamic $(LDLIBS) -o $@
 
 lex.yy.o: lex.yy.c
-	$(CXX)  $(CXXFLAGS) -c $^ -o $@
+	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
 parse.tab.o: parse.tab.c
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
@@ -34,6 +36,9 @@ NetAddr.so : netaddr.o
 	$(CXX) -shared $< -o $@
 
 netaddr.o: netaddr.cc
+
+luahacks.so: luahacks.o
+	$(CXX) -shared $< -o $@
 
 clean:
 	rm -f *.o *~ $(ALL) lex.yy.c parse.tab.c parse.tab.h

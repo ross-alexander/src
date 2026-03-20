@@ -58,3 +58,4 @@ extern routtable_t buildrouttable(entry_t entry[], int nentries, double fillfact
 extern nexthop_t find(word s, routtable_t t);
 extern void routtablestat(routtable_t t, int verbose);
 
+extern void traverse_dump(routtable_t t, node_t);

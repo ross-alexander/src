@@ -27,6 +27,20 @@ struct netaddr_t {
   uint32_t len;
 };
 
+
+void dump_stack(lua_State *L)
+{
+  for (int i = 1; i <= lua_gettop(L); i++)
+    {
+      const void *p = lua_topointer(L, i);
+      printf("%s: %p ", lua_typename(L, lua_type(L, i)), p);
+      const char *s;
+      if ((s = luaL_checkstring(L, 1)))
+	printf("%s", s);
+      printf("\n");	  
+    }
+}
+
 /* ----------------------------------------------------------------------
    --
    -- trie_read_file
@@ -185,7 +199,7 @@ int ip_table_entry_t___tostring(lua_State *L)
   struct in_addr a;
   a.s_addr = ntohl(t->addr);
   if (t->value)    
-    snprintf(buf, nbuf, "%s/%d\t%s", inet_ntoa(a), t->len, t->value);
+    snprintf(buf, nbuf, "%s/%d\t%s", inet_ntoa(a), t->len, (char*)t->value);
   else
     snprintf(buf, nbuf, "%s/%d", inet_ntoa(a), t->len);
   lua_pushstring(L, buf);
@@ -200,7 +214,7 @@ int ip_table_entry_t_dump(lua_State *L)
   struct in_addr a;
   a.s_addr = ntohl(t->addr);
   if (t->value)    
-    printf("%s/%d\t%s\n", inet_ntoa(a), t->len, t->value);
+    printf("%s/%d\t%s\n", inet_ntoa(a), t->len, (char*)t->value);
   else
     printf("%s/%d\n", inet_ntoa(a), t->len);
   return 0;
@@ -244,7 +258,7 @@ int ip_table_entry_t___index(lua_State *L)
 
 int ip_table_t___tostring(lua_State *L)
 {
-  ip_table_t *t = *(ip_table_t**)luaL_checkudata(L, 1, "ip_table_t");
+  //  ip_table_t *t = *(ip_table_t**)luaL_checkudata(L, 1, "ip_table_t");
   lua_pushstring(L, "<ip_table_t>");
   return 1;
 }
@@ -262,18 +276,27 @@ int ip_table_t___next(lua_State *L)
   
   if ((lua_gettop(L) > 1) && (lua_isnil(L, 2)))
     {
-      lua_pushinteger(L, 1);
-      ip_table_entry_t** i_p = (ip_table_entry_t**)lua_newuserdata(L, sizeof(ip_table_entry_t*));
-      *i_p = (*t)[0];
-      lua_getfield(L, LUA_REGISTRYINDEX, "ip_table_entry_t");
-      lua_setmetatable(L, -2);
-      return(2);
+      uint32_t index = 1;
+      if (index <= t->size())
+	{
+	  lua_pushinteger(L, index);
+	  ip_table_entry_t** i_p = (ip_table_entry_t**)lua_newuserdata(L, sizeof(ip_table_entry_t*));
+	  *i_p = (*t)[index - 1];
+	  lua_getfield(L, LUA_REGISTRYINDEX, "ip_table_entry_t");
+	  lua_setmetatable(L, -2);
+	  return(2);
+	}
+      else
+	{
+	  lua_pushnil(L);
+	  return 1;
+	}
     }
   else
     {
-      int index = lua_tointeger(L, 2);
+      uint32_t index = lua_tointeger(L, 2);
       index++;
-      if (index <=t->size())
+      if (index <= t->size())
 	{
 	  lua_pushinteger(L, index);
 	  ip_table_entry_t** i_p = (ip_table_entry_t**)lua_newuserdata(L, sizeof(ip_table_entry_t*));
@@ -297,6 +320,73 @@ int ip_table_t___pairs(lua_State *L)
   lua_pushnil(L);
   return 3;
 }
+
+int ip_table_t_insert(lua_State *L)
+{
+  ip_table_t *table = *(ip_table_t**)luaL_checkudata(L, 1, "ip_table_t");
+  const char *key = luaL_checkstring(L, 2);
+  const char *value = luaL_checkstring(L, 3);
+      /* Split prefix into address and length */
+      
+  char *next_token, *token;
+  unsigned int count = 0;
+  // unsigned int nfields = 0;
+  const char *delim = "/";
+  
+  char *addr[2] = {NULL, NULL};
+  count = 0;
+  char *addr_field_dup = strdup(key);
+  
+  token = strtok_r(addr_field_dup, delim, &next_token);
+  while (token)
+    {
+      count++;
+      token = strtok_r(NULL, delim, &next_token);
+    }
+  free(addr_field_dup);
+
+  if ((count < 1) || (count > 2))
+    {
+      fprintf(stderr, "Entry %s isn't an IP prefix\n", key);
+      exit(1);
+    }
+  // nfields = count;
+  count = 0;
+  char *addr_field = strdup(key);
+  token = strtok_r(addr_field, delim, &next_token);
+  while (token)
+    {
+      addr[count++] = token;
+      token = strtok_r(NULL, delim, &next_token);
+    }
+  ip_table_entry_t *entry = new(ip_table_entry_t);
+
+      // Store address is host (little) endian format
+      
+  entry->addr = ntohl(inet_addr(addr[0]));
+  if (addr[1])
+    entry->len = strtoul(addr[1], NULL, 10);
+  else
+    entry->len = 32;
+  entry->value = strdup(value);
+  table->push_back(entry);
+  free(addr_field);
+  return 0;
+}
+
+
+int ip_table_t_new(lua_State *L)
+{
+  ip_table_t *table = new(ip_table_t);
+  
+  ip_table_t **table_p = (ip_table_t**)lua_newuserdata(L, sizeof(ip_table_t*));
+  *table_p = table;
+
+  lua_getfield(L, LUA_REGISTRYINDEX, "ip_table_t");
+  lua_setmetatable(L, -2);
+
+  return 1;
+}  
 
 /* ----------------------------------------------------------------------
    --
@@ -348,6 +438,13 @@ int ip_trie_t_find(lua_State *L)
   return 1;
 }
 
+int ip_trie_t_dump(lua_State *L)
+{
+  routtablerec *rt = *(routtablerec**)luaL_checkudata(L, 1, "ip_trie_t");
+  traverse_dump(rt, rt->trie[0]);
+  return 0;
+}
+
 /* ----------------------------------------------------------------------
    --
    -- trie_lua_read_file
@@ -359,11 +456,12 @@ int trie_lua_read_file(lua_State *L)
 {
   if (lua_gettop(L) < 1)
     luaL_error(L, "Called with no parameters");
+
   const char *path;
   size_t path_len;
   if ((path = luaL_checklstring(L, 1, &path_len)) == NULL)
     luaL_error(L, "read_file expecting a filestring (string)");
-  printf("Got path %s\n", path);
+  //  printf("Got path %s\n", path);
   ip_table_t* table = trie_read_file(path);
 
   ip_table_t **table_p = (ip_table_t**)lua_newuserdata(L, sizeof(ip_table_t*));
@@ -375,17 +473,10 @@ int trie_lua_read_file(lua_State *L)
   return 1;
 }
 
-/* ----------------------------------------------------------------------
-   --
-   -- main
-   --
-   ---------------------------------------------------------------------- */
 
-int main(int argc, char *argv[])
+
+extern "C" int luaopen_trie(lua_State *L)
 {
-  lua_State *L = luaL_newstate();
-  luaL_openlibs(L);
-
   /* --------------------
      Create NetAddr metatable
      -------------------- */
@@ -397,7 +488,8 @@ int main(int argc, char *argv[])
 
   //  lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
-  
+
+
   /* --------------------
      ip_table_entry
      -------------------- */
@@ -419,7 +511,8 @@ int main(int argc, char *argv[])
   
   lua_pushcclosure(L, ip_table_entry_t___index, 2); lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
-  
+
+
   /* --------------------
      ip_table
      -------------------- */
@@ -428,25 +521,44 @@ int main(int argc, char *argv[])
   lua_pushcclosure(L, ip_table_t___tostring, 0); lua_setfield(L, -2, "__tostring");
   lua_pushcclosure(L, ip_table_t___pairs, 0); lua_setfield(L, -2, "__pairs");
   lua_pushcclosure(L, ip_table_t___len, 0); lua_setfield(L, -2, "__len");
+
+  lua_newtable(L); // methods
+
+  lua_pushcclosure(L, ip_table_t_insert, 0);
+  lua_setfield(L, -2, "insert");
+  lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
 
+
+  lua_pop(L, 1);
+
+  lua_pushglobaltable(L);
+  lua_newtable(L);
+  lua_pushcclosure(L, ip_table_t_new, 0); lua_setfield(L, -2, "new");
+  lua_setfield(L, -2, "ip_table_t");
+  lua_pop(L, 1);
+
+  
   /* --------------------
      ip_trie
      -------------------- */
 
   luaL_newmetatable(L, "ip_trie_t");
 
-  lua_newtable(L);
+  lua_newtable(L); // methods
+
   lua_pushcclosure(L, ip_trie_t_find, 0); lua_setfield(L, -2, "find");
+  lua_pushcclosure(L, ip_trie_t_dump, 0); lua_setfield(L, -2, "dump");
   lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
 
+  
   lua_pushglobaltable(L);
   lua_newtable(L);
   lua_pushcclosure(L, ip_trie_t_new, 0); lua_setfield(L, -2, "new");
   lua_setfield(L, -2, "ip_trie_t");
   lua_pop(L, 1);
-
+  
   /* --------------------
      global functions
      -------------------- */
@@ -454,26 +566,6 @@ int main(int argc, char *argv[])
   lua_pushcclosure(L, trie_lua_read_file, 0);
   lua_setglobal(L, "read_file");
 
-  //  lua_getglobal(L, "read_file");
+  return 0;
+}  
 
-  /*
-  if (argc > 1)
-    lua_pushstring(L, argv[1]);
-  else
-    lua_pushstring(L, "smoothwall-20250807-1601.txt");
-  //  lua_pushstring(L, "sites.txt");
-  if (lua_pcall(L, 1, 0, 0) != 0)
-    {
-      fprintf(stderr, "error running function: %s\n", lua_tostring(L, -1));
-    }
-  */
-  if (argc > 1)
-    {
-      int ret = luaL_dofile(L, argv[1]);
-      if (ret != 0)
-	{
-	  fprintf(stderr, "error in script %s: %s\n", argv[1], lua_tostring(L, -1));
-	}
-    }  
-  return 0;   
-}

@@ -13,7 +13,7 @@ using jsoncons::json;
 
 #include "common.h"
 
-collect::collect()
+collect_t::collect_t()
 {
   cl = 0;
 #ifdef WITH_JS
@@ -21,7 +21,7 @@ collect::collect()
 #endif
 }
 
-collect::collect(collector *clp)
+collect_t::collect_t(collector_t *clp)
 {
   cl = clp;
 #ifdef WITH_JS
@@ -30,7 +30,7 @@ collect::collect(collector *clp)
   lua_newtable(cl->L);
 }
 
-void collect::kv(std::string k, std::string v)
+void collect_t::kv(std::string k, std::string v)
 {
 #ifdef WITH_JS
   if (js) (*js)[k] = v;
@@ -46,7 +46,7 @@ void collect::kv(std::string k, std::string v)
 }
 
 
-void collect::kv(std::string k, long v)
+void collect_t::kv(std::string k, long v)
 {
 #ifdef WITH_JS
   if (js) (*js)[k] = v;
@@ -61,7 +61,7 @@ void collect::kv(std::string k, long v)
     }
 }
 
-void collect::kv(std::string k, double v)
+void collect_t::kv(std::string k, double v)
 {
 #ifdef WITH_JS
   if (js) (*js)[k] = v;
@@ -78,7 +78,7 @@ void collect::kv(std::string k, double v)
 
 
 
-void collect::kv(std::string k, collect &c)
+void collect_t::kv(std::string k, collect_t &c)
 {
 #ifdef WITH_JS
   if (js) (*js)[k] = c.js;
@@ -89,14 +89,13 @@ void collect::kv(std::string k, collect &c)
       int top = lua_gettop(cl->L);
       assert(lua_istable(cl->L, top));
       lua_pushvalue(cl->L, top-1);
-      //      printf("%d %s\n", top, k.c_str());
       lua_setfield(cl->L, top, k.c_str());
       lua_remove(cl->L, top-1);
     }
 }
 
 
-void collect::dump()
+void collect_t::dump()
 {
 #ifdef WITH_JS
   if (js) std::cout << pretty_print(*js) << '\n';

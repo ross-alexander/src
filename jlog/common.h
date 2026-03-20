@@ -2,28 +2,29 @@
 //extern int yyparse(JS**);
 //extern int yystart(FILE*);
 
-class collector {
+class collector_t {
  public:
-  collector(lua_State*);
+  collector_t(lua_State*);
   int linenum;
   int limit;
   lua_State *L;
-  int update(class collect*);
+  int update(class collect_t*);
   void dump();
 };
 
-class collect {
+class collect_t {
  private:
 #ifdef WITH_JS
   json *js;
 #endif
-  collector *cl;
+  collector_t *cl;
  public:
-  collect();
-  collect(collector*);
+  collect_t();
+  collect_t(collector_t*);
   void kv(std::string, std::string);
   void kv(std::string, long);
-  void kv(std::string, collect&);
+  void kv(std::string, double);
+  void kv(std::string, collect_t&);
   void dump();
 };
 

@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include "trie.h"
 #include "qsort.h"
 
@@ -95,8 +99,7 @@ int pnexthopcmp(nexthop_t *i, nexthop_t *j)
    'first + n - 1'. Disregard the first 'prefix' characters.
    We assume that n >= 2 and base[first] != base[first+n-1].
 */
-void computebranch(base_t base[], int prefix, int first, int n,
-                   int *branch, int *newprefix)
+void computebranch(base_t base[], int prefix, int first, int n, int *branch, int *newprefix)
 {
    word low, high;
    int i, pat, b;
@@ -112,40 +115,43 @@ void computebranch(base_t base[], int prefix, int first, int n,
    *newprefix = i;
 
    /* Always use branching factor 2 for two elements */
-   if (n == 2) {
-      *branch = 1;
-      return;
-   }
+   if (n == 2)
+     {
+       *branch = 1;
+       return;
+     }
 
    /* Use a large branching factor at the root */
-   if (ROOTBRANCH > 0 && prefix == 0  && first == 0) {
-      *branch = ROOTBRANCH;
-      return;
-   }
+   if (ROOTBRANCH > 0 && prefix == 0 && first == 0)
+     {
+       *branch = ROOTBRANCH;
+       return;
+     }
 
    /* Compute the number of bits that can be used for branching.
       We have at least two branches. Therefore we start the search
       at 2^b = 4 branches. */
+   
    b = 1;
    do {
       b++;
-      if (n < FILLFACT*(1<<b) ||
-          *newprefix + b > ADRSIZE)
-         break;
+      if (n < FILLFACT*(1<<b) || *newprefix + b > ADRSIZE)
+	break;
       i = first;
       pat = 0;
       count = 0;
-      while (pat < 1<<b) {
-         patfound = FALSE;
-         while (i < first + n &&   
-                pat == EXTRACT(*newprefix, b, base[i]->str)) {
-            i++;
-            patfound = TRUE;
-         }
-         if (patfound)
+      while (pat < 1<<b)
+	{
+	  patfound = FALSE;
+	  while (i < first + n && pat == EXTRACT(*newprefix, b, base[i]->str))
+	    {
+	      i++;
+	      patfound = TRUE;
+	    }
+	  if (patfound)
             count++;
-         pat++;
-      }
+	  pat++;
+	}
    } while (count >= FILLFACT*(1<<b));
    *branch = b - 1;
 }
@@ -162,8 +168,8 @@ void build(base_t base[], pre_t pre[], int prefix, int first, int n, int pos, in
    int branch, newprefix;
    int k, p, adr, bits;
    word bitpat;
-
-   //   printf("prefix = %d first = %d n = %d pos = %d, nextfree = %d\n", prefix, first, n, pos, *nextfree);
+   
+   // printf("prefix = %d first = %d n = %d pos = %d, nextfree = %d\n", prefix, first, n, pos, *nextfree);
    
    if (n == 1)
       tree[pos] = first; /* branch and skip are 0 */
@@ -171,9 +177,7 @@ void build(base_t base[], pre_t pre[], int prefix, int first, int n, int pos, in
      {
        computebranch(base, prefix, first, n, &branch, &newprefix);
        adr = *nextfree;
-       tree[pos] = SETBRANCH(branch) |
-	 SETSKIP(newprefix-prefix) |
-	 SETADR(adr);
+       tree[pos] = SETBRANCH(branch) | SETSKIP(newprefix-prefix) | SETADR(adr);
        *nextfree += 1<<branch;
        p = first;
        /* Build the subtrees */
@@ -233,8 +237,7 @@ void build(base_t base[], pre_t pre[], int prefix, int first, int n, int pos, in
 	       word i;
 	       bits = branch - base[p]->len + newprefix;
 	       for (i = bitpat; i < bitpat + (1<<bits); i++)
-		 build(base, pre, newprefix+branch, p, 1,
-		       adr + i, nextfree, tree);
+		 build(base, pre, newprefix+branch, p, 1, adr + i, nextfree, tree);
 	       bitpat += (1<<bits) - 1;
 	     }
 	   else
@@ -249,11 +252,22 @@ void build(base_t base[], pre_t pre[], int prefix, int first, int n, int pos, in
 /* Is the string s a prefix of the string t? */
 int isprefix(entry_t s, entry_t t)
 {
-   return s != NULL &&
-          (s->len == 0 ||   /* EXTRACT() can't handle 0 bits */
-           s->len <= t->len &&
-           EXTRACT(0, s->len, s->data) ==
-           EXTRACT(0, s->len, t->data));
+  int res = s->len <= t->len && (EXTRACT(0, s->len, s->data) == EXTRACT(0, s->len, t->data));
+
+  /*
+  struct in_addr a;
+  printf("---- ");
+  a.s_addr = ntohl(s->data);
+  printf("%s/%d ", inet_ntoa(a), s->len);
+  a.s_addr = ntohl(t->data);
+  printf("%s/%d ", inet_ntoa(a), t->len);
+  printf("%s\n", res ? "prefix" : "");
+  */
+  
+  return (s != NULL) && 
+     ((s->len == 0) ||   /* EXTRACT() can't handle 0 bits */
+      (s->len <= t->len) &&
+      (EXTRACT(0, s->len, s->data) == EXTRACT(0, s->len, t->data)));
 }
 
 int binsearch(nexthop_t x, nexthop_t v[], int n)
@@ -327,6 +341,8 @@ routtable_t buildrouttable(entry_t entry[], int nentries,
    int i, j, nprefs = 0, nbases = 0;
    int nextfree = 1;
 
+   // printf("Building width %d entries\n", nentries);
+   
    FILLFACT = fillfact;
    ROOTBRANCH = rootbranch;
 
@@ -344,12 +360,13 @@ routtable_t buildrouttable(entry_t entry[], int nentries,
       if (pstrcmp(&entry[i-1], &entry[i]) != 0)
          entry[size++] = entry[i];
    clockoff();
-   if (verbose) {
-      fprintf(stdout, "Sorting: %.2f", gettime());
-      if (size != nentries)
+   if (verbose)
+     {
+       fprintf(stdout, "Sorting: %.2f", gettime());
+       if (size != nentries)
          fprintf(stdout, "  (%i unique entries)", size);
-      fprintf(stdout, "\n");
-   }
+       fprintf(stdout, "\n");
+     }
 
    clockon();
    /* The number of internal nodes in the tree can't be larger
@@ -359,58 +376,67 @@ routtable_t buildrouttable(entry_t entry[], int nentries,
    p = (pre_t *) malloc(size * sizeof(pre_t));
 
    /* Initialize pre-pointers */
+   
    for (i = 0; i < size; i++)
       entry[i]->pre = NOPRE;
 
    /* Go through the entries and put the prefixes in p
       and the rest of the strings in b */
    for (i = 0; i < size; i++)
-      if (i < size-1 && isprefix(entry[i], entry[i+1])) {
-         ptemp = (pre_t) malloc(sizeof(struct prerec));
-         ptemp->len = entry[i]->len;
-         ptemp->pre =entry[i]->pre;
-         /* Update 'pre' for all entries that have this prefix */
-         for (j = i + 1; j < size && isprefix(entry[i], entry[j]); j++)
+     if ((i < size - 1) && isprefix(entry[i], entry[i+1]))
+       {
+	  ptemp = (pre_t) malloc(sizeof(struct prerec));
+	  ptemp->len = entry[i]->len;
+	  ptemp->pre =entry[i]->pre;
+	  /* Update 'pre' for all entries that have this prefix */
+	  for (j = i + 1; j < size && isprefix(entry[i], entry[j]); j++)
             entry[j]->pre = nprefs;
-         ptemp->nexthop = binsearch(entry[i]->nexthop, nexthop, nnexthops);
-         p[nprefs++] = ptemp;
-      } else {
-         btemp = (base_t) malloc(sizeof(struct baserec));
-         btemp->len = entry[i]->len;
-         btemp->str = entry[i]->data;
-         btemp->pre = entry[i]->pre;
-         btemp->nexthop = binsearch(entry[i]->nexthop, nexthop, nnexthops);
-         b[nbases++] = btemp;
-      }
-
+	  ptemp->nexthop = binsearch(entry[i]->nexthop, nexthop, nnexthops);
+	  p[nprefs++] = ptemp;
+	}
+      else
+	{
+	  btemp = (base_t) malloc(sizeof(struct baserec));
+	  btemp->len = entry[i]->len;
+	  btemp->str = entry[i]->data;
+	  btemp->pre = entry[i]->pre;
+	  btemp->nexthop = binsearch(entry[i]->nexthop, nexthop, nnexthops);
+	  b[nbases++] = btemp;
+	}
+   
    /* Build the trie structure */
+
    build(b, p, 0, 0, nbases, 0, &nextfree, t);
 
    /* At this point we now how much memory to allocate */
+   
    trie = (node_t *) malloc(nextfree * sizeof(node_t));
    base = (comp_base_t *) malloc(nbases * sizeof(comp_base_t));
    pre = (comp_pre_t *) malloc(nprefs * sizeof(comp_pre_t));
 
-   for (i = 0; i < nextfree; i++) {
-      trie[i] = t[i];
-   }
+   for (i = 0; i < nextfree; i++)
+     {
+       trie[i] = t[i];
+     }
    free(t);
 
-   for (i = 0; i < nbases; i++) {
-      base[i].str = b[i]->str;
-      base[i].len = b[i]->len;
-      base[i].pre = b[i]->pre;
-      base[i].nexthop = b[i]->nexthop;
-      free(b[i]);
-   }
+   for (i = 0; i < nbases; i++)
+     {
+       base[i].str = b[i]->str;
+       base[i].len = b[i]->len;
+       base[i].pre = b[i]->pre;
+       base[i].nexthop = b[i]->nexthop;
+       free(b[i]);
+     }
    free(b);
 
-   for (i = 0; i < nprefs; i++) {
-      pre[i].len = p[i]->len;
-      pre[i].pre = p[i]->pre;
-      pre[i].nexthop = p[i]->nexthop;
-      free(p[i]);
-   }
+   for (i = 0; i < nprefs; i++)
+     {
+       pre[i].len = p[i]->len;
+       pre[i].pre = p[i]->pre;
+       pre[i].nexthop = p[i]->nexthop;
+       free(p[i]);
+     }
    free(p);
 
    table = (routtable_t) malloc(sizeof(struct routtablerec));
@@ -512,34 +538,75 @@ void traverse(routtable_t t, node_t r, int depth,
      }
 }
 
+void traverse_dump(routtable_t t, node_t r)
+{
+  printf("%08x %08x\n", r, GETBRANCH(r));
+  if (GETBRANCH(r) == 0)
+    { /* leaf */
+      int adr = GETADR(r);
+      comp_base_t *base = &(t->base[adr]);
+      struct in_addr a;
+      void *nexthop = nullptr;
+      a.s_addr = ntohl(base->str);
+      word bitmask = t->base[adr].str ^ t->base[adr].str;
+      if (EXTRACT(0, t->base[adr].len, bitmask) == 0)
+	{
+	  nexthop = t->nexthop[t->base[adr].nexthop];
+	}
+      else
+	{
+	  /* If not, look in the prefix tree */
+	  int preadr = t->base[adr].pre;
+	  while (preadr != NOPRE && nexthop == nullptr)
+	    {
+	      if (EXTRACT(0, t->pre[preadr].len, bitmask) == 0)
+		{
+		  nexthop = t->nexthop[t->pre[preadr].nexthop];
+		}
+	      else
+		{
+		  preadr = t->pre[preadr].pre;
+		}
+	    }
+	}
+      //       if (nexthop)
+      //	 printf("%s/%d\n", inet_ntoa(a), base->len);
+    }
+  else
+    {
+      for (int i = 0; i < 1<<GETBRANCH(r); i++)
+	traverse_dump(t, t->trie[GETADR(r)+i]);
+    }
+}
+
 void routtablestat(routtable_t t, int verbose)
 {
    int i, j;
-   node_t k;
+   //   node_t k;
    comp_pre_t p;
    int max, aver, totdepth;
    int intnodes, leaves;
    int dsize = 128;
    int depth[dsize];
 
-   if (verbose) {
-      fprintf(stdout, "\nTrie\n");
-      fprintf(stdout, "  Fill factor: %.2f\n", FILLFACT);
-      if (ROOTBRANCH == 0)
-         fprintf(stdout, "  Branch at root: %i\n",
-                 GETBRANCH(t->trie[0]));
-      else
+   if (verbose)
+     {
+       fprintf(stdout, "\nTrie\n");
+       fprintf(stdout, "  Fill factor: %.2f\n", FILLFACT);
+       if (ROOTBRANCH == 0)
+         fprintf(stdout, "  Branch at root: %i\n", GETBRANCH(t->trie[0]));
+       else
          fprintf(stdout, "  Branch at root: %i (fixed)\n", ROOTBRANCH);
-      fprintf(stdout, "  %i*%i bytes\n",
-                       t->triesize, sizeof(node_t));
-   }
+       fprintf(stdout, "  %i*%li bytes\n", t->triesize, sizeof(node_t));
+     }
    intnodes = leaves = 0;
-   for (i = 0; i < t->triesize; i++) {
-      if (GETBRANCH(t->trie[i]) == 0)
-        leaves++;
-      else
-        intnodes++;
-   }
+   for (i = 0; i < t->triesize; i++)
+     {
+       if (GETBRANCH(t->trie[i]) == 0)
+	 leaves++;
+       else
+	 intnodes++;
+     }
    if (verbose)
       fprintf(stdout, "  %i leaves, %i internal nodes\n",
                        leaves, intnodes);
@@ -574,16 +641,16 @@ void routtablestat(routtable_t t, int verbose)
          fprintf(stdout, "%2if", ROOTBRANCH);
       fprintf(stdout, "  aver: %.2f", (double) totdepth / leaves);
       fprintf(stdout, "  max: %2d", max);
-      fprintf(stdout, "  size: %i*%i\n", t->triesize, sizeof(node_t));
+      fprintf(stdout, "  size: %i*%li\n", t->triesize, sizeof(node_t));
    }
 
    if (verbose) {
       fprintf(stdout, "Base vector\n");
-      fprintf(stdout, "  %i*%i bytes\n",
+      fprintf(stdout, "  %i*%li bytes\n",
                        t->basesize, sizeof(comp_base_t));
 
       fprintf(stdout, "Prefix vector\n");
-      fprintf(stdout, "  %i*%i bytes\n",
+      fprintf(stdout, "  %i*%li bytes\n",
                        t->presize, sizeof(struct prerec));
 
       for (i = 0, max = 0, aver = 0; i < t->presize; i++) {
@@ -598,7 +665,7 @@ void routtablestat(routtable_t t, int verbose)
       fprintf(stdout, "  average path: %f\n", (double) aver / t->presize);
 
       fprintf(stdout, "Nexthop vector\n");
-      fprintf(stdout, "  %i*%i bytes\n",
+      fprintf(stdout, "  %i*%li bytes\n",
                        t->nexthopsize, sizeof(nexthop_t));
       fprintf(stdout, "\n");
    }
