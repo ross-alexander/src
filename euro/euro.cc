@@ -32,13 +32,14 @@ public:
 
    ----------------------------------------------------------------------*/
 
-void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
+void euro(Cairo::RefPtr<Cairo::Surface> surface, bool original)
 {
   // outer radius and width
 
   Cairo::RefPtr<Cairo::Context> cr = Cairo::Context::create(surface);
 
-  // Center and invert y-axis  
+  // Center and invert y-axis
+  
   cr->translate(400, 400);
   cr->scale(1.5, -1.5);
   cr->set_line_width(1.5);
@@ -257,7 +258,7 @@ void euro(Cairo::RefPtr<Cairo::ImageSurface> surface, bool original)
 
 int main()
 {
-  Cairo::RefPtr<Cairo::ImageSurface> surface = Cairo::ImageSurface::create(Cairo::Surface::Format::ARGB32, 800, 800);
+  Cairo::RefPtr<Cairo::SvgSurface> surface = Cairo::SvgSurface::create("euro.svg", 800, 800);
   euro(surface, false);
   surface->write_to_png("image.png");
 }
