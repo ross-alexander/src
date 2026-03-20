@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 	case FDT_BEGIN_NODE:
 	  {
 	    uint8_t *name = (uint8_t*)(nodeptr + index);
-	    size_t len = strlen(name);
+	    size_t len = strlen((const char*)name);
 	    printf("%s {\n", name);
 	    index += ((len) >> 2) + 1;
 	    level++;
