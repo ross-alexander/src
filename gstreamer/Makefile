@@ -1,6 +1,6 @@
 GSTREAMER = gstreamer-1.0 gstreamer-video-1.0 xcb
-
-CFLAGS	= -g -std=c99 $(shell pkg-config --cflags $(GSTREAMER) xcb-aux xcb-atom xcb-xfixes xcb-randr)
+CC	= gcc -std=c23
+CFLAGS	= -g -Wall $(shell pkg-config --cflags $(GSTREAMER) xcb-aux xcb-atom xcb-xfixes xcb-randr)
 LDLIBS	= $(shell pkg-config --libs $(GSTREAMER) x11 xcb-aux xcb-atom xcb-xfixes xcb-randr)
 
 ALL	= vorbis x264 decodebin randr metadata xcbrandr example3 fullscreen typefind tags hello fixed

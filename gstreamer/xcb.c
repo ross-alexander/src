@@ -34,12 +34,9 @@ struct crtc_geometry {
   int x, y, width, height;
 };
 
-struct crtc_geometry** xcb_get_crts()
+struct crtc_geometry** xcb_get_crts(xcb_connection_t *connection, int num_screen)
 {
-  int num_screen = 0;
-  xcb_connection_t *connection = xcb_connect(0, &num_screen);
-  
-  uint32_t randr_major, randr_minor;
+    uint32_t randr_major, randr_minor;
   
   xcb_randr_query_version_reply_t *rr_version;
   rr_version = xcb_randr_query_version_reply(connection, xcb_randr_query_version(connection, 1, 4), 0);
@@ -67,7 +64,7 @@ struct crtc_geometry** xcb_get_crts()
 
       int len = xcb_randr_get_output_info_name_length(output);
       char *name = alloca(len + 1);
-      strncpy(name, xcb_randr_get_output_info_name(output), len);
+      strncpy(name, (const char*)xcb_randr_get_output_info_name(output), len);
       name[len] = '\0';
 
       int ncrts = xcb_randr_get_output_info_crtcs_length(output);
@@ -93,14 +90,20 @@ struct crtc_geometry** xcb_get_crts()
   return geometry;
 }
 
+/* ----------------------------------------------------------------------
+   --
+   -- create_window
+   --
+   ---------------------------------------------------------------------- */
+
 xcb_window_t create_window(xcb_connection_t *connection)
 {
+  int num_screens;
   if (connection == 0)
-    {
-      int num_screens;
-      connection = xcb_connect(0, &num_screens);
-    }
-
+    connection = xcb_connect(0, &num_screens);
+  else
+    num_screens = 1; // Assume single screen
+  
   char *title = "Foo";
 
   /* --------------------
@@ -162,7 +165,7 @@ xcb_window_t create_window(xcb_connection_t *connection)
   int width = screen->width_in_pixels;
   int height = screen->height_in_pixels;
 
-  struct crtc_geometry **geometry = xcb_get_crts(connection);
+  struct crtc_geometry **geometry = xcb_get_crts(connection, num_screens);
 
   struct crtc_geometry *g = geometry[0];
 

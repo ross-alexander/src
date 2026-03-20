@@ -119,7 +119,7 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
 
   g_print ("Dynamic pad created, linking demuxer/decoder %s\n", name);
 
-  GstPad *sinkpad;
+  //  GstPad *sinkpad;
   GstElement *decode = 0;
 
   if (strncmp(name, "video", 5) == 0)
@@ -153,8 +153,8 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
 	  GstElement* sink     = gst_element_factory_make ("xvimagesink", "video-output");
 	  g_object_set (G_OBJECT(sink), "force-aspect-ratio", 1, NULL);
 	  
-	  gst_bin_add_many(GST_BIN(bin), queue, decode, convert, sink, 0);
-	  gst_element_link_many (queue, decode, convert, sink, 0);
+	  gst_bin_add_many(GST_BIN(bin), queue, decode, convert, sink, NULL);
+	  gst_element_link_many (queue, decode, convert, sink, NULL);
 	  gst_bin_add(GST_BIN(pipe), bin);
 	  
 	  GstPad *videopad = gst_element_get_static_pad (queue, "sink");
@@ -207,8 +207,8 @@ static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
 	  
 	  assert(convert);
 	  assert(sink);
-	  gst_bin_add_many(GST_BIN(bin), queue, decode, convert, sink, 0);
-	  gst_element_link_many (queue, decode, convert, sink, 0);
+	  gst_bin_add_many(GST_BIN(bin), queue, decode, convert, sink, NULL);
+	  gst_element_link_many (queue, decode, convert, sink, NULL);
 	  gst_bin_add(GST_BIN(pipe), bin);
 	  GstPad *audiopad = gst_element_get_static_pad (queue, "sink");
 	  GstPad *ghost = gst_ghost_pad_new ("sink", audiopad);
@@ -300,10 +300,10 @@ int main(int argc, char *argv[])
   GstElement *pipe, *source, *demuxer;
   GstBus *bus;
 
-  int screenNum;
+  int num_screens;
   int vdpau = 0;
 
-  xcb_connection_t *connection = xcb_connect(NULL, &screenNum);
+  xcb_connection_t *connection = xcb_connect(NULL, &num_screens);
 
   gst_init (&argc, &argv);
 
@@ -327,15 +327,15 @@ int main(int argc, char *argv[])
 
   //  GstElement *queue = gst_element_factory_make("queue", "queue");
 
-  //  demuxer   = gst_element_factory_make ("qtdemux", "qt-demuxer");
+  // demuxer   = gst_element_factory_make ("qtdemux", "qt-demuxer");
   // demuxer   = gst_element_factory_make ("mpegpsdemux", "demuxer");
 
   assert(pipe);
   assert(source);
   assert(typefind);
 
-  gst_bin_add_many(GST_BIN(pipe), source, typefind, 0); // fakesink, 0);
-  gst_element_link_many(source, typefind, 0);
+  gst_bin_add_many(GST_BIN(pipe), source, typefind, NULL); // fakesink, 0);
+  gst_element_link_many(source, typefind, NULL);
 
   struct decoders_t decoders;
   decoders.loop = loop;
