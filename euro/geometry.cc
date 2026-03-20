@@ -368,7 +368,6 @@ void circle_t::isec(point_t& p1, point_t& p2, point_t& cp, double r, bool segmen
     double b, c, d;
     bool bnz = true;
     int cnt = 0;
-
     
     if (fabs(B) >= eps) {
         // if B isn't zero or close to it
