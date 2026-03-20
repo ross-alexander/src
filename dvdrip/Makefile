@@ -1,6 +1,6 @@
-LDLIBS = -ldvdread -llua  $(shell pkg-config --libs glibmm-2.68)
 CC = g++ -g
-CXX = g++ -g -std=c++20 $(shell pkg-config --cflags glibmm-2.68)
+CXX = g++ -g -std=c++20 $(shell pkg-config --cflags glibmm-2.68 lua-5.5)
+LDLIBS = -ldvdread $(shell pkg-config --libs glibmm-2.68 lua-5.5)
 
 dvdrip: lua_wrap.o dvdrip.o
 
