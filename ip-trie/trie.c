@@ -5,6 +5,8 @@
 #include <stdarg.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 
 #include <glib.h>
@@ -13,7 +15,7 @@
 
 int loglevel = 0;
 
-void *log_printf(int level, char* s, ...)
+void log_printf(int level, char* s, ...)
 {
   va_list ap;
   va_start(ap, s);
@@ -21,6 +23,12 @@ void *log_printf(int level, char* s, ...)
     vprintf(s, ap);
 }
 
+uint32_t str2word(const char *s)
+{
+  struct in_addr a;
+  inet_aton(s, &a);
+  return a.s_addr;
+}
 
 /* **********************************************************************
 *
@@ -64,25 +72,30 @@ int BitCheck(word key, word index)
   return (key & (1 << (31 - index))) ? 1 : 0;
 }
 
-node *Empty()
+node *Empty(void)
 {
   node *nd;
-  nd = (node*)malloc(sizeof(node));
+  nd = (node*)calloc(1, sizeof(node));
   nd->type = NODE_EMPTY;
   nd->left = nd->right = 0;
   nd->value = 0;
   return nd;
 }
 
-char* int2binstr(longword n, longword v)
+char* int2binstr(longword key, longword len)
 {
-  char *res = calloc(sizeof(char), n + 2);
-  for (int i = 0; i < n; i++)
-    res[i] = v & (1 << (31 - i)) ? '1' : '0';
+  char *res = calloc(sizeof(char), len + 2);
+  for (int i = 0; i < len; i++)
+    res[i] = key & (1 << (31 - i)) ? '1' : '0';
   return res;
 }
 
-/* Count */
+/* ----------------------------------------------------------------------
+   --
+   -- Count
+   --
+   ---------------------------------------------------------------------- */
+
 int Count(int type, node *nd)
 {
   register int i;
@@ -98,6 +111,7 @@ int Count(int type, node *nd)
       i = Count(type, nd->left) + Count(type, nd->right);
       return (type & 0x04) ? i + 1 : i; 
     }
+  return 0;
 } 
 
 /* --------------------------------------------------
@@ -105,19 +119,24 @@ int Count(int type, node *nd)
 
    Outputs all leaf nodes to the stdout
 -------------------------------------------------- */
-void Dump(longword depth, node *nd)
+
+void Dump(node *self, longword depth)
 {
-  int i;
-  if (nd->value)
+  for (int i = 0; i < depth; i++)
+    printf("  ");
+  if (self->type == NODE_EMPTY)
     {
-      char *s = int2binstr(nd->len, nd->key);
-      log_printf(0, "! %-20s %s\n", nd->value, s);
-      free(s);
-    } 
-  if (nd->type == NODE_BRANCH)
+      printf("|\n");
+      return;
+    }
+  char *s = int2binstr(self->key, self->len);
+  printf("%-20s %s\n", (char*)self->value, s);
+  free(s);
+  
+  if (self->type == NODE_BRANCH)
     {
-      Dump(depth + 1, nd->left);
-      Dump(depth + 1, nd->right);
+      printf("←"); Dump(self->left, depth + 1);
+      printf("→"); Dump(self->right, depth + 1);
     }
 }
 
@@ -188,28 +207,31 @@ void Aggr(word n, longword v, node *nd)
 /* --------------------------------------------------
    Insert
 -------------------------------------------------- */
-void Insert(node *nd, longword key, word len, word index, void* value)
-{
-  log_printf(2, "Insert %ld %08lX : ", index, key);
 
-  switch(nd->type)
+void Insert(node *self, longword key, word len, word index, void* value)
+{
+  log_printf(2, "Insert %02ld %08lX/%d : ", index, key, len);
+
+  switch(self->type)
     {
     case NODE_EMPTY:
-      if (index < len)
+      /* if (index < len) */
+      /* 	{ */
+      /* 	  self->type = NODE_BRANCH; */
+      /* 	  self->left = Empty(); */
+      /* 	  self->right = Empty(); */
+      /* 	  self->value = value; */
+      /* 	  self->len = len; */
+      /* 	  self->key = key; */
+      /* 	  Insert(self, key, len, index, value); */
+      /* 	} */
+      /* else */
 	{
-	  nd->type = NODE_BRANCH;
-	  nd->left = Empty();
-	  nd->right = Empty();
-	  nd->value = 0;
-	  Insert(nd, key, len, index, value);
-	}
-      else
-	{
-	  log_printf(1, "empty -> %s\n", value);
-	  nd->type = NODE_LEAF;
-	  nd->key = key;
-	  nd->len = len;
-	  nd->value = value;
+	  log_printf(1, "empty -> leaf(%s)\n", value);
+	  self->type = NODE_LEAF;
+	  self->key = key;
+	  self->len = len;
+	  self->value = value;
 	}
       break;
     case NODE_BRANCH:
@@ -217,27 +239,27 @@ void Insert(node *nd, longword key, word len, word index, void* value)
 	{
 	  int bit = BitCheck(key, index);
 	  log_printf(2, "%s\n", bit ? "branch right" : "branch left");
-	  Insert(bit ? nd->right : nd->left, key, len, index + 1, value);
+	  Insert(bit ? self->right : self->left, key, len, index + 1, value);
         }
       else
 	{
 	  log_printf(2, "branch value %s\n", value);
-	  nd->key = key;
-	  nd->len = len;
-	  nd->value = value;
+	  self->key = key;
+	  self->len = len;
+	  self->value = value;
 	}
       break;
 
     case NODE_LEAF:
-      nd->type = NODE_BRANCH;
-      nd->left = Empty();
-      nd->right = Empty();
-      void *ndvalue = nd->value;
-      nd->value = 0;
-      log_printf(2, "leaf %s\n", nd->value);
+      self->type = NODE_BRANCH;
+      self->left = Empty();
+      self->right = Empty();
+      void *oldvalue = self->value;
+      //      self->value = value;
+      log_printf(2, "leaf %s\n", oldvalue);
       
-      Insert(nd, nd->key, nd->len, index, ndvalue);
-      Insert(nd, key, len, index, value);
+      Insert(self, self->key, self->len, index, oldvalue);
+      Insert(self, key, len, index, value);
       break;
     }
 }
@@ -248,68 +270,94 @@ void Insert(node *nd, longword key, word len, word index, void* value)
 --
 ---------------------------------------------------------------------- */
 
-void* Search(node *nd, word key, int len, word index)
+void* Search(node *self, word key, word index)
 {
-  switch(nd->type)
+  void *ret = nullptr;
+  switch(self->type)
     {
     case NODE_EMPTY:
       log_printf(1, "Empty\n");
-      return 0;
+      ret = nullptr;
       break;
     case NODE_LEAF:
-      log_printf(1, "Leaf %ld %08lX\n", index, nd->key);
-      return nd->value;
+      log_printf(1, "Leaf %ld %08lX\n", index, self->key);
+      ret = self->value;
       break;
     case NODE_BRANCH:
       {
 	int bit = BitCheck(key, index);
 	log_printf(1, "Branch %s %d\n", bit ? "R" : "L", bit);
-	void *res = Search(bit ? nd->right : nd->left, key, len, index + 1);
-	if ((res == 0) && (nd->value != 0))
-	  res = nd->value;
-	return res;
+	node *branch = bit ? self->right : self->left;
+	void *res = Search(branch, key, index + 1);
+	if ((res == 0) && (self->value != 0))
+	  res = self->value;
+	ret = res;
 	break;
       }
     }
+  return ret;
 }
 
-int main()
+/* ----------------------------------------------------------------------
+   --
+   -- main
+   --
+   ---------------------------------------------------------------------- */
+
+int main(int argc, char *argv[])
 {
   tableSize = 0;
   rTable = malloc(sizeof(tableRec) * TABLE_MAX);
-  prefixRoot = Empty(0);
+  prefixRoot = Empty();
 
   FILE* stream;
-  stream = fopen("table.dmp", "r");
-  assert(stream);
-  char line[1024];
-  int c = 0;
-  while(fgets(line, sizeof(line), stream))
+  const char *path = nullptr;
+
+  if (argc > 1)
     {
-      gchar **part = g_strsplit_set(line, ",\n", 0);
-      gchar **quad = g_strsplit(part[2], ".", 0);
-      word ip = 0;
-      for (int i = 0; quad[i]; i++)
+      path = argv[1];
+      stream = fopen(path, "r");
+      if (!stream)
 	{
-	  int j = strtoul(quad[i], 0, 10) << (8 * (3-i));
-	  ip |= j;
+	  fprintf(stderr, "Failed to open %s\n", path);
+	  exit(1);
 	}
-      //      printf("%s/%s %08x\n", part[2], part[3], ip);
-      int plen = strtoul(part[3], 0, 10);
-      Insert(prefixRoot, ip, plen, 0, g_strdup_printf("%s/%s", part[2], part[3]));
+      
+      char line[1024];
+      while(fgets(line, sizeof(line), stream))
+	{
+	  gchar **part = g_strsplit_set(line, ",\n", 0);
+	  gchar **quad = g_strsplit(part[2], ".", 0);
+	  word ip = 0;
+	  for (int i = 0; quad[i]; i++)
+	    {
+	      int j = strtoul(quad[i], 0, 10) << (8 * (3-i));
+	      ip |= j;
+	    }
+	  //      printf("%s/%s %08x\n", part[2], part[3], ip);
+	  int plen = strtoul(part[3], 0, 10);
+	  Insert(prefixRoot, ip, plen, 0, g_strdup_printf("%s/%s", part[2], part[3]));
+	}
+      fclose(stream);
+      Dump(prefixRoot, 0);
     }
-  fclose(stream);
+  else
+    {
+      loglevel = 3;
+      //      Insert(prefixRoot, 0x00000000, 0, 0, "0.0.0.0/0");
 
-  //  Insert(prefixRoot, 0x00000000, 0, 0, "0.0.0.0/0");
-  //  Insert(prefixRoot, 0xac1d0000, 16, 0, "172.29.0.0/16");
-  //  Insert(prefixRoot, 0xac1d0800, 21, 0, "172.29.8.0/21");
+      Insert(prefixRoot, 0xac1d0000, 16, 0, "172.29.0.0/16");
+      Dump(prefixRoot, 0);
+      printf("--------------------\n");
+      //  Insert(prefixRoot, 0xac1d0800, 21, 0, "172.29.8.0/21");
+      //  Dump(0, prefixRoot);
+    }
 
-  Dump(0, prefixRoot);
-
-  void *s;
-  printf("++ %s\n", (s = Search(prefixRoot, 0xac1d0708, 32, 0)) ? s : "null");
-  printf("++ %s\n", (s = Search(prefixRoot, 0xac1d0a08, 32, 0)) ? s : "null");
-  printf("++ %s\n", (s = Search(prefixRoot, 0xac1dfff0, 32, 0)) ? s : "null");
+  char *s;
+  printf("++ %s\n", (s = Search(prefixRoot, str2word("1.1.1.1"), 0)) ? s : "null");
+  //  printf("++ %s\n", (s = Search(prefixRoot, 0xac1d0708, 0)) ? s : "null");
+  //  printf("++ %s\n", (s = Search(prefixRoot, 0xac1d0a08, 0)) ? s : "null");
+  //  printf("++ %s\n", (s = Search(prefixRoot, 0xac1dfff0, 0)) ? s : "null");
 
   //  printf("++ total = %d leaves = %d branches & leaves = %d\n",
   //	 Count(7, prefixRoot), Count(2, prefixRoot), Count(6, prefixRoot));
