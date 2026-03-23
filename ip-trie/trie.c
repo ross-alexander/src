@@ -27,7 +27,14 @@ uint32_t str2word(const char *s)
 {
   struct in_addr a;
   inet_aton(s, &a);
-  return a.s_addr;
+  return ntohl(a.s_addr);
+}
+
+uint32_t mask(uint32_t len)
+{
+  uint32_t shift = 32 - len;
+  uint32_t m = (uint32_t)0xffffffff << shift/2 << (shift - shift/2); // & 0xFFFFFFFF;
+  return m;
 }
 
 /* **********************************************************************
@@ -59,7 +66,7 @@ static tableRec *rTable;
 typedef struct node {
   int type;
   struct node *left, *right;
-  longword key;
+  uint32_t key;
   //  word index;
   word len;
   void *value;
@@ -115,10 +122,11 @@ int Count(int type, node *nd)
 } 
 
 /* --------------------------------------------------
-   Dump
-
-   Outputs all leaf nodes to the stdout
--------------------------------------------------- */
+   --
+   -- Dump
+   --
+   -- Outputs all leaf nodes to the stdout
+   -------------------------------------------------- */
 
 void Dump(node *self, longword depth)
 {
@@ -130,7 +138,7 @@ void Dump(node *self, longword depth)
       return;
     }
   char *s = int2binstr(self->key, self->len);
-  printf("%-20s %s\n", (char*)self->value, s);
+  printf("%-20s [%d] %s\n", (char*)self->value, self->len, s);
   free(s);
   
   if (self->type == NODE_BRANCH)
@@ -215,17 +223,17 @@ void Insert(node *self, longword key, word len, word index, void* value)
   switch(self->type)
     {
     case NODE_EMPTY:
-      /* if (index < len) */
-      /* 	{ */
-      /* 	  self->type = NODE_BRANCH; */
-      /* 	  self->left = Empty(); */
-      /* 	  self->right = Empty(); */
-      /* 	  self->value = value; */
-      /* 	  self->len = len; */
-      /* 	  self->key = key; */
-      /* 	  Insert(self, key, len, index, value); */
-      /* 	} */
-      /* else */
+      if (index < len)
+	{
+	  self->type = NODE_BRANCH;
+	  self->left = Empty();
+	  self->right = Empty();
+	  self->value = value;
+	  self->len = len;
+	  self->key = key;
+	  Insert(self, key, len, index, value);
+	}
+      else
 	{
 	  log_printf(1, "empty -> leaf(%s)\n", value);
 	  self->type = NODE_LEAF;
@@ -281,7 +289,9 @@ void* Search(node *self, word key, word index)
       break;
     case NODE_LEAF:
       log_printf(1, "Leaf %ld %08lX\n", index, self->key);
-      ret = self->value;
+      uint32_t m = mask(self->len);
+      if ((key & m) == self->key)
+	ret = self->value;
       break;
     case NODE_BRANCH:
       {
@@ -289,7 +299,9 @@ void* Search(node *self, word key, word index)
 	log_printf(1, "Branch %s %d\n", bit ? "R" : "L", bit);
 	node *branch = bit ? self->right : self->left;
 	void *res = Search(branch, key, index + 1);
-	if ((res == 0) && (self->value != 0))
+	uint32_t m = mask(self->len);
+	printf("len = %d mask = %u\n", self->len, m);
+	if ((res == 0) && ((key & m) == self->key))
 	  res = self->value;
 	ret = res;
 	break;
@@ -344,9 +356,9 @@ int main(int argc, char *argv[])
   else
     {
       loglevel = 3;
-      //      Insert(prefixRoot, 0x00000000, 0, 0, "0.0.0.0/0");
 
-      Insert(prefixRoot, 0xac1d0000, 16, 0, "172.29.0.0/16");
+      Insert(prefixRoot, str2word("172.29.0.0"), 16, 0, "172.29.0.0/16");
+      Insert(prefixRoot, 0x00000000, 0, 0, "0.0.0.0/0");
       Dump(prefixRoot, 0);
       printf("--------------------\n");
       //  Insert(prefixRoot, 0xac1d0800, 21, 0, "172.29.8.0/21");
@@ -355,7 +367,7 @@ int main(int argc, char *argv[])
 
   char *s;
   printf("++ %s\n", (s = Search(prefixRoot, str2word("1.1.1.1"), 0)) ? s : "null");
-  //  printf("++ %s\n", (s = Search(prefixRoot, 0xac1d0708, 0)) ? s : "null");
+  printf("++ %s\n", (s = Search(prefixRoot, str2word("172.29.1.1"), 0)) ? s : "null");
   //  printf("++ %s\n", (s = Search(prefixRoot, 0xac1d0a08, 0)) ? s : "null");
   //  printf("++ %s\n", (s = Search(prefixRoot, 0xac1dfff0, 0)) ? s : "null");
 
