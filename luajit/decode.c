@@ -89,7 +89,9 @@ typedef enum {
 
 
 #define BCMODE(name, ma, mb, mc, mm) (BCM##ma|(BCM##mb<<3)|(BCM##mc<<7)|(MM_##mm<<11)),
-#define BCSTRUCT(mname, ma, mb, mc, mm)  {.name = #mname, .a = #ma, .b = #mb, .c = #mc, .t = #mt, .mode = (BCM##ma|(BCM##mb<<3)|(BCM##mc<<7)|(MM_##mm<<11))},
+
+// #define BCSTRUCT(mname, ma, mb, mc, mm)  {.name = #mname, .a = #ma, .b = #mb, .c = #mc, .t = #mt, .mode = (BCM##ma|(BCM##mb<<3)|(BCM##mc<<7)|(MM_##mm<<11))},
+#define BCSTRUCT(mname, ma, mb, mc, mm)  {.name = #mname, .a = #ma, .b = #mb, .c = #mc, .mode = (BCM##ma|(BCM##mb<<3)|(BCM##mc<<7)|(MM_##mm<<11))},
 
 #define bcmode_a(op)    ((BCMode)(lj_bc_mode[op] & 7))
 #define bcmode_b(op)    ((BCMode)((lj_bc_mode[op]>>3) & 15))
