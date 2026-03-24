@@ -81,7 +81,7 @@ int yywrap(void)
   return 1;
 }
 
-int parse_date(pstate* g, char *s)
+int parse_date(parse_state_t* g, char *s)
 {
   yy_scan_string(s);
   return yyparse(g);
