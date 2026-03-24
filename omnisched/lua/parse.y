@@ -21,11 +21,13 @@ int yyerror(parse_state_t*, char*);
   int wday;
   int month;
   int ordinal;
+  long integer;
   time_t date;
   char* text;
 }
 
-%type <text> INTEGER STRING
+%type <integer> INTEGER
+%type <text> STRING
 %type <mday> mday
 %type <wday> wday
 %type <month> month
@@ -75,11 +77,11 @@ month	: JAN { $$ = 0; }
 	| OCT { $$ = 9; }
 	| NOV { $$ = 10; }
 	| DEC { $$ = 11; }
-	| INTEGER { $$ = strtol($1, NULL, 10) - 1; }
+	| INTEGER { $$ = $1 - 1; }
 	;
 
-year	: INTEGER { $$ = strtol($1, 0, 10); }
-	| COMMA INTEGER { $$ = strtol($2, 0, 10); }
+year	: INTEGER { $$ = $1; }
+	| COMMA INTEGER { $$ = $2; }
 	;
 
 wday	: SUN { $$ = 0; }
@@ -91,11 +93,11 @@ wday	: SUN { $$ = 0; }
 	| SAT { $$ = 6; }
 	;
 
-mday	: INTEGER { $$ = strtol($1, NULL, 10); }
+mday	: INTEGER { $$ = $1; }
 	;
 
-time	: INTEGER COLON INTEGER { $$ = strtol($1, 0,10) * 3600 + strtol($1, 0,10) * 60; }
-	| INTEGER COLON INTEGER COLON INTEGER { $$ = strtol($1, 0,10) * 3600 + strtol($1, 0,10) * 60 + strtol($5, 0, 10); }
+time	: INTEGER COLON INTEGER { $$ = $1 * 3600 + $3 * 60; }
+	| INTEGER COLON INTEGER COLON INTEGER { $$ = $1 * 3600 + $3 * 60 + $5; }
 
 %%
 int yyerror(parse_state_t *res, char *str)
