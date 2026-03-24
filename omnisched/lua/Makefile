@@ -28,5 +28,5 @@ tokenize.c tokenize.h &: tokenize.lex
 	$(LEX) -o tokenize.c --header-file=tokenize.h $<
 
 clean:
-	rm -f $(OBJS) $(GENERATED)
+	rm -f *~ $(OBJS) $(GENERATED)
 
