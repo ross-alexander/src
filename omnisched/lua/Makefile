@@ -1,7 +1,8 @@
+CC		= gcc -std=gnu23 -Wall
 LEX		= flex
 YACC		= bison
-CFLAGS		= -Wall -g -I/usr/include/lua/5.4 -fPIC -DLUA_COMPAT_5_1 -DLUA_COMPAT_5_2 -DLUA_COMPAT_5_3
-LDLIBS		= -L/usr/lib64/lua/5.4 -llua -lm -ldl
+CFLAGS		= -Wall -g -fPIC $(shell pkg-config --cflags lua-5.5)
+LDLIBS		= $(shell pkg-config --libs lua-5.5)
 OBJS		= time.o tokenize.o parse.o date.o date.so
 GENERATED	= tokenize.c tokenize.h parse.h parse.c
 

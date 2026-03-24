@@ -1,7 +1,7 @@
 %{
 #include <string.h>
 #include "common.h"
-#include "parse.h"
+#include "parse.tab.h"
 %}
 
 %x string comment

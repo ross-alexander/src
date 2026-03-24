@@ -15,8 +15,12 @@ function list_iter (t)
    end
 end
 
+function omni(d)
+   return d:strftime("%j%t%b %d\t\t# %a %d %b %Y")
+end
+
 for b in list_iter({"jan 1 2012", "may 12 2011"}) do
-   print(Date.new(b):omni())
+   print(omni(Date.new(b)))
 end
 
 dates = {"third saturday of november",
