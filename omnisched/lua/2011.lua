@@ -1,11 +1,17 @@
+-- ----------------------------------------------------------------------
+--
+-- 2026-03-24: Update example with getters / strftime only
+--
+-- ----------------------------------------------------------------------
+
 require "date"
 
 function cascade(a)
-   if (a:wday() == 6)
+   if (a.wday == 6)
    then
       return a + 2;
    end
-   if (a:wday() == 0)
+   if (a.wday == 0)
    then
       return a + 1;
    end
@@ -15,7 +21,7 @@ end
 function christmas()
    local a = Date.new("december 25")
    for i = 0,4 do
-      local wday = (a + i):wday()
+      local wday = (a + i).wday
       if (wday == 6)
       then
 	 a = a + 2
@@ -34,10 +40,10 @@ function easter()
 end
 
 function omni(a)
-   print(a:omni())
+   print(a:strftime("%j%t%b %d\t\t# %a %d %b %Y"))
 end
 
-year = 2011
+-- year = 2011
 omni(Date.new("january 1"))
 easter()
 omni(Date.new("april 29"))
@@ -45,4 +51,5 @@ omni(Date.new("first monday of may"))
 omni(Date.new("last monday of may"))
 omni(Date.new("last monday of aug"))
 christmas()
-print(Date.new("january 1 2012"):omni())
+year = year + 1
+print(omni(Date.new("january 1")))
