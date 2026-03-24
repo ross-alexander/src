@@ -1,18 +1,18 @@
-CC		= gcc -std=c11 -g -D_DEFAULT_SOURCE
+CC		= gcc -std=c23 -g -D_DEFAULT_SOURCE
 
-GLXCFLAGS	= `pkg-config --cflags x11`
-GLXLIBS		= `pkg-config --libs glew x11` -lGL -lGLU -ldl
+GLXCFLAGS	= $(shell pkg-config --cflags x11)
+GLXLIBS		= $(shell pkg-config --libs glew x11) -lGL -lGLU -ldl
 
-CPPFLAGS	= $(GLUTCFLAGS) -D_GNU_SOURCE `pkg-config --cflags glproto gts`
+CPPFLAGS	= $(GLUTCFLAGS)  $(shell pkg-config --cflags glproto gts)
 CFLAGS		= -Wall -fPIC
-LDFLAGS		= `pkg-config --libs-only-L x11`
-LDLIBS		=  $(GLUTLIBS) -lm `pkg-config --libs-only-l x11` -lglut -L/usr/X11/lib -lX11 -lGLU -lGL -lXi -lXmu
+LDFLAGS		= $(shell pkg-config --libs x11)
+LDLIBS		=  $(GLUTLIBS) -lm $(shell pkg-config --libs x11) -lglut -lGLU -lGL -lXi -lXmu
 
-GTSLIBS		= `pkg-config --libs gts`
+GTSLIBS		= $(shell pkg-config --libs gts)
 
-XCBLDLIBS	= `pkg-config --libs xcb-glx x11-xcb` -lGL -lGLU
+XCBLDLIBS	= $(shell pkg-config --libs xcb-glx x11-xcb) -lGL -lGLU
 
-ALL		= plane honeycomb test glx xcb mygl.so mygl3.so tri3.so tmath glxgears ex ex2 ex3 ex4
+ALL		= plane honeycomb test glx xcb mygl.so mygl3.so tri3.so tmath glxgears ex01 ex02 ex03 ex04
 
 .suffix: .so
 
@@ -22,22 +22,24 @@ ALL		= plane honeycomb test glx xcb mygl.so mygl3.so tri3.so tmath glxgears ex e
 
 all: $(ALL)
 
+plane: plane.o
+
 honeycomb: honeycomb.o
 	$(CC) $^ $(GTSLIBS) $(GLXLIBS) -lm -lglut -o $@
 
 test: test.o
 	$(CC) $^ $(GTSLIBS) $(GLXLIBS) -lm -lglut -o $@
 
-ex	: ex.o
+ex01	: ex01.o
 	$(CC) $(XCBLDLIBS) $^ -o $@
 
-ex2	: ex2.o
+ex02	: ex02.o
 	$(CC) $(XCBLDLIBS) $^ -o $@
 
-ex3	: ex3.o
+ex03	: ex03.o
 	$(CC) $^ -lxcb -lGL -lEGL -o $@
 
-ex4	: ex4.o
+ex04	: ex04.o
 	$(CC) $^ -lxcb -lGL -lX11 -lX11-xcb -o $@
 
 
@@ -59,4 +61,4 @@ xcb	: mygl.o xcb.o
 tmath	: mymath.o tmath.o
 
 clean	:
-	rm -r *.o *~ $(ALL)
+	rm -rf *.o *~ $(ALL)

@@ -127,21 +127,21 @@ void test2(int argc, char *argv[])
 	      GtsEdge *e2 = gts_edge_new(gts_edge_class(), v[j], w[i]);
 	      GtsEdge *e3 = gts_edge_new(gts_edge_class(), w[i], v[i]);
 	      GtsTriangle *t = gts_triangle_new(gts_triangle_class(), e1, e2, e3);
-	      gts_surface_add_face(s, t);
+	      gts_surface_add_face(s, GTS_FACE(t));
 	    }
 	    {
 	      GtsEdge *e1 = gts_edge_new(gts_edge_class(), v[j], w[j]);
 	      GtsEdge *e2 = gts_edge_new(gts_edge_class(), w[j], w[i]);
 	      GtsEdge *e3 = gts_edge_new(gts_edge_class(), w[i], v[j]);
 	      GtsTriangle *t = gts_triangle_new(gts_triangle_class(), e1, e2, e3);
-	      gts_surface_add_face(s, t);
+	      gts_surface_add_face(s, GTS_FACE(t));
 	    }
 	    {
 	      GtsEdge *e1 = gts_edge_new(gts_edge_class(), w[6], w[i]);
 	      GtsEdge *e2 = gts_edge_new(gts_edge_class(), w[i], w[j]);
 	      GtsEdge *e3 = gts_edge_new(gts_edge_class(), w[j], w[6]);
 	      GtsTriangle *t = gts_triangle_new(gts_triangle_class(), e1, e2, e3);
-	      gts_surface_add_face(s, t);
+	      gts_surface_add_face(s, GTS_FACE(t));
 	    }
 	  }
       }

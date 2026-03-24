@@ -43,20 +43,23 @@ struct my_pixmap {
   EGLSurface egl;
 };
 
-static void check_extensions(void) {
-  const char *client_extensions =
-    eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+static void check_extensions(void)
+{
+  const char *client_extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
   
-  if (!client_extensions) {
-    // EGL_EXT_client_extensions is unsupported.
-    abort();
-  }
-  if (!strstr(client_extensions, "EGL_EXT_platform_xcb")) {
-    abort();
-  }
+  if (!client_extensions)
+    {
+      // EGL_EXT_client_extensions is unsupported.
+      abort();
+    }
+  if (!strstr(client_extensions, "EGL_EXT_platform_xcb"))
+    {
+      abort();
+    }
 }
 
-xcb_screen_t *get_screen(xcb_connection_t *c, int screen) {
+xcb_screen_t *get_screen(xcb_connection_t *c, int screen)
+{
   xcb_screen_iterator_t iter;
   
   iter = xcb_setup_roots_iterator(xcb_get_setup(c));
@@ -67,22 +70,23 @@ xcb_screen_t *get_screen(xcb_connection_t *c, int screen) {
   return NULL;
 }
 
-int get_visual_depth(xcb_connection_t *c, xcb_visualid_t visual) {
+int get_visual_depth(xcb_connection_t *c, xcb_visualid_t visual)
+{
   const xcb_setup_t *setup = xcb_get_setup(c);
-  for (xcb_screen_iterator_t i = xcb_setup_roots_iterator(setup); i.rem;
-       xcb_screen_next(&i)) {
-    for (xcb_depth_iterator_t j =
-	   xcb_screen_allowed_depths_iterator(i.data);
-	 j.rem; xcb_depth_next(&j)) {
-      const int len = xcb_depth_visuals_length(j.data);
-      const xcb_visualtype_t *visuals = xcb_depth_visuals(j.data);
-      for (int k = 0; k < len; k++) {
-	if (visual == visuals[k].visual_id) {
-	  return j.data->depth;
+  for (xcb_screen_iterator_t i = xcb_setup_roots_iterator(setup); i.rem; xcb_screen_next(&i))
+    {
+      for (xcb_depth_iterator_t j = xcb_screen_allowed_depths_iterator(i.data); j.rem; xcb_depth_next(&j))
+	{
+	  const int len = xcb_depth_visuals_length(j.data);
+	  const xcb_visualtype_t *visuals = xcb_depth_visuals(j.data);
+	  for (int k = 0; k < len; k++) {
+	    if (visual == visuals[k].visual_id)
+	      {
+		return j.data->depth;
+	      }
+	  }
 	}
-      }
     }
-  }
   abort();
 }
 
@@ -91,9 +95,10 @@ static struct my_display get_display(void)
   struct my_display dpy;
   
   dpy.x11 = xcb_connect(NULL, &dpy.screen);
-  if (!dpy.x11) {
-    abort();
-  }
+  if (!dpy.x11)
+    {
+      abort();
+    }
   
   dpy.egl = eglGetPlatformDisplay(EGL_PLATFORM_XCB_EXT, dpy.x11,
 				     (const EGLAttrib[]){
@@ -102,14 +107,16 @@ static struct my_display get_display(void)
 				       EGL_NONE,
 				     });
   
-  if (dpy.egl == EGL_NO_DISPLAY) {
-    abort();
-  }
+  if (dpy.egl == EGL_NO_DISPLAY)
+    {
+      abort();
+    }
   
   EGLint major, minor;
-  if (!eglInitialize(dpy.egl, &major, &minor)) {
-    abort();
-  }
+  if (!eglInitialize(dpy.egl, &major, &minor))
+    {
+      abort();
+    }
   
   xcb_screen_t *screen = get_screen(dpy.x11, dpy.screen);
   dpy.root_of_screen = screen->root;
@@ -117,56 +124,50 @@ static struct my_display get_display(void)
   return dpy;
 }
 
-static struct my_config get_config(struct my_display dpy) {
+static struct my_config get_config(struct my_display dpy)
+{
   struct my_config config = {
     .dpy = dpy,
   };
   
   EGLint egl_config_attribs[] = {
-    EGL_BUFFER_SIZE,
-    32,
-    EGL_RED_SIZE,
-    8,
-    EGL_GREEN_SIZE,
-    8,
-    EGL_BLUE_SIZE,
-    8,
-    EGL_ALPHA_SIZE,
-    8,
+    EGL_BUFFER_SIZE, 32,
+    EGL_RED_SIZE, 8,
+    EGL_GREEN_SIZE, 8,
+    EGL_BLUE_SIZE, 8,
+    EGL_ALPHA_SIZE, 8,
     
-    EGL_DEPTH_SIZE,
-    EGL_DONT_CARE,
-    EGL_STENCIL_SIZE,
-    EGL_DONT_CARE,
+    EGL_DEPTH_SIZE, EGL_DONT_CARE,
+    EGL_STENCIL_SIZE, EGL_DONT_CARE,
     
-    EGL_RENDERABLE_TYPE,
-    EGL_OPENGL_ES2_BIT,
-    EGL_SURFACE_TYPE,
-    EGL_WINDOW_BIT | EGL_PIXMAP_BIT,
+    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+    EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PIXMAP_BIT,
     EGL_NONE,
   };
   
   EGLint num_configs;
-  if (!eglChooseConfig(dpy.egl, egl_config_attribs, &config.egl, 1,
-		       &num_configs)) {
-    abort();
-  }
-  if (num_configs == 0) {
-    abort();
-  }
+  if (!eglChooseConfig(dpy.egl, egl_config_attribs, &config.egl, 1, &num_configs))
+    {
+      abort();
+    }
+  if (num_configs == 0)
+    {
+      abort();
+    }
   
-  if (!eglGetConfigAttrib(dpy.egl, config.egl, EGL_NATIVE_VISUAL_ID,
-			  (EGLint *)&config.visualid)) {
-    abort();
-  }
+  if (!eglGetConfigAttrib(dpy.egl, config.egl, EGL_NATIVE_VISUAL_ID, (EGLint *)&config.visualid))
+    {
+      abort();
+    }
   
   config.colormap = xcb_generate_id(dpy.x11);
   if (xcb_request_check(dpy.x11,
 			xcb_create_colormap_checked(
 						    dpy.x11, XCB_COLORMAP_ALLOC_NONE, config.colormap,
-						    dpy.root_of_screen, config.visualid))) {
-    abort();
-  }
+						    dpy.root_of_screen, config.visualid)))
+    {
+      abort();
+    }
   
   config.depth = get_visual_depth(dpy.x11, config.visualid);
   
@@ -200,12 +201,12 @@ static struct my_window get_window(struct my_config config)
 						    config.colormap,
 						    XCB_NONE,
 						  }));
-  if (e) {
-    abort();
-  }
+  if (e)
+    {
+      abort();
+    }
   
-  window.egl = eglCreatePlatformWindowSurface(config.dpy.egl, config.egl,
-					      &window.x11, NULL);
+  window.egl = eglCreatePlatformWindowSurface(config.dpy.egl, config.egl, &window.x11, NULL);
   
   if (window.egl == EGL_NO_SURFACE)
     {
@@ -214,7 +215,8 @@ static struct my_window get_window(struct my_config config)
   return window;
 }
 
-static struct my_pixmap get_pixmap(struct my_config config) {
+static struct my_pixmap get_pixmap(struct my_config config)
+{
   struct my_pixmap pixmap = {
     .config = config,
   };
@@ -227,8 +229,7 @@ static struct my_pixmap get_pixmap(struct my_config config) {
     abort();
   }
   
-  pixmap.egl = eglCreatePlatformPixmapSurface(config.dpy.egl, config.egl,
-					      &pixmap.x11, NULL);
+  pixmap.egl = eglCreatePlatformPixmapSurface(config.dpy.egl, config.egl, &pixmap.x11, NULL);
   
   if (pixmap.egl == EGL_NO_SURFACE)
     {
@@ -255,11 +256,12 @@ int main(void)
   };
   
   EGLContext egl_context = eglCreateContext(dpy.egl, config.egl, EGL_NO_CONTEXT, ctxattr );
-    if ( egl_context == EGL_NO_CONTEXT ) {
+    if ( egl_context == EGL_NO_CONTEXT )
+      {
         printf("CreateContext, EGL eglError: %d\n", eglGetError() );
         return 0;
-    }
-  
+      }
+    
   //  xcb_glx_make_context_current_reply_t* reply_ctx = xcb_glx_make_context_current_reply(dpy.x11, xcb_glx_make_context_current(dpy.x11, 0, window.x11, window.x11, window.egl), NULL);
   //  if(!reply_ctx)
   //    puts("ERROR xcb_glx_make_context_current returned NULL!");
@@ -284,14 +286,15 @@ int main(void)
 	    {
 	    case XCB_EXPOSE:
 	      eglMakeCurrent(dpy.egl, window.egl, window.egl, egl_context);
-	       glClearColor(0, .5, 1, 1);  // Blue
+	      glClearColor(0.0, 0.5, 1.0, 1.0);  // Blue
 	      //	      glClearColor(1, 1, 1, 1);  // Blue
-	       glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+	      glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 	      //	      glLoadIdentity();
 	      //	      glFlush();
 	      //	      xcb_glx_swap_buffers(connection, glx_context_tag, glx_window);
-	       eglSwapBuffers(dpy.egl, window.egl);
-	       puts("Expose!");
+
+	      eglSwapBuffers(dpy.egl, window.egl);
+	      puts("Expose!");
 	      break;
 	    case XCB_KEY_PRESS: // exit on key press
 	      running = 0;

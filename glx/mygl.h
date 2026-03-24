@@ -7,3 +7,7 @@ struct mygl {
   void (*display)();
 };
 
+extern void init();
+extern void reshape(int w, int h);
+extern void display();
+

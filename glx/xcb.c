@@ -123,6 +123,12 @@ int main_loop(Display *xdisplay, xcb_connection_t *connection, xcb_window_t wind
   return 0;
 }
 
+/* ----------------------------------------------------------------------
+   --
+   -- setup_and_run
+   --
+   ---------------------------------------------------------------------- */
+
 int setup_and_run(Display* display, xcb_connection_t *connection, int default_screen, xcb_screen_t *screen)
 {
   int visualID = 0;
@@ -134,20 +140,20 @@ int setup_and_run(Display* display, xcb_connection_t *connection, int default_sc
 
   xcb_glx_get_fb_configs_cookie_t cookie = xcb_glx_get_fb_configs(connection, default_screen);
   xcb_glx_get_fb_configs_reply_t* reply = xcb_glx_get_fb_configs_reply(connection, cookie, 0);
+
   printf("Number of configs: %d %d %d\n", reply->num_FB_configs, reply->num_properties, xcb_glx_get_fb_configs_property_list_length(reply));
 
   uint32_t *list = xcb_glx_get_fb_configs_property_list(reply);
   for (int j = 0; j < reply->num_properties; j++)
     {
-      if (list[2*j] == GLX_VISUAL_ID)
+      if (list[2 * j] == GLX_VISUAL_ID)
 	{
-	  visualID = list[2*j+1];
+	  visualID = list[2 * j + 1];
 	  printf("Visual ID: %d\n", visualID);
 	}
     }
 
 #ifdef XLIB
-
   fb_configs = glXGetFBConfigs(display, default_screen, &num_fb_configs);
   printf("Number of configs: %d\n", num_fb_configs);
 
@@ -273,6 +279,12 @@ int setup_and_run(Display* display, xcb_connection_t *connection, int default_sc
   return retval;
 }
 
+/* ----------------------------------------------------------------------
+   --
+   -- main
+   --
+   ---------------------------------------------------------------------- */
+
 int main(int argc, char* argv[])
 {
   Display *display;
@@ -301,6 +313,7 @@ int main(int argc, char* argv[])
   XSetEventQueueOwner(display, XCBOwnsEventQueue);
   
   /* Find XCB screen */
+  
   xcb_screen_t *screen = 0;
   xcb_screen_iterator_t screen_iter =  xcb_setup_roots_iterator(xcb_get_setup(connection));
   for(int screen_num = default_screen; screen_iter.rem && screen_num > 0; --screen_num, xcb_screen_next(&screen_iter));
@@ -311,5 +324,5 @@ int main(int argc, char* argv[])
   
   /* Cleanup */
   XCloseDisplay(display);
-    return retval;
+  return retval;
 }

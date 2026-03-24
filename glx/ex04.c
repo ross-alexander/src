@@ -11,6 +11,7 @@
         this bug is already fixed in your version:
         http://bugs.freedesktop.org/show_bug.cgi?id=22252
     */
+
 #include <X11/Xlib-xcb.h> /* for XGetXCBConnection, link with libX11-xcb */
 
 #include <xcb/xcb.h>
@@ -149,13 +150,7 @@ int setup_and_run(Display* display, xcb_connection_t *connection, int default_sc
   /* Create GLX Window */
   GLXDrawable drawable = 0;
   
-  GLXWindow glxwindow = 
-    glXCreateWindow(
-		    display,
-		    fb_config,
-		    window,
-		    0
-		    );
+  GLXWindow glxwindow =  glXCreateWindow(display, fb_config, window, 0);
   
   if(!window)
     {
