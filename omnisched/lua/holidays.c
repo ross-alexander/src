@@ -20,7 +20,7 @@ extern int luaopen_date(lua_State*);
 
 int main(int argc, char *argv[])
 {
-  pstate g;
+  parse_state_t g;
   time_t now = time(0);
 
   /* --------------------
@@ -38,7 +38,8 @@ int main(int argc, char *argv[])
 
   lua_State *L = luaL_newstate();   /* opens Lua */
   luaL_openlibs(L);
-  luaopen_date(L);
+  luaL_requiref(L, "date", luaopen_date, 1);
+  lua_pop(L, 1);
   
   /* --------------------
      Add global gloop to the registry
