@@ -12,7 +12,7 @@
 #include "common.h"
 #include "tokenize.h"
 
-int yyerror(pstate *, char*);
+int yyerror(parse_state_t*, char*);
 %}
 
 %union {
@@ -33,21 +33,21 @@ int yyerror(pstate *, char*);
 %type <ordinal> ordinal time
 %type <date> date
 
-%parse-param { pstate* res }
+%parse-param { parse_state_t* res }
 
 %%
-parse	: date { pstate * t = res; t->res = $1; }
+parse	: date { parse_state_t* t = res; t->res = $1; }
 	;
 
-date	: ordinal wday OF month { $$ = nthdayofweek(((pstate*)res)->year, $4, $2, $1); }
+date	: ordinal wday OF month { $$ = nthdayofweek(((parse_state_t*)res)->year, $4, $2, $1); }
 	| ordinal wday OF month year { $$ = nthdayofweek($5, $4, $2, $1); }
-	| ordinal wday OF MONTH month { $$ = nthdayofweek(((pstate*)res)->year, $5, $2, $1); }
-	| ordinal wday OF MONTH month AT time { $$ = nthdayofweek(((pstate*)res)->year, $5, $2, $1); }
-	| month mday { $$ = nthday(((pstate*)res)->year, $1, $2); }
+	| ordinal wday OF MONTH month { $$ = nthdayofweek(((parse_state_t*)res)->year, $5, $2, $1); }
+	| ordinal wday OF MONTH month AT time { $$ = nthdayofweek(((parse_state_t*)res)->year, $5, $2, $1); }
+	| month mday { $$ = nthday(((parse_state_t*)res)->year, $1, $2); }
 	| month mday year { $$ = nthday($3, $1, $2); }
 	| date PLUS mday { $$ = addday($1, $3); }
 	| date MINUS mday { $$ = addday($1, -$3); }
-	| STRING { $$ = special(((pstate*)res)->year, $1); }
+	| STRING { $$ = special(((parse_state_t*)res)->year, $1); }
 	;
 
 ordinal : FIRST { $$ = 0; }
@@ -98,7 +98,7 @@ time	: INTEGER COLON INTEGER { $$ = strtol($1, 0,10) * 3600 + strtol($1, 0,10) *
 	| INTEGER COLON INTEGER COLON INTEGER { $$ = strtol($1, 0,10) * 3600 + strtol($1, 0,10) * 60 + strtol($5, 0, 10); }
 
 %%
-int yyerror(pstate *res, char *str)
+int yyerror(parse_state_t *res, char *str)
 {
   fprintf(stderr, "parse error: %s\n", str);
   exit(1);
