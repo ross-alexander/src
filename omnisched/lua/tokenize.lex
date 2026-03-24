@@ -19,7 +19,7 @@
 "~"		{ return TILDE; }
 "!"		{ return NOT; }
 ":"		{ return COLON; }
-[0-9]+		{ yylval.text = yytext; return INTEGER; }
+("+"|"-")?[0-9]+  	{ yylval.integer = strtol(yytext, nullptr, 10); return INTEGER; }
 day		{ return DAY; }
 week		{ return WEEK; }
 month		{ return MONTH; }
