@@ -4,75 +4,49 @@
    --
    ---------------------------------------------------------------------- */
 
+typedef class eval_t* (*evalf)(class roller_t*, class list_t*);
+
+typedef std::map<std::string, evalf> evalf_map;
+
+
+class roller_t {
+public:
+  evalf_map fmap;
+  lua_State *lua;
+};
+
 class eval_t {
  public:
   virtual void dump() = 0;
-  virtual int eval() = 0;
+  virtual class eval_t* eval_f(roller_t*) = 0;
+  virtual int eval_l(lua_State*) = 0;
 };
 
 class integer_t : public eval_t {
-  int value;
  public:
+  int value;
   integer_t(int i);
   void dump();
-  int eval();
-};
-
-class plus_t : public eval_t {
-  eval_t *left, *right;
- public:
-  plus_t(eval_t*, eval_t*);
-  void dump();
-  int eval();
-};
-
-
-class minus_t : public eval_t {
-  eval_t *left, *right;
- public:
-  minus_t(eval_t*, eval_t*);
-  void dump();
-  int eval();
-};
-
-class times_t : public eval_t {
-  eval_t *left, *right;
- public:
-  times_t(eval_t*, eval_t*);
-  void dump();
-  int eval();
-};
-
-class die_t : public eval_t {
-  int count, die;
- public:
-  die_t(int, int);
-  void dump();
-  int eval();
-};
-
-class group_t : public eval_t {
-  eval_t *group;
-public:
-  group_t(eval_t*);
-  void dump();
-  int eval();
+  eval_t* eval_f(roller_t*);
+  int eval_l(lua_State*);
 };
 
 class func_t : public eval_t {
-  eval_t *group;
-  char *function;
+  list_t *params;
+  std::string function;
 public:
-  func_t(char *, eval_t*);
+  func_t(char *, list_t*);
   void dump();
-  int eval();
+  eval_t* eval_f(roller_t*);
+  int eval_l(lua_State*);
 };
 
 class list_t : public eval_t {
-  std::vector<eval_t*> list;
 public:
+  std::vector<eval_t*> list;
   list_t();
   void append(eval_t*);
   void dump();
-  int eval();
+  eval_t* eval_f(roller_t*);
+  int eval_l(lua_State*);
 };
