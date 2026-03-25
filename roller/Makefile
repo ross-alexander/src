@@ -1,10 +1,9 @@
-LEX		= reflex --flex --bison --noyywrap
 CXX		= g++ -std=c++23
 CC		= g++ -std=c++23
 CXXFLAGS	= -D_DEFAULT_SOURCE $(shell pkg-config --cflags lua-5.5)
 LDLIBS		= -lreflex $(shell pkg-config --libs lua-5.5)
-
-YACC	= bison
+LEX		= reflex --flex --bison --noyywrap
+YACC		= bison
 
 roller: lex.yy.o parse.tab.o eval.o main.o
 	$(CXX) $^ $(LDLIBS) -o $@
