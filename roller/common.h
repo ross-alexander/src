@@ -12,7 +12,8 @@ typedef std::map<std::string, evalf> evalf_map;
 class roller_t {
 public:
   evalf_map fmap;
-  lua_State *lua;
+  int debuglevel;
+  roller_t();
 };
 
 class eval_t {

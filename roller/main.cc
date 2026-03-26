@@ -14,6 +14,12 @@
 
 extern int yylex();
 
+/* ----------------------------------------------------------------------
+   --
+   -- functions
+   --
+   ---------------------------------------------------------------------- */
+
 eval_t *f_repeat(roller_t* roller, list_t *params)
 {
   assert(params->list.size() > 1);
@@ -50,7 +56,6 @@ eval_t *f_floor(roller_t* roller, list_t* params)
     }
   return nullptr;
 }
-
 
 eval_t *f_die(roller_t* roller, list_t* params)
 {
@@ -168,7 +173,6 @@ int roller_lua_die(lua_State *L)
       }
       while ((r == die) && rollup);
     }
-  std::cout << "die(" << sum << ")\n";
   lua_pushinteger(L, sum);
   return 1;
 }
@@ -209,18 +213,86 @@ int roller_lua_repeat(lua_State *L)
   int count = roller_lua_tointeger(L, 1);
   assert(lua_isuserdata(L, 2));
 
-  int start = lua_gettop(L);
+  lua_newtable(L);
+  
+  int table_index = lua_gettop(L);
+  int index = 0;
   
   for (int i = 0; i < count; i++)
     {
-      std::cout << "++ " << lua_gettop(L) << "\n";
       eval_t* e = (eval_t*)lua_touserdata(L, 2);
+      int start = lua_gettop(L);
       e->eval_l(L);
-      std::cout << "-- " << lua_gettop(L) << "\n";
+      int end = lua_gettop(L);
+      // printf("start = %d end = %d\n", start, end);
+      for (int j = 0; j < end-start; j++)
+	{
+	  // printf("Setting index %d\n", index+end-start+j);
+	  lua_seti(L, table_index, index+end-start+j);
+	}
+      index += end - start;
     }
-  return lua_gettop(L) - start;
+  return 1; // lua_gettop(L) - table_index + 1;
 }
-  
+
+void roller_lua_dump(lua_State *L, int i)
+{
+  switch(lua_type(L, i))
+    {
+    case LUA_TNUMBER:
+      if (lua_isinteger(L, i))
+	printf("%02d: %ld\n", i, lua_tointeger(L, i));
+      else
+	printf("%02d: %f\n", i, lua_tonumber(L, i));
+      break;
+    case LUA_TTABLE:
+      {
+	lua_pushnil(L);
+	while (lua_next(L, i) != 0)
+	  {
+	    roller_lua_dump(L, lua_gettop(L));
+	    /* removes 'value'; keeps 'key' for next iteration */
+	    lua_pop(L, 1);
+	  }
+      }
+      break;
+    }
+}
+
+lua_State *roller_lua_init(roller_t *roller)
+{
+  lua_State *L = luaL_newstate();
+  luaL_openselectedlibs(L, LUA_GLIBK|LUA_IOLIBK, 0);
+
+  const luaL_Reg lua_functions[] = {
+    {"__plus",			roller_lua_plus},
+    {"__minus",			roller_lua_minus},
+    {"__floor",			roller_lua_floor},
+    {"die",			roller_lua_die},
+    {"repeat",			roller_lua_repeat},
+    {0, 0}
+  };
+  lua_pushglobaltable(L);
+  lua_newtable(L);
+  luaL_newlib(L, lua_functions);
+  lua_setfield(L, -2, "functions");
+  lua_pushlightuserdata(L, roller);
+  lua_setfield(L, -2, "roller");
+  lua_setfield(L, -2, "__roller");
+  lua_pop(L, 1);
+  return L;
+}
+
+/* ----------------------------------------------------------------------
+   --
+   -- roller_t
+   --
+   ---------------------------------------------------------------------- */
+
+roller_t::roller_t()
+{
+  debuglevel = 0;
+}
 
 /* ----------------------------------------------------------------------
    --
@@ -241,25 +313,7 @@ int main(int argc, char *argv[])
   roller.fmap["die"] = f_die;
   roller.fmap["repeat"] = f_repeat;
 
-  lua_State *L = roller.lua = luaL_newstate();
-  luaL_openselectedlibs(L, LUA_GLIBK|LUA_IOLIBK, 0);
-
-  const luaL_Reg lua_functions[] = {
-    {"__plus",			roller_lua_plus},
-    {"__minus",			roller_lua_minus},
-    {"__floor",			roller_lua_floor},
-    {"die",			roller_lua_die},
-    {"repeat",			roller_lua_repeat},
-    {0, 0}
-  };
-  lua_pushglobaltable(L);
-  lua_newtable(L);
-  luaL_newlib(L, lua_functions);
-  lua_setfield(L, -2, "functions");
-  lua_pushlightuserdata(L, &roller);
-  lua_setfield(L, -2, "roller");
-  lua_setfield(L, -2, "__roller");
-  lua_pop(L, 1);
+  lua_State *L = roller_lua_init(&roller);
   
   for (int i = 1; i < argc; i++)
     { 
@@ -268,24 +322,14 @@ int main(int argc, char *argv[])
       yy_scan_string(s);
       yyparse(&e);
       e->dump();
-      std::cout << "\n";
+      std::cout << "\n\n";
       eval_t* res = e->eval_f(&roller);
       res->dump();
       std::cout << "\n";
-      //      std::cout << " = " << e->eval() << "\n";
+      std::cout << "\n";
       e->eval_l(L);
-      for (unsigned int i = 1; i <= lua_gettop(roller.lua); i++)
-	{
-	  switch(lua_type(L, i))
-	    {
-	    case LUA_TNUMBER:
-	      if (lua_isinteger(L, i))
-		printf("%02d: %ld\n", i, lua_tointeger(L, i));
-	      else
-		printf("%02d: %f\n", i, lua_tonumber(L, i));
-	      break;
-	    } 
-	}
+      for (unsigned int i = 1; i <= lua_gettop(L); i++)
+	roller_lua_dump(L, i);
     }
   return(0);
 }

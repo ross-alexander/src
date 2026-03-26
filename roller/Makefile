@@ -12,10 +12,12 @@ main.o : main.cc common.h
 
 eval.o: eval.cc common.h
 
+parse.tab.o: parse.tab.c parse.tab.h common.h
+
 parse.tab.h parse.tab.c: parse.y
 	$(YACC) -H $<
 
-lex.yy.o: lex.yy.cpp lex.yy.h parse.tab.h
+lex.yy.o: lex.yy.cpp lex.yy.h parse.tab.h common.h
 
 lex.yy.h lex.yy.cpp : lex.l
 	$(LEX) --header-file=lex.yy.h $<

@@ -58,10 +58,13 @@ eval_t *func_t::eval_f(roller_t *roller)
       exit(1);
     }
 
-  std::cout << "eval " << this->function << " ";
-  this->params->dump();
-  std::cout << "\n";
-
+  if (roller->debuglevel > 0)
+    {
+      std::cout << "eval " << this->function << " ";
+      this->params->dump();
+      std::cout << "\n";
+    }
+  
   // Do not evaluate parameters first as we want lazy evaulation
   
   eval_t *res = (*roller->fmap[this->function])(roller, params);
@@ -74,20 +77,27 @@ int func_t::eval_l(lua_State *L)
   lua_getglobal(L, "__roller");
   assert(lua_istable(L, -1));
 
+  lua_getfield(L, -1, "roller");
+  assert(lua_isuserdata(L, -1));
+  roller_t *roller = (roller_t*)lua_touserdata(L, -1);
+  lua_pop(L, 1);
+  
   lua_getfield(L, -1, "functions");
   lua_getfield(L, -1, function.c_str());
   lua_remove(L, -2); // remove functions table
   lua_remove(L, -2); // remove roller table
   if (lua_isfunction(L, -1))
     {
-      std::cout << "Found lua function " << function << "\n";
+      if (roller->debuglevel > 0)
+	{
+	  std::cout << "Found lua function " << function << "\n";
+	}
       unsigned int f_index = lua_gettop(L);
       for (auto p : params->list)
 	{
 	  lua_pushlightuserdata(L, p);
 	}
       int nargs = lua_gettop(L) - f_index;
-      std::cout << "** " << nargs << "\n";
       lua_call(L, nargs, LUA_MULTRET);
     }
   return true;
