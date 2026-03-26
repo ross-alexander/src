@@ -111,8 +111,8 @@ int cs_dt_find(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, const char
 	    cs_fdt32_t len = fdt32_to_cpu(ptr[index + 1]);
 	    cs_fdt32_t off = fdt32_to_cpu(ptr[index + 2]);
 	    
-	    const unsigned char *prop_key = strings + off;
-	    const unsigned char *prop_value = (const unsigned char*) &ptr[index + 3];
+	    const char *prop_key = (const char*)(strings + off);
+	    const char *prop_value = (const char*) &ptr[index + 3];
 	    cs_fdt32_t block_len = 2 + ((len + 3) >> 2);
 
 	    //	    printf("-- %d %d %s\n", index, block_len, prop_key);
@@ -129,7 +129,7 @@ int cs_dt_find(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, const char
 	      }
 	    if (strcmp("compatible", prop_key) == 0)
 	      {
-		const unsigned char *s = prop_value;
+		const char *s = prop_value;
 		unsigned int len_acc = 0;
 		printf(":");
 		while (len_acc < len)
@@ -241,8 +241,8 @@ int cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level
 	    for (int i = 0; i < level; i++)
 	      printf("  ");
 
-	    const unsigned char *prop_key = strings + off;
-	    const unsigned char *prop_value = (const unsigned char*) &ptr[index + 3];
+	    const char *prop_key = strings + off;
+	    const char *prop_value = (const char*) &ptr[index + 3];
 	    cs_fdt32_t block_len = 2 + ((len + 3) >> 2);
 	    printf("%s", prop_key);
 
@@ -265,7 +265,7 @@ int cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level
 	      }
 	    if (strcmp("compatible", prop_key) == 0)
 	      {
-		const unsigned char *s = prop_value;
+		const char *s = prop_value;
 		unsigned int len_acc = 0;
 		printf(":");
 		while (len_acc < len)
@@ -347,7 +347,7 @@ int main(int argc, const char *argv[])
 
   struct cs_fdt_header *header = (struct cs_fdt_header*)buffer;
 
-    if (fdt32_to_cpu(header->magic) != FDT_MAGIC)
+  if (fdt32_to_cpu(header->magic) != FDT_MAGIC)
     {
       printf("Cannot find FDT match magic [%04x]\n", FDT_MAGIC);
       exit(1);
