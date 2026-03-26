@@ -16,3 +16,4 @@ functions.
 giving lazy evaluation.  This is needed for the repeat function,
 since we want to evaluate `die` multiple times.
 
+- Add lua evaluator using lightuserdata
