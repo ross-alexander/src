@@ -269,6 +269,9 @@ int cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level
 	      }
 	    if (strcmp("compatible", prop_key) == 0)
 	      {
+		// See 2.3.1 in the devicetree specifications.  The prop_value is an array
+		// of nul terminated strings
+		
 		const char *s = prop_value;
 		unsigned int len_acc = 0;
 		printf(":");
@@ -281,7 +284,6 @@ int cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level
 	      }
 	    if (strcmp("device_type", prop_key) == 0)
 	      printf(": %s", prop_value);
-	    
 	    printf("\n");
 	    //	    printf("blocklen %d\n", block_len);
 	    index += block_len;
