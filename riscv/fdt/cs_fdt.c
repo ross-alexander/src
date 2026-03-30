@@ -87,19 +87,21 @@ struct dt_bits {
 
 int cs_dt_find(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, const char *name)
 {
-  cs_fdt32_t index = 0;
-  const char *nodename = 0;
-  for ( ; index<<2 < size; index++)
+  cs_fdt32_t index;
+  const char *nodename = nullptr;
+
+  for (index = 0; index<<2 < size; index++)
     {
       cs_fdt32_t token = fdt32_to_cpu(ptr[index]);
-      //      printf("index %d size %d token %d\n", index, size, token);
+      
+      // printf("index %d size %d token %d\n", index, size, token);
   
       switch(token)
 	{
 	case FDT_BEGIN_NODE:
 	  {
 	    nodename = (char*)&ptr[index+1];
-	    printf("*** %s\n", nodename);
+	    // printf("++ BEGIN_NODE %s\n", nodename);
 	    cs_fdt32_t len = strlen(nodename);
 	    cs_fdt32_t block_len = 1 + ((len + 1 + 3) >> 2);
 	    cs_fdt32_t res = cs_dt_find(ptr + index + block_len, size - (block_len<<2), strings, name) + block_len;;
@@ -114,7 +116,7 @@ int cs_dt_find(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, const char
 	    const char *prop_key = (const char*)(strings + off);
 	    const char *prop_value = (const char*) &ptr[index + 3];
 	    cs_fdt32_t block_len = 2 + ((len + 3) >> 2);
-
+	    
 	    //	    printf("-- %d %d %s\n", index, block_len, prop_key);
 
 	    if (strcmp("#address-cells", prop_key) == 0)
@@ -129,20 +131,22 @@ int cs_dt_find(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, const char
 	      }
 	    if (strcmp("compatible", prop_key) == 0)
 	      {
-		const char *s = prop_value;
-		unsigned int len_acc = 0;
-		printf(":");
+		const char *ptr = prop_value;
+		int len_acc = 0;
+		int len_name = strlen(name);
+		int found = 0;
 		while (len_acc < len)
 		  {
-		    if (strcmp(name, s) == 0)
-		      printf(" + %s", s);
-		    else
-		      printf(" - %s", s);
-		    
-		    len_acc += strlen(s) + 1;
-		    s += strlen(s)+1;
+		    if (strncmp(ptr + len_acc, name, len_name) == 0)
+		      {
+			found = 1;
+			break;
+		      }
+		    len_acc += strlen(ptr + len_acc) + 1;
 		  }
-		printf("\n");
+			
+		if (found)
+		  printf("%s\n", prop_value);
 	      }
 	    index += block_len;
 	    break;
@@ -357,7 +361,20 @@ int main(int argc, const char *argv[])
     
     /* cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level, const char *path) */
 
-    cs_dt_parse((cs_fdt32_t*)((uint8_t*)buffer + fdt32_to_cpu(header->off_dt_struct)), fdt32_to_cpu(header->size_dt_struct), (char*)buffer + fdt32_to_cpu(header->off_dt_strings), 0, 0, &bits);
+    cs_dt_parse((cs_fdt32_t*)((uint8_t*)buffer + fdt32_to_cpu(header->off_dt_struct)),
+		fdt32_to_cpu(header->size_dt_struct),
+		(char*)buffer + fdt32_to_cpu(header->off_dt_strings),
+		0, 0, &bits);
 
-    cs_dt_find((cs_fdt32_t*)((uint8_t*)buffer + fdt32_to_cpu(header->off_dt_struct)), fdt32_to_cpu(header->size_dt_struct), (char*)buffer + fdt32_to_cpu(header->off_dt_strings), "ns16550a");
+    printf("\n");
+
+    for (int i = 2; i < argc; i++)
+      {
+	const char *compat = argv[i];
+    
+	cs_dt_find((cs_fdt32_t*)((uint8_t*)buffer + fdt32_to_cpu(header->off_dt_struct)),
+		   fdt32_to_cpu(header->size_dt_struct),
+		   (char*)buffer + fdt32_to_cpu(header->off_dt_strings),
+		   compat);
+      }
 }
