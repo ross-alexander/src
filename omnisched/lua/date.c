@@ -25,15 +25,15 @@ int luaL_typerror (lua_State *L, int narg, const char *tname)
 static date_t* push_date_t(lua_State *L)
 {
   date_t *d = (date_t*)lua_newuserdata(L, sizeof(date_t));
-  luaL_getmetatable(L, "Date");
+  luaL_getmetatable(L, "date_t");
   lua_setmetatable(L, -2);
   return d;
 }
 
 static date_t* to_date_t(lua_State *L, int index)
 {
-  date_t *d = (date_t*)luaL_checkudata(L, index, "Date");
-  if (d == NULL) luaL_typerror(L, index, "Date");
+  date_t *d = (date_t*)luaL_checkudata(L, index, "date_t");
+  if (d == NULL) luaL_typerror(L, index, "date_t");
   return d;
 }
 
