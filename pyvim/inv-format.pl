@@ -34,20 +34,17 @@
 # ----------------------------------------------------------------------
 
 use v5.32.1;
-use JSON;
-use Perl6::Slurp;
 use File::Slurp;
 use File::Spec::Functions;
 use File::Path;
 use Getopt::Long;
-use Data::Dumper;
 use Excel::Writer::XLSX;
 use NetAddr::IP;
 use Number::Bytes::Human qw(format_bytes parse_bytes);
-use Time::Piece;
 use List::Util qw(sum);
+use Time::Piece;
 use Time::Seconds;
-use Carp;
+use JSON;
 use utf8;
 use locale;
 
@@ -559,12 +556,22 @@ sub servers_report_md {
 # ----------------------------------------------------------------------
 
 sub json_dump {
-    my ($conf, $lists) = @_;
+    my ($conf, $dc, $lists) = @_;
     my $stream;
+
     my $table = vm_table($conf, $lists);
-    open($stream, ">:utf8", "inventory.js");
+
+    my $dc_name = $dc->{name};
+    
+    # --------------------
+    # Dump JSON to file
+    # --------------------
+
+    my $filename = "$dc_name.js";
+    open($stream, ">:utf8", $filename);
     print $stream to_json($table, {pretty => 1});
     close($stream);
+    return [$filename];
 };
 
 
@@ -606,7 +613,7 @@ sub process_conf {
     my $format = $dispatch->{$conf->{format}};
 
     # --------------------
-    # Check inventory is passed
+    # Check inventory is passed and exists
     # --------------------
 
     my $path = $conf->{inventory};
@@ -624,7 +631,7 @@ sub process_conf {
     }
     
     # --------------------
-    # If inventory file
+    # Read in file and covert from JSON
     # --------------------
     
     my $js = from_json(read_file($path));
