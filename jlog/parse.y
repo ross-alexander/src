@@ -37,8 +37,8 @@ extern void yyerror(collector_t*, const char*);
 res : file { /* *res = $1; */ }
 ;
 
-file : line { }
-| file line { if (cl->limit && cl->linenum > cl->limit) return 0; }
+file	: line { }
+	| file line { if (cl->limit && cl->linenum > cl->limit) return 0; }
 ;
 
 /*line : IDENT INTEGER TIME IPV4 INTEGER TS IDENT IDENT HYPHEN IDENT LSQUARE IDENT sink RSQUARE EOL */

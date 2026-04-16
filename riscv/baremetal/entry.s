@@ -1,3 +1,9 @@
+/* ----------------------------------------------------------------------
+--
+-- 2026-03-30: Copy hello and remove hello code
+--
+---------------------------------------------------------------------- */	
+
 	.global _boot_a0
 	.global _boot_a1
 	.global _uart_base
@@ -6,7 +12,7 @@
 /* Align code to 32-bit boundary */
 	
 	.align 3
-
+	
 _entry:
 	
 /*
@@ -26,31 +32,15 @@ This requires -march=risc32ia at at minimum for the atomic instructions
 	la	a3, _boot_a1
 	sw	a1, 0(a3)
 
+	/*	la	t2, _payload_start */
+
 /* Hardwire the uart address into _uart_base */
 	
 /*	lui t0, 0x10010 /* Load 0x10010 into upper 20 bits for sifive_u (uart0) */
-	lui	t0, 0x10000 /* Load 0x10000 into upper 20 bits for virt uart */
+	lui	t0, 0x10000 /* Load 0x10000 into upper 20 bits for virt uart = 0x8000000 */
 	la	t1, _uart_base
 	sw	t0, 0(t1)
 
-/* Write "hello" to uart */
-
-	li t1, 72
-	sw t1, 0(t0)
-	li t1, 101
-	sw t1, 0(t0)
-	li t1, 108
-	sw t1, 0(t0)
-	li t1, 108
-	sw t1, 0(t0)
-	li t1, 111
-	sw t1, 0(t0)
-
-	/* linefeed */
-	li t1, 10
-	sw t1, 0(t0)
-
-	/*	la	t2, _payload_start */
 /* Set the stack pointer to payload_end + 0x2000 */
 
 	la	t2, _payload_end
@@ -58,13 +48,19 @@ This requires -march=risc32ia at at minimum for the atomic instructions
 	add	sp, t2, t3
 
 /* call loop from C with value of _uart_base in a0 */
-/* Disable to avoid mixing with entry.s */
-/*	
-	la	a0, _uart_base
-	lw	a0, 0(a0)
-	call	_start
-	*/
 
+	la	a3, _boot_a0
+	lw	a0, 0(a3)
+	la	a3, _boot_a1
+	lw	a1, 0(a3)
+	call	_start
+
+/* Horrible hack to shutdown using the sifive,test0 (ays skscon) device */
+	
+	lui	a3, 0x00100
+	li	t0, 0x5555
+	sw	t0, 0(a3)
+	
 finish:
     beq t1, t1, finish
 

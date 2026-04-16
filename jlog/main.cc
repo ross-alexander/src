@@ -33,23 +33,31 @@ using jsoncons::json;
 
 double tstod(const char *s)
 {
-  size_t len_date, len_time, len_deci;
-  len_date = strcspn(s, "T");
-  len_time = strcspn(s + len_date + 1, ".");
-  len_deci = strcspn(s + len_date + len_time + 2, "+Z");
+  size_t date_start = 0;
+  size_t date_len = strcspn(s, "T");
+  size_t time_start = date_start + date_len + 1;
+  size_t time_len = strcspn(s + time_start, ".");
+  size_t deci_start = time_start + time_len;
+  size_t deci_len = strcspn(s + deci_start, "+Z");
+  size_t zone_start = deci_start + deci_len;
+  size_t zone_len = strlen(s) - zone_start;
+  
+  char *zeit = (char*)alloca(strlen(s) + 1);
+  memset(zeit, 0, strlen(s));
+  strncpy(zeit, s, date_len);
+  zeit[date_len] = ' ';
+  strncpy(zeit + date_len + 1, s + time_start, time_len);
+  
+  zeit[date_len + time_len + 1] = ' ';
+  strncpy(zeit + date_len + time_len + 2, s + zone_start, zone_len);
 
-  char *zeit = (char*)alloca(len_date + len_time + 3);
-  strncpy(zeit, s, len_date);
-  zeit[len_date] = ' ';
-  strncpy(zeit + len_date + 1, s + len_date + 1, len_time);
-  zeit[len_date + len_time + 1] = '\0';
-
-  char *deci = (char*)alloca(len_deci + 3);
-  strncpy(deci, s + len_date + len_time + 1, len_deci + 1);
-  deci[len_deci + 2] = '\0';
+  char *deci = (char*)alloca(deci_len + 3);
+  strncpy(deci, s + deci_start, deci_len);
+  deci[deci_len] = '\0';
   struct tm tm;
   strptime(zeit, "%Y-%m-%d %H:%M:%S", &tm);
   time_t epoch = timegm(&tm);
+
   double res = (double)epoch + strtod(deci, nullptr);
   return res;
 }

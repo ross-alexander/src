@@ -15,6 +15,9 @@ function list_iter (t)
    end
 end
 
+today = Date.now()
+print(today)
+
 function omni(d)
    return d:strftime("%j%t%b %d\t\t# %a %d %b %Y")
 end

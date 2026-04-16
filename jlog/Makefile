@@ -7,7 +7,7 @@ CXX		= g++
 CC		= gcc
 CFLAGS		= -std=c23 -Wall -fPIC -D_DEFAULT_SOURCE $(JSONCONSINC) $(LUAINC)
 
-ALL		= jlog NetAddr.so luahacks.so
+ALL		= jlog NetAddr.so luahacks.so dates
 
 all	: $(ALL)
 

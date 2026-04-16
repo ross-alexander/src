@@ -23,6 +23,7 @@ print(table.concat(keys))
 print(table.concat(sep))
 
 today = Date.now()
+
 for i = 0, 17 do
    local t = (today.year * 12 + today.mon) + i
    local y = (t // 12) + 1900

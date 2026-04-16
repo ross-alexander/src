@@ -18,7 +18,7 @@
 #include <endian.h>
 #include <assert.h>
 
-/* https://github.com/devicetree-org/devicetree-specification/releases/tag/v0.4-rc1 */
+/* https://github.com/devicetree-org/devicetree-specification/releases/tag/v0.4 */
 
 struct cs_fdt_header {
   uint32_t magic;
@@ -181,10 +181,13 @@ int cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level
 {
   cs_fdt32_t index = 0;
   struct dt_bits local_bits;
+  const char *path_sep = "/";
 
   memcpy(&local_bits, bits, sizeof(struct dt_bits));
+
+  // index is in 32-bit, size is in bytes
   
-  for ( ; index<<2 < size; index++)
+  for ( ; index < size>>2; index++)
     {
       cs_fdt32_t token = fdt32_to_cpu(ptr[index]);
       //      printf("index %d size %d token %d\n", index, size, token);
@@ -194,18 +197,26 @@ int cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level
 	case FDT_BEGIN_NODE:
 	  {
 	    const char *name = (char*)&ptr[index+1];
-	    cs_fdt32_t len = strlen(name);
+	    cs_fdt32_t name_len = strlen(name);
 	    
 	    for (int i = 0; i < level; i++)
 	      printf("  ");
 
-	    const char *path_sep = "/";
-	    
 	    char *extended_path = 0;
 
+#ifdef Simples
+	    
 	    // The path is / for root, /node for level 1 and /node1/node2 for subsequent levels
-
 	    // The root name is '', so will have length 0
+
+	    unsigned int path_len = strlen(path) + strlen(name) + 2;
+	    extended_path = alloca(path_len);
+	    strcpy(extended_path, path);
+	    strcpy(extended_path + strlen(path), path_sep);
+	    strcpy(extended_path + strlen(path) + 1, name);
+
+#else
+	    
 	    if(strlen(name) == 0)
 	      {
 		if (path != 0)
@@ -216,8 +227,8 @@ int cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level
 	      }
 	    else
 	      {
-		unsigned int plen = strlen(path) + strlen(name) + 2;
-		extended_path = alloca(plen);
+		unsigned int path_len = strlen(path) + strlen(name) + 2;
+		extended_path = alloca(path_len);
 		strcpy(extended_path, path);
 		if (strcmp(path, path_sep) == 0)
 		  {
@@ -229,9 +240,12 @@ int cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level
 		    strcpy(extended_path + strlen(path) + 1, name);
 		  }
 	      }
+
+#endif
+	    
 	    printf("%s [%s]\n", extended_path, name);
 
-	    cs_fdt32_t block_len = 1 + ((len + 1 + 3) >> 2);
+	    cs_fdt32_t block_len = 1 + ((name_len + 4) >> 2); // name length rounded to 32-bit
 	    //	    printf("blocklen %d\n", block_len);
 	    cs_fdt32_t res = cs_dt_parse(ptr + index + block_len, size - (block_len<<2), strings, level+1, extended_path, &local_bits) + block_len;
 	    index += res;
@@ -240,12 +254,12 @@ int cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level
 	case FDT_PROP:
 	  {
 	    cs_fdt32_t len = fdt32_to_cpu(ptr[index + 1]);
-	    cs_fdt32_t off = fdt32_to_cpu(ptr[index + 2]);
+	    cs_fdt32_t nameoff = fdt32_to_cpu(ptr[index + 2]);
 	    
 	    for (int i = 0; i < level; i++)
 	      printf("  ");
 
-	    const char *prop_key = strings + off;
+	    const char *prop_key = strings + nameoff;
 	    const char *prop_value = (const char*) &ptr[index + 3];
 	    cs_fdt32_t block_len = 2 + ((len + 3) >> 2);
 	    printf("%s", prop_key);
@@ -363,10 +377,16 @@ int main(int argc, const char *argv[])
     
     /* cs_dt_parse(cs_fdt32_t *ptr, cs_fdt32_t size, const char *strings, int level, const char *path) */
 
-    cs_dt_parse((cs_fdt32_t*)((uint8_t*)buffer + fdt32_to_cpu(header->off_dt_struct)),
-		fdt32_to_cpu(header->size_dt_struct),
-		(char*)buffer + fdt32_to_cpu(header->off_dt_strings),
-		0, 0, &bits);
+    uint8_t *dt_start = (uint8_t*)buffer + fdt32_to_cpu(header->off_dt_struct);
+    uint32_t dt_size = fdt32_to_cpu(header->size_dt_struct);
+    char* string_start = (char*)buffer + fdt32_to_cpu(header->off_dt_strings);
+
+    cs_dt_parse((cs_fdt32_t*)dt_start,
+		dt_size,
+		string_start,
+		0, // level
+		"", // path
+		&bits);
 
     printf("\n");
 
