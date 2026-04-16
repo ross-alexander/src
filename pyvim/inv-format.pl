@@ -39,82 +39,17 @@ use Perl6::Slurp;
 use File::Slurp;
 use File::Spec::Functions;
 use File::Path;
-use MIME::Lite;
 use Getopt::Long;
 use Data::Dumper;
 use Excel::Writer::XLSX;
 use NetAddr::IP;
 use Number::Bytes::Human qw(format_bytes parse_bytes);
-use Net::IP::LPM;
 use Time::Piece;
 use List::Util qw(sum);
 use Time::Seconds;
 use Carp;
 use utf8;
 use locale;
-
-# ----------------------------------------------------------------------
-#
-# vshield_subnets
-#
-# ----------------------------------------------------------------------
-
-sub vshield_subnets {
-    my ($conf, $sites) = @_;
-
-    if (! -f $conf->{subnets})
-    {
-	return;
-    }
-    my $js = decode_json(slurp($conf->{subnets}));
-
-    for my $client (keys(%$js))
-    {
-	for my $zone (keys(%{$js->{$client}->{zones}}))
-	{
-	    for my $dc (keys(%{$js->{$client}->{zones}->{$zone}}))
-	    {
-		my $subnets = $js->{$client}->{zones}->{$zone}->{$dc}->{subnets};
-		for my $sn (@$subnets)
-		{
-		    $sn->{dc} = $dc;
-		    push(@{$sites->{'client'}->{$client}->{nets}}, $sn);
-		}
-	    }
-	}
-    }
-}
-
-
-# ----------------------------------------------------------------------
-#
-# net_trie
-#
-# ----------------------------------------------------------------------
-
-sub net_trie {
-    my ($sites) = @_;
-
-    for my $dc (keys(%{$sites}))
-    {
-	for my $client (keys(%{$sites->{client}}))
-	{
-	    my $nets = $sites->{client}->{$client}->{nets};
-	    my $lpm = Net::IP::LPM->new();
-	    my $map = {};
-	    for my $net (@$nets)
-	    {
-		$map->{$net->{addr}}->{$net->{dc}} = $net;
-	    }
-	    while (my ($k, $v) = each(%$map))
-	    {
-		$lpm->add($k, $v);
-	    }
-	    $sites->{client}->{$client}->{lpm} = $lpm;
-	}
-    }
-}
-
 
 # ----------------------------------------------------------------------
 #
@@ -127,9 +62,6 @@ sub host_descent {
 
     my @p = (@{$path}, $tree->{name});
     $tree->{path} = join("/", @$path);
-
-#    say $tree->{path}, " + ", $tree->{name}, " + ", $tree->{type};
-#    say $tree->{folder}, " * ", $tree->{hostsystem}, " * ", $tree->{cluster};
 
     return ($tree->{folder} || $tree->{hostsystem} || $tree->{cluster}) ? [ map { @{host_descent($_, \@p)}; } (@{$tree->{folder}}, @{$tree->{hostsystem}}, @{$tree->{cluster}}) ]
 	: (($tree->{type} eq "HostSystem" || $tree->{type} eq "host") ? [$tree] : []);
@@ -145,10 +77,6 @@ sub vm_descent {
     my ($tree, $path) = @_;
     my @p = (@$path, $tree->{name});
 
-#    say $tree->{path}, " + ", $tree->{name}, " + ", $tree->{type};
-#    say $tree->{folder}, " * ", $tree->{hostsystem}, " * ", $tree->{cluster};
-    
-#    return [] if (!$tree->{name});
     return [ map {@{vm_descent($_, \@p)}; } (@{$tree->{folder}}, @{$tree->{virtualmachine}}) ] if (($tree->{folder} || $tree->{virtualmachine}));
     return $tree->{type} eq "Folder" ? [] : [$tree];
 }
@@ -173,15 +101,24 @@ sub pg_descent {
 # vm_table
 #
 # ----------------------------------------------------------------------
+
 sub vm_table {
     my ($conf, $lists) = @_;
 
+    # --------------------
+    # map customfields from key to name
+    # --------------------
+    
     my $key_map = {};
     while (my ($k, $v) = each(%{$conf->{customfield}}))
     {
 	$key_map->{$v->{key}} = $v->{name};
     }
 
+    # --------------------
+    # Obsolete field as there are no longer any multiclient environments
+    # --------------------
+        
     my $clientfield = $conf->{customfield}->{Client}->{key};
 
     if (!$lists->{virtualmachines})
@@ -198,9 +135,9 @@ sub vm_table {
     }
     my $host_list = $lists->{hosts};
 
-# --------------------
-# Map portgroups
-# --------------------
+    # --------------------
+    # Map portgroups
+    # --------------------
 
     my $portgroups = {};
     for my $pg (@{$lists->{portgroups} || []})
@@ -208,15 +145,15 @@ sub vm_table {
 	$portgroups->{$pg->{ref}} = $pg->{name};
     }
 
-# --------------------
-# Define IPv4 LinkLocal address
-# --------------------
+    # --------------------
+    # Define IPv4 LinkLocal address
+    # --------------------
 
     my $ll_na = NetAddr::IP->new('169.254.0.0/16');
 
-# --------------------
-# Create index of host references
-# --------------------
+    # --------------------
+    # Create index of host references
+    # --------------------
 
     my $host_ref = {};
     for my $h (@$host_list)
@@ -235,16 +172,15 @@ sub vm_table {
 	my @ipv4;
 	my @ipv6;
 
-# --------------------
-# host
-# --------------------
-
+	# --------------------
+	# host
+	# --------------------
+	
 	my $host = $host_ref->{$i->{host}};
-	my $site = $conf->{host_site}->{$host->{name}};
 
-# --------------------
-# guest networks
-# --------------------
+	# --------------------
+	# guest networks
+	# --------------------
 
 	for my $n (@{$i->{guest}->{net} || []})
 	{
@@ -254,60 +190,40 @@ sub vm_table {
 		{
 		    my $na = NetAddr::IP->new($ip->{ip}, $ip->{prefix});
 		    push(@ipv4, $na->cidr()) if (defined($na) && ($na->version() == 4));
-		    if (defined($na) && ($na->version() == 4) && (!$ll_na->contains($na)) && (my $lpm = $conf->{sites}->{client}->{$client}->{lpm}))
-		    {
-			my $lookup = $lpm->lookup($na->addr());
-			if ($lookup)
-			{
-			    if (!$lookup->{$site})
-			    {
-				say "$name: Incorrect site $site vs $na";
-			    }
-			    my ($dc_l, $net_l) = %$lookup;
-			    my $vm_net = $na->network();
-			    my $lu_net = NetAddr::IP->new($net_l->{addr});
-			    say "$name: Bad subnet ", $vm_net, " ", $lu_net if ($vm_net <=> $lu_net);
-			}
-			else
-			{
-			    say "$name: Missing network $na client $client";
-			}
-		    }
 		}
 	    }
 	}
 
-# --------------------
-# guest disks
-# --------------------
+	# --------------------
+	# guest disks
+	# --------------------
 
 	my $disks = join(" ", map {
 	    sprintf("%s (%s / %s)", $_->{path}, format_bytes($_->{free}), format_bytes($_->{size}));
 			 } @{$i->{guest}->{disks}});
 
-# --------------------
-# VirtualDisks and RDMs
-# --------------------
-
-
+	# --------------------
+	# VirtualDisks and RDMs
+	# --------------------
+	
 	my $vmdks = join(", ", map {
 	    $_->{rdm} ? sprintf("RDM %s %s", $_->{summary}, $_->{file}) : sprintf("%s %s", $_->{summary}, $_->{file});
 			 } @{$i->{devices}->{disks}});
-
+	
 	my $kb = sum(map { $_->{kb} } @{$i->{devices}->{disks}});
-
-# --------------------
-# NIC devices
-# --------------------
+	
+	# --------------------
+	# NIC devices
+	# --------------------
 
 	my $nics = join(", ", map {
 	    my $pg = exists($_->{portgroup}) ? (exists($portgroups->{$_->{portgroup}}) ? $portgroups->{$_->{portgroup}} : $_->{portgroup}) : "";
 	    sprintf("%s <%s, %s> %s",$_->{address}, $_->{connected} ? "connected" : "disconnected", $_->{start} ? "onstart" : "no start", $pg);
 			} (@{$i->{devices}->{nics}}));
 	
-# --------------------
-# Fill in table
-# --------------------
+	# --------------------
+	# Fill in table
+	# --------------------
 
 	my $entry = {
 	    path => $i->{path},
@@ -324,10 +240,14 @@ sub vm_table {
 	    vmdks => $vmdks,
 	    storage => $kb,
 	    nics => $nics,
-	    site => $conf->{sites}->{$site}->{name},
 	    tools_version => $i->{guest}->{tools_version},
 	    tools_status => $i->{guest}->{tools_status},
 	};
+
+	# --------------------
+	# Add custom fields
+	# --------------------
+	
 	if ($i->{custom})
 	{
 	    while (my ($k, $v) = each(%{$i->{custom}}))
@@ -337,7 +257,6 @@ sub vm_table {
 	}
 	push(@res, $entry);
     }
-
     return \@res;
 }
 
@@ -348,14 +267,17 @@ sub vm_table {
 # ----------------------------------------------------------------------
 
 sub vm_report_excel {
-    my ($conf, $dc, $host_list, $vm_list) = @_;
+    my ($conf, $dc, $lists) = @_;
 
-    my @res = @{&vm_table($conf, $host_list, $vm_list)};
+    # --------------------
+    # Get list of VMs
+    # --------------------
+    
+    my @res = @{&vm_table($conf, $lists)};
 
-
-# --------------------
-# Sort into clients
-# --------------------
+    # --------------------
+    # Sort into clients
+    # --------------------
 
     my %clients;
     map {
@@ -370,6 +292,12 @@ sub vm_report_excel {
     
     my $file = catfile($conf->{exceldir}, sprintf("%s-%s.xlsx", $dc->{name}, Time::Piece->new($conf->{meta}->{epoch})->strftime("%Y%m%d")));
     push(@files, $file);
+
+    # --------------------
+    # Create Excel workbook
+    # --------------------
+
+    
     my $wb = Excel::Writer::XLSX->new($file);
 
     # --------------------
@@ -378,25 +306,48 @@ sub vm_report_excel {
 
     my $client_lc_map = {};
 
-        my $format = $wb->add_format(
-            border => 0,
-            bg_color => 42,
-            size => 9,
-            text_wrap => 1,
-            font => 'Consolas',
-            align => 'top'
-            );
+    my $formats = {
+	body => $wb->add_format(
+	    border => 0,
+	    #	bg_color => 42,
+	    size => 9,
+	    text_wrap => 1,
+	    font => 'Aptos Mono',
+	    align => 'top'
+	    ),
+	heading => $wb->add_format(
+	    border => 0,
+	    #	bg_color => 'orange',
+	    bold => 1,
+	    size => 10,
+	    text_wrap => 0,
+	    font => 'Aptos Mono',
+	    align => 'top',
+	    )
+    };
 
-        my $heading = $wb->add_format(
-            border => 2,
-            bg_color => 'orange',
-            bold => 1,
-            size => 12,
-            text_wrap => 0,
-            font => 'Consolas',
-            align => 'top',
-            );
+    # --------------------
+    # Create new worksheet per client
+    # --------------------
 
+    my $schema = [
+	{ title => 'VM Name',          width => 24, field => 'name', },
+	{ title => 'State',            width => 10, field => 'state' },
+	{ title => 'Hostname',         width => 36, field => 'fqdn'  },
+	{ title => 'Operating System', width => 45, field => 'os' },
+	{ title => 'IPv4 Address',     width => 16, field => 'ipv4' },
+	{ title => 'CPU',              width => 10, field => 'cpu' },
+	{ title => 'Memory (MB)',      width => 15, field => 'mem' },
+	{ title => 'Disks (OS)',       width => 50, field => 'disks' },
+	{ title => 'Disks (VMDK)',     width => 50, field => 'vmdks' },
+	{ title => 'Host',             width => 40, field => 'host' },
+	{ title => 'Path',             width => 40, field => 'path' },
+	];
+
+   
+#    $ws->write(0, 0, ['VM Name', 'State', 'Hostname', 'Operating System', 'IP Addresses', 'CPU', 'Memory (MB)', 'Disks (OS)', 'VMDKs', 'Host', 'Path', 'Tools Version', 'Tools Status'], $heading);
+
+    
     for my $client (keys(%clients))
     {
 	my $client_lc = lc($client);
@@ -409,27 +360,40 @@ sub vm_report_excel {
 	{
 	    $client_lc_map->{$client_lc} = 1;
 	}
+
+	# --------------------
+	# Add new worksheet
+	# --------------------
+	
         my $ws = $wb->add_worksheet($wb_name);
-        $ws->set_column(0, 0, 20);
-        $ws->set_column(1, 1, 12);
-        $ws->set_column(2, 2, 40);
-        $ws->set_column(3, 3, 50);
-        $ws->set_column(4, 4, 50);
-        $ws->set_column(5, 5, 15);
-        $ws->set_column(6, 6, 15);
-        $ws->set_column(7, 7, 120);
-        $ws->set_column(8, 8, 120);
-        $ws->set_column(9, 9, 50);
-        $ws->set_column(10, 10, 100);
-        $ws->set_column(11, 12, 30);
 
-        $ws->write(0, 0, ['VM Name', 'State', 'Hostname', 'Operating System', 'IP Addresses', 'CPU', 'Memory (MB)', 'Disks (OS)', 'VMDKs', 'Host', 'Path', 'Tools Version', 'Tools Status'], $heading);
+	# --------------------
+	# Set column widths
+	# --------------------
 
+	for my $i (0 .. scalar(@$schema))
+	{
+	    $ws->set_column($i, $i, $schema->[$i]->{width});
+	}
+
+	# --------------------
+	# Add headings
+	# --------------------
+	
+	my @titles = map {$_->{title}} @$schema;
+	
+        $ws->write(0, 0, \@titles, $formats->{heading});
+
+	# --------------------
+	# Add body rows
+	# --------------------
+	
         for (my $row = 0; $clients{$client}->[$row]; $row++)
         {
             my $t = $clients{$client}->[$row];
-            $ws->write($row+1, 0, [$t->{name}, $t->{state}, $t->{fqdn}, $t->{os}, $t->{ipv4}, $t->{cpu}, $t->{mem}, $t->{disks}, $t->{vmdks}, $t->{host}, $t->{path}, $t->{tools_version}, $t->{tools_status}], $format);
-        }
+	    my @line = map { $t->{$_->{field}} } @$schema;
+	    $ws->write($row+1, 0, \@line, $formats->{body});
+	}
     }
     return \@files;
 }
@@ -442,156 +406,80 @@ sub vm_report_excel {
 # ----------------------------------------------------------------------
 
 sub markdown {
-    my ($conf, $dc, $host_list, $vm_list) = @_;
-    my @res = @{&vm_table($conf, $host_list, $vm_list)};
-    my $res = {};
+    my ($conf, $dc, $lists) = @_;
+
+    # --------------------
+    # Get table (list of hashes) of the virtual machines
+    # --------------------
+    
+    my @res = @{&vm_table($conf, $lists)};
+
+    # --------------------
+    # Sort by name and add to client specific lists
+    # --------------------
+    
+    my $vms_per_client = {};
     for my $i (sort({$a->{name} cmp $b->{name}} @res))
     {
 	my $name = $i->{name};
         my $client = $i->{client} || "ZZZ";
-	push(@{$res->{$client}}, $i);
+	push(@{$vms_per_client->{$client}}, $i);
     }
 
     my $schema = [
-	{
-	    title => 'VM Name',
-	    width => 24,
-	    field => 'name',
-	},
-	{
-	    title => 'FQDN',
-	    width => 36,
-	    field => 'fqdn'
-	},
-	{
-	    title => 'State',
-	    width => 10,
-	    field => 'state'
-	},
-	{
-	    title => 'IPv4 Address',
-	    width => 16,
-	    field => 'ipv4'
-	},
-	{
-	    title => 'NICs',
-	    width => 20,
-	    field => 'nics'
-	},
-	{
-	    title => 'Site',
-	    width => 5,
-	    field => 'site'
-	},
-	{
-	    title => 'Host',
-	    width => 20,
-	    field => 'host'
-	},
-	{
-	    title => 'Operating System',
-	    width => 45,
-	    field => 'os'
-	},
-	{
-	    title => 'CPU',
-	    width => 10,
-	    field => 'cpu'
-	},
-	{
-	    title => 'RAM (GB)',
-	    width => 10,
-	    field => 'mem'
-	},
-	{
-	    title => 'Disks (Guest)',
-	    width => 50,
-	    field => 'disks',
-	},
-	{
-	    title => 'Disks (VMDK)',
-	    width => 50,
-	    field => 'vmdks',
-	},
-	{
-	    title => 'Storage (KB)',
-	    width => 15,
-	    field => 'storage'
-	},
+	{ title => 'VM Name',          width => 24, field => 'name',   },
+	{ title => 'FQDN',             width => 36, field => 'fqdn'    },
+	{ title => 'State',            width => 10, field => 'state'   },
+	{ title => 'Operating System', width => 45, field => 'os'      },
+	{ title => 'IPv4 Address',     width => 16, field => 'ipv4'    },
+	# { title => 'NICs',             width => 20, field => 'nics'    },
+	# { title => 'Host',             width => 20, field => 'host'    },
+	# { title => 'CPU',              width => 10, field => 'cpu'     },
+	# { title => 'RAM (GB)',         width => 10, field => 'mem'     },
+	# { title => 'Disks (Guest)',    width => 50, field => 'disks'   },
+	# { title => 'Disks (VMDK)',     width => 50, field => 'vmdks'   },
+	# { title => 'Storage (KB)',     width => 15, field => 'storage' },
 	];
 
-    my @paths;
-    
-    for my $k (keys(%$res))
-    {
-	my $stream;
+    my @filenames;
 
+    # --------------------
+    # Loop over each client
+    # --------------------
+    
+    for my $k (keys(%$vms_per_client))
+    {
+	my @lines;
+
+	push(@lines, [ map { my $w = $_->{width}; sprintf("%-${w}s", $_->{title})} @$schema ]);
+	push(@lines, [ map { my $w = $_->{width}; sprintf("%-${w}s", "-" x $w)} @$schema ]);
+	
+	for my $v (@{$vms_per_client->{$k}})
+	{
+	    push(@lines, [ map { my $w = $_->{width}; sprintf("%-${w}s", $v->{$_->{field}})} @$schema ]);
+	}
+
+	# --------------------
+	# Construct path and create
+	# --------------------
+	
 	my $path = catdir("md", $dc->{name}, Time::Piece->new($conf->{dc}->{epoch})->strftime("%Y%m%d"));
 	mkpath($path);
-	$path = catfile($path, "$k.md");
-	push(@paths, $path);
-	open($stream, ">:utf8", $path);
-	my @t;
-	my @f;
-	for my $s (@$schema)
-	{
-	    my $w = $s->{width};
-	    push(@f, sprintf("%-${w}s", $s->{title}));
-	}
-	push(@t, join(" | ", @f));
+	
+	my $filename = catfile($path, "$k.md");
+	push(@filenames, $filename);
 
-	@f = ();
+	# --------------------
+	# Open output with utf8, although it unlikely any non ASCII characters will be present
+	# --------------------
 
-	for my $s (@$schema)
-	{
-	    my $w = $s->{width};
-	    push(@f, sprintf("%-${w}s", "-" x $w));
-	}
-	push(@t, join(" | ", @f));
-
-	for my $v (@{$res->{$k}})
-	{
-	    my @f;
-	    for my $s (@$schema)
-	    {
-		my $w = $s->{width};
-		push(@f, sprintf("%-${w}s", $v->{$s->{field}}));
-	    }
-	    push(@t, join(" | ", @f));
-	}
-
-	map {
-	    printf($stream "%s\n", $_);
-	} @t;
+	my $stream;
+	open($stream, ">:utf8", $filename);
+	map { printf($stream "%s\n", join(" | ", @$_)); } @lines;
+	close($stream);
     }
-    return \@paths;
+    return \@filenames;
 }
-
-
-# ----------------------------------------------------------------------
-#
-# billable
-#
-# ----------------------------------------------------------------------
-
-sub billable {
-    my ($conf, $host_list, $vm_list) = @_;
-    my @res = @{&vm_table($conf, $host_list, $vm_list)};
-    my $res = {};
-
-    my $billable;
-    if ($conf->{customfield} && $conf->{customfield}->{billable})
-    {
-	$billable = $conf->{customfield}->{billable}->{key};
-	say $billable;
-    }
-    for my $entry (@res)
-    {
-	say($entry->{name}, $entry->{tags}->{$billable});
-    }
-#    say to_json([@res], {pretty=>1});
-}
-
 
 # ----------------------------------------------------------------------
 #
@@ -602,8 +490,12 @@ sub billable {
 sub servers_report_md {
     my ($conf, $dc, $lists) = @_;
 
+    # --------------------
+    # Construct list of hashes
+    # --------------------
+
     my @res = map {
-	my $t = {
+	+{
 	    name => $_->{name},
 	    model => $_->{model},
 	    tag => $_->{servicetag},
@@ -616,92 +508,47 @@ sub servers_report_md {
 	    version => $_->{product}->{version}.".".$_->{product}->{build},
 	    uptime => Time::Seconds->new($_->{uptime})->pretty(),
 	};
-	$t;
     } @{$lists->{hosts}};
 
+    # --------------------
+    # Define column schema
+    # --------------------
+    
     my $schema = [
-	{
-	    title => 'HostName',
-	    width => 35,
-	    field => 'name',
-	},
-	{
-	    title => 'Version',
-	    width => 16,
-	    field => 'version',
-	},
-	{
-	    title => 'Model',
-	    width => 54,
-	    field => 'model'
-	},
-	{
-	    title => 'ServiceTag',
-	    width => 12,
-	    field => 'tag'
-	},
-	{
-	    title => 'Memory',
-	    width => 10,
-	    field => 'memory'
-	},
-	{
-	    title => 'Skt',
-	    width => 4,
-	    field => 'sockets'
-	},
-	{
-	    title => 'Cores',
-	    width => 6,
-	    field => 'cores'
-	},
-	{
-	    title => 'Threads',
-	    width => 8,
-	    field => 'threads'
-	},
-	{
-	    title => 'CPU',
-	    width => 46,
-	    field => 'cpu'
-	},
-	{
-	    title => 'Path',
-	    width => 28,
-	    field => 'path'
-	},
-	{
-	    title => 'Uptime',
-	    width => 10,
-	    field => 'uptime'
-	},
+	{ title => 'HostName',   width => 35, field => 'name'    },
+	{ title => 'Version',    width => 16, field => 'version' },
+	{ title => 'Model',      width => 54, field => 'model'   },
+	{ title => 'ServiceTag', width => 12, field => 'tag'     },
+	{ title => 'Memory',     width => 10, field => 'memory'  },
+	{ title => 'Skt',        width => 4,  field => 'sockets' },
+	{ title => 'Cores',      width => 6,  field => 'cores'   },
+	{ title => 'Threads',    width => 8,  field => 'threads' },
+	{ title => 'CPU',        width => 46, field => 'cpu'     },
+	{ title => 'Path',       width => 40, field => 'path'    },
+	{ title => 'Uptime',     width => 10, field => 'uptime'  },
 	];
 
-    for my $s (@$schema)
-    {
-	my $w = $s->{width};
-	printf("%-${w}s", $s->{title});
-    }
-    printf("\n");
-
-    for my $s (@$schema)
-    {
-	my $w = $s->{width};
-	printf("%-${w}s", "---");
-    }
-    printf("\n");
-
+    # --------------------
+    # Create list of lists
+    # --------------------
+    
+    my @lines;
+    push(@lines, [ map { my $w = $_->{width}; sprintf("%-${w}s", $_->{title})} @$schema ]);
+    push(@lines, [ map { my $w = $_->{width}; sprintf("%-${w}s", "-" x $w)} @$schema ]);
+    
     for my $h (sort({$a->{name} cmp $b->{name}} @res))
     {
-	for my $s (@$schema)
-	{
-	    my $field_name = $s->{field};
-	    my $w = $s->{width};
-	    printf("%-${w}s", $h->{$field_name} // "-");
-	}
-	printf("\n");
+	push(@lines, [ map { my $w = $_->{width}; sprintf("%-${w}s", $h->{$_->{field}} // "-")} @$schema ]);
     }
-    printf("\n");
+
+    # --------------------
+    # print output with delimeter
+    # --------------------
+
+    map {
+	printf("%s\n", join("  ", @$_));
+    } @lines;
+    return undef;
 }
 
 
@@ -716,7 +563,7 @@ sub json_dump {
     my $stream;
     my $table = vm_table($conf, $lists);
     open($stream, ">:utf8", "inventory.js");
-    print $stream to_json($table, {pretty=>1});
+    print $stream to_json($table, {pretty => 1});
     close($stream);
 };
 
@@ -731,7 +578,7 @@ sub process_conf {
     my ($conf) = @_;
 
     # --------------------
-    # Make excel files
+    # There are multiple formatting functions, create dispatch table for them
     # --------------------
 
     my $dispatch = {
@@ -743,9 +590,6 @@ sub process_conf {
 	    function => \&markdown,
 	    mime => 'text/plain',
 	},
-	billable => {
-	    function => \&billable,
-	},
 	servers => {
 	    function => \&servers_report_md,
 	},
@@ -754,30 +598,12 @@ sub process_conf {
 	},
     };
 
-    croak "Format $conf->{format} not supported." if (!$dispatch->{$conf->{format}});
-
-    my $format = $dispatch->{$conf->{format}};
-
-    # --------------------
-    # Check sites
-    # --------------------
-
-    my $sites = from_json(slurp($conf->{sites}));
-
-    # --------------------
-    # Map hosts to sites
-    # --------------------
-
-    my $host_site_map = {};
-    for my $s (keys(%$sites))
+    if (!$dispatch->{$conf->{format}})
     {
-	for my $h (@{$sites->{$s}->{hosts}})
-	{
-	    $host_site_map->{$h} = $s;
-	}
+	printf(STDERR "Format $conf->{format} not supported.\n");
+	exit(1);
     }
-    $conf->{sites} = $sites;
-    $conf->{host_site} = $host_site_map;
+    my $format = $dispatch->{$conf->{format}};
 
     # --------------------
     # Check inventory is passed
@@ -850,29 +676,13 @@ sub process_conf {
 	    exit 1;
 	}
 
-	# --------------------
-	# Check all hosts accounted for
-	# --------------------
-	
-	for my $h (@$host_list)
-	{
-	    if ($h->{name} && !$host_site_map->{$h->{name}})
-	    {
-		printf(STDERR "Host %s missing\n", $h->{name});
-		exit(1);
-	    }
-	}
-
-	# --------------------
-	# Get network information
-	# --------------------
-
-	&vshield_subnets($conf, $sites);
-	&net_trie($sites);
-
 	my $files = $format->{function}->($conf, $dc, $lists);
-	push(@output_files, @$files);
+	push(@output_files, @$files) if (defined($files));
     }
+
+    # --------------------
+    # Use MIME::Lite to email result
+    # --------------------
     
     if ($conf->{mail} && @output_files)
     {
