@@ -58,6 +58,10 @@ import argparse
 
 def mime_send_csv(config, path, mime_type, mime_subtype):
 
+    # --------------------
+    # Sanity check configuration
+    # --------------------
+    
     if not ('smtp' in config):
         print("Configuration missing smtp key", file=sys.stderr)
         exit(1)
@@ -165,6 +169,11 @@ def pyvim_vminfo(vm, dst):
 # ----------------------------------------------------------------------
 
 def pyvim_vm_list(config):
+
+    # --------------------
+    # Connect to the VC using SmartConnect
+    # --------------------
+    
     si = SmartConnect(host=config['vc_host'], user=config['vc_user'], pwd=config['vc_pass'], disableSslCertValidation=True)
     session_id = si.content.sessionManager.currentSession.key
 
@@ -256,7 +265,6 @@ if (not isfile(args.config)) or (not access(args.config, R_OK)):
 
 with open(args.config, 'r') as configfile:
     config = yaml.load(configfile, Loader=yaml.CLoader)
-
 
 # --------------------
 # Get specific VC configuration
