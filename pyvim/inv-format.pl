@@ -66,13 +66,15 @@ sub host_descent {
 
 # ----------------------------------------------------------------------
 #
-# descent (into madness)
+# vm_descent (into madness)
 #
 # ----------------------------------------------------------------------
 
 sub vm_descent {
     my ($tree, $path) = @_;
+
     my @p = (@$path, $tree->{name});
+    $tree->{path} = join("/", @$path);
 
     return [ map {@{vm_descent($_, \@p)}; } (@{$tree->{folder}}, @{$tree->{virtualmachine}}) ] if (($tree->{folder} || $tree->{virtualmachine}));
     return $tree->{type} eq "Folder" ? [] : [$tree];
@@ -281,19 +283,16 @@ sub vm_report_excel {
         push(@{$clients{$_->{client}}}, $_);
     } @res;
 
-    if (!-d $conf->{exceldir})
+    if (!-d $conf->{excel_dir})
     {
-	mkdir($conf->{exceldir}) || die;
+	mkdir($conf->{excel_dir}) || die;
     }
-    my @files;
     
-    my $file = catfile($conf->{exceldir}, sprintf("%s-%s.xlsx", $dc->{name}, Time::Piece->new($conf->{meta}->{epoch})->strftime("%Y%m%d")));
-    push(@files, $file);
+    my $file = catfile($conf->{excel_dir}, sprintf("%s-%s.xlsx", $dc->{name}, Time::Piece->new($conf->{meta}->{epoch})->strftime("%Y%m%d")));
 
     # --------------------
     # Create Excel workbook
     # --------------------
-
     
     my $wb = Excel::Writer::XLSX->new($file);
 
@@ -392,7 +391,7 @@ sub vm_report_excel {
 	    $ws->write($row+1, 0, \@line, $formats->{body});
 	}
     }
-    return \@files;
+    return [$file];
 }
 
 
@@ -429,13 +428,13 @@ sub markdown {
 	{ title => 'State',            width => 10, field => 'state'   },
 	{ title => 'Operating System', width => 45, field => 'os'      },
 	{ title => 'IPv4 Address',     width => 16, field => 'ipv4'    },
-	# { title => 'NICs',             width => 20, field => 'nics'    },
-	# { title => 'Host',             width => 20, field => 'host'    },
-	# { title => 'CPU',              width => 10, field => 'cpu'     },
-	# { title => 'RAM (GB)',         width => 10, field => 'mem'     },
-	# { title => 'Disks (Guest)',    width => 50, field => 'disks'   },
-	# { title => 'Disks (VMDK)',     width => 50, field => 'vmdks'   },
-	# { title => 'Storage (KB)',     width => 15, field => 'storage' },
+	{ title => 'NICs',             width => 20, field => 'nics'    },
+	{ title => 'Host',             width => 20, field => 'host'    },
+	{ title => 'CPU',              width => 10, field => 'cpu'     },
+	{ title => 'RAM (MB)',         width => 10, field => 'mem'     },
+	{ title => 'Disks (Guest)',    width => 50, field => 'disks'   },
+	{ title => 'Disks (VMDK)',     width => 50, field => 'vmdks'   },
+	{ title => 'Storage (KB)',     width => 15, field => 'storage' },
 	];
 
     my @filenames;
@@ -457,10 +456,10 @@ sub markdown {
 	}
 
 	# --------------------
-	# Construct path and create
+	# Construct path and create with mkpath
 	# --------------------
 	
-	my $path = catdir("md", $dc->{name}, Time::Piece->new($conf->{dc}->{epoch})->strftime("%Y%m%d"));
+	my $path = catdir($conf->{md_dir}, $dc->{name}, Time::Piece->new($conf->{dc}->{epoch})->strftime("%Y%m%d"));
 	mkpath($path);
 	
 	my $filename = catfile($path, "$k.md");
@@ -539,7 +538,7 @@ sub servers_report_md {
     }
 
     # --------------------
-    # print output with delimeter
+    # print output to stdout with delimeter
     # --------------------
 
     map {
@@ -551,7 +550,7 @@ sub servers_report_md {
 
 # ----------------------------------------------------------------------
 #
-# servers_report_md
+# json_dump
 #
 # ----------------------------------------------------------------------
 
@@ -726,10 +725,9 @@ sub process_conf {
 # ----------------------------------------------------------------------
 
 my $conf = {
-    'exceldir' => 'excel',
-    'format' => 'excel',
-    'sites' => 'sites.js',
-    'subnets' => 'vshield/vshield-subnets.js',
+    excel_dir => 'excel',
+    md_dir => 'md',
+    format => 'excel',
 };
 
 # --------------------
@@ -740,7 +738,6 @@ GetOptions(
     'mail' => \$conf->{mail},
     'inventory=s' => \$conf->{inventory},
     'format=s' => \$conf->{format},
-    'sites=s' => \$conf->{sites},
     );
 
-    process_conf($conf);
+process_conf($conf);
