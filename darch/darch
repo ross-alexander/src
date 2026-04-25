@@ -1,0 +1,76 @@
+#!/usr/bin/perl
+
+# ----------------------------------------------------------------------
+#
+# darch
+
+# 2026-04-25: Add support for directories via the cli arguments
+
+# 2023-03-04: Rename to darch [date arch]
+
+# 2023-01-30: Rename to march
+
+# 2022-02-11: Add additional file extensons
+
+#
+# ----------------------------------------------------------------------
+
+use 5.40.0;
+use File::stat;
+use File::Glob qw(bsd_glob);
+use File::Basename;
+use File::Spec::Functions;
+use Time::Piece;
+use Getopt::Long;
+
+sub darch {
+    my ($opts, $dirs) = @_;
+
+    my $format = $opts->{tmpl}; # Template
+    
+    for my $dir (@$dirs)
+    {
+	my $glob = catdir($dir, $opts->{glob});
+	my @files = bsd_glob($glob);
+	
+	for my $src (@files)
+	{
+	    my $stat = stat($src);
+	    my $date = Time::Piece->new($stat->mtime)->strftime($format);
+	    my $dst_dir = catdir($dir, $date);
+	    if (!-d $dst_dir)
+	    {
+		mkdir($dst_dir);
+		if ($opts->{verbose})
+		{
+		    printf("mkdir %s\n", $dst_dir);
+		}
+	    }
+	    my $dst = catdir($dst_dir, basename($src));
+	    rename($src, $dst);
+	    if ($opts->{verbose})
+	    {
+		printf("%s → %s\n", $src, $dst);
+	    }
+	}
+    }
+}
+
+# ----------------------------------------------------------------------
+#
+# M A I N
+#
+# ----------------------------------------------------------------------
+
+my $opts = {
+    glob => "*.{mp4,jpg,jpeg}",
+    tmpl => "%4Y.%02m",
+};
+
+GetOptions(
+    'v' => \$opts->{verbose}
+    );
+
+my $dirs = scalar(@ARGV == 0) ? ["."] : [@ARGV];
+
+darch($opts, $dirs);
