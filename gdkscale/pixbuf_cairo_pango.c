@@ -1,11 +1,10 @@
 #include <gtk/gtk.h>
 
-typedef struct _Data Data;
-struct _Data
+typedef struct _Data
 {
   GtkWidget *box, *image, *entry;
   GdkPixbuf *pixbuf;
-};
+} Data;
 
 static cairo_t   *pixbuf_cairo_create ( GdkPixbuf *pixbuf );
 static GdkPixbuf *pixbuf_cairo_destroy( cairo_t   *cr, gboolean   create_new_pixbuf );
@@ -36,16 +35,19 @@ int main( int  argc, char **argv )
    g_signal_connect( G_OBJECT( window ), "destroy",
                  G_CALLBACK( gtk_main_quit ), NULL );
 
-   vbox = gtk_vbox_new( FALSE, 6 );
-   gtk_container_add( GTK_CONTAINER( window ), vbox );
+   vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   gtk_box_set_homogeneous(GTK_BOX(vbox), FALSE);
+   gtk_container_add(GTK_CONTAINER(window), vbox);
 
    swindow = gtk_scrolled_window_new( NULL, NULL );
    gtk_box_pack_start( GTK_BOX( vbox ), swindow, TRUE, TRUE, 0 );
 
-   hbox = gtk_hbox_new( TRUE, 6 );
+   hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6 );
+   gtk_box_set_homogeneous(GTK_BOX(hbox), TRUE);
+   
    data->box = hbox;
-   gtk_scrolled_window_add_with_viewport( GTK_SCROLLED_WINDOW( swindow ),
-                                 hbox );
+   //   gtk_scrolled_window_add_with_viewport( GTK_SCROLLED_WINDOW( swindow ), hbox );
+   gtk_container_add(GTK_CONTAINER(swindow), hbox);
 
    pixbuf = gdk_pixbuf_new( GDK_COLORSPACE_RGB, FALSE, 8, 200, 200 );
    gdk_pixbuf_fill( pixbuf, 0xffff00ff );
@@ -55,7 +57,7 @@ int main( int  argc, char **argv )
    g_object_unref( G_OBJECT( pixbuf ) );
    gtk_box_pack_start( GTK_BOX( hbox ), image, FALSE, FALSE, 0 );
 
-   hbox = gtk_hbox_new( FALSE, 6 );
+   hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6 );
    gtk_box_pack_start( GTK_BOX( vbox ), hbox, FALSE, FALSE, 0 );
 
    entry = gtk_entry_new();
