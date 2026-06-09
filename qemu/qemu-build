@@ -993,6 +993,12 @@ sub etc_install {
     say qx(localedef --prefix=$root_mnt -f UTF-8 -i en_GB en_GB.UTF-8);
 
     # --------------------
+    # ldconfig
+    # --------------------
+
+    say qx(ldconfig -r $root_mnt);
+
+    # --------------------
     # /etc/systemd/network
     # --------------------
 

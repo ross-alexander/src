@@ -1,7 +1,7 @@
 LUALIB		= -L/usr/lib64/lua/5.5 -llua
 LUAINC		= -I/usr/include/lua/5.5
 LDLIBS		=  $(LUALIB)
-JSONCONSINC	= -Ijsoncons-1.5.0/include
+JSONCONSINC	= -Ijsoncons-1.7.0/include
 CXXFLAGS	= -g -std=c++17 -fPIC -D_DEFAULT_SOURCE $(JSONCONSINC) $(LUAINC)
 CXX		= g++
 CC		= gcc

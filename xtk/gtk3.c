@@ -13,6 +13,8 @@
 --
 ---------------------------------------------------------------------- */
 
+xtk_info_t info = {.id = "gtk3"};
+
 typedef struct xtk_gtk_t {
   GtkWidget *window, *drawing;
   xtk_t *xtk;

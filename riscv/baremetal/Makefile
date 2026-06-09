@@ -42,4 +42,4 @@ loop.s: loop.c
 
 
 clean:
-	rm $(BIN) *.o *~
+	rm $(BIN) -f *.o *~

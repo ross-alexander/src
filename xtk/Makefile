@@ -2,30 +2,26 @@ CFLAGS		= -Wall -std=c23 -g -D_GNU_SOURCE -fPIC -I.
 CXXFLAGS	= -Wall -std=c++17 -g -D_GNU_SOURCE -fPIC -I.
 LDFLAGS	=
 
-CFLAGS_CAIRO	= `pkg-config --cflags cairo`
-CFLAGS_XAW	= `pkg-config --cflags cairo-xlib xaw7`
-CFLAGS_XLIB	= `pkg-config --cflags cairo-xlib x11`
-CFLAGS_XCB	= `pkg-config --cflags cairo-xcb xcb`
-CFLAGS_GDK	= `pkg-config --cflags gdk-3.0`
-CFLAGS_GTK2	= `pkg-config --cflags gtk+-2.0`
-CFLAGS_GTK3	= `pkg-config --cflags gtk+-3.0`
-CFLAGS_GTK4	= `pkg-config --cflags gtk4`
-CFLAGS_GLX	= `pkg-config --cflags x11`
-CFLAGS_GEGL	= `pkg-config --cflags gegl-0.4`
-CFLAGS_BABL	= `pkg-config --cflags babl-0.1`
-CFLAGS_GLYCIN	= `pkg-config --cflags glycin-2`
+CFLAGS_CAIRO	= $(shell pkg-config --cflags cairo) 
+CFLAGS_XAW	= $(shell pkg-config --cflags cairo-xlib xaw7)
+CFLAGS_XLIB	= $(shell pkg-config --cflags cairo-xlib x11) 
+CFLAGS_XCB	= $(shell pkg-config --cflags cairo-xcb xcb) 
+CFLAGS_GDK	= $(shell pkg-config --cflags gdk-3.0) 
+CFLAGS_GTK3	= $(shell pkg-config --cflags gtk+-3.0)
+CFLAGS_GTK4	= $(shell pkg-config --cflags gtk4) 
+CFLAGS_GEGL	= $(shell pkg-config --cflags gegl-0.4)
+CFLAGS_BABL	= $(shell pkg-config --cflags babl-0.1)
+CFLAGS_GLYCIN	= $(shell pkg-config --cflags glycin-2)
 
-LDLIBS_CAIRO	= `pkg-config --libs cairo`
-LDLIBS_GLX	= `pkg-config --libs x11` -lGLU
-LDLIBS_XAW	= `pkg-config --libs xaw7`
-LDLIBS_XCB	= `pkg-config --libs xcb-aux xcb-atom xcb`
-LDLIBS_GDK	= `pkg-config --libs gdk-3.0`
-LDLIBS_GTK2	= `pkg-config --libs gtk+-2.0`
-LDLIBS_GTK3	= `pkg-config --libs gtk+-3.0`
-LDLIBS_GTK4	= `pkg-config --libs gtk4`
-LDLIBS_GEGL     = `pkg-config --libs gegl-0.4`
-LDLIBS_BABL     = `pkg-config --libs babl-0.1`
-LDLIBS_GLYCIN	= `pkg-config --libs glycin-2`
+LDLIBS_CAIRO	= $(shell pkg-config --libs cairo)
+LDLIBS_XAW	= $(shell pkg-config --libs xaw7)
+LDLIBS_XCB	= $(shell pkg-config --libs xcb-aux xcb-atom xcb)
+LDLIBS_GDK	= $(shell pkg-config --libs gdk-3.0)
+LDLIBS_GTK3	= $(shell pkg-config --libs gtk+-3.0)
+LDLIBS_GTK4	= $(shell pkg-config --libs gtk4) 
+LDLIBS_GEGL     = $(shell pkg-config --libs gegl-0.4) 
+LDLIBS_BABL     = $(shell pkg-config --libs babl-0.1) 
+LDLIBS_GLYCIN	= $(shell pkg-config --libs glycin-2)
 
 RENDER = render/gegl.so render/gdk.so render/cairo.so render/glycin.so
 DISPLAY = display/xcb.so display/xlib.so display/xaw.so display/gtk3.so display/gtk4.so

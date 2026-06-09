@@ -1,3 +1,14 @@
+/* ----------------------------------------------------------------------
+   --
+   -- alpha
+   --
+   -- Tokens are split into an image and a mask file.  This program
+   -- combines them using GEGL
+   --
+   -- 2026-05-26: Add verbose output
+   --
+   ---------------------------------------------------------------------- */
+   
 #include <stdio.h>
 #include <getopt.h>
 
@@ -90,14 +101,14 @@ void image_mask_buffer(const char *path_image, const char *path_mask, const char
    --
    ---------------------------------------------------------------------- */
 
-void image_mask(const char *path_image, const char *path_mask, const char *path_output)
+void image_mask(const char *path_image, const char *path_mask, const char *path_output, int verbose)
 {
   GeglNode *graph, *load_image, *convert_image, *load_mask, *convert_mask, *alpha, *sink, *over;
 
   /* Do color & format ahead of time */
   
   GeglColor *black = gegl_color_new ("rgb(0.0,0.0,0.0)");
-  const Babl*cairo = babl_format("cairo-ARGB32");
+  const Babl *cairo_format = babl_format("cairo-ARGB32");
   
   graph = gegl_node_new();
 
@@ -109,7 +120,7 @@ void image_mask(const char *path_image, const char *path_mask, const char *path_
 				   0);
   convert_mask = gegl_node_new_child(graph,
 				      "operation", "gegl:convert-format",
-				      "format", cairo,
+				      "format", cairo_format,
 				      0);
   alpha = gegl_node_new_child(graph,
 			      "operation", "gegl:color-to-alpha",
@@ -122,8 +133,14 @@ void image_mask(const char *path_image, const char *path_mask, const char *path_
 
   /* load image */
   
-  load_image = gegl_node_new_child(graph, "operation", "gegl:load", "path", path_image, 0);
-  convert_image = gegl_node_new_child(graph, "operation", "gegl:convert-format", "format", cairo, 0);
+  load_image = gegl_node_new_child(graph,
+				   "operation", "gegl:load",
+				   "path", path_image,
+				   0);
+  convert_image = gegl_node_new_child(graph,
+				      "operation", "gegl:convert-format",
+				      "format", cairo_format,
+				      0);
   gegl_node_link_many(load_image, convert_image, 0);
 
   /* Merge buffers using multiply operation */
@@ -162,6 +179,7 @@ int main(int argc, char *argv[])
     {"image",      required_argument, 0, 'i' },
     {"mask",       required_argument, 0, 'm' },
     {"output",     required_argument, 0, 'o' },
+    {"verbose",    no_argument,       0, 'v' },
     {0,            0,                 0, 0 }
   };
 
@@ -169,7 +187,7 @@ int main(int argc, char *argv[])
   char *path_mask = 0;
   char *path_output = 0;
   
-  int c, option_index;
+  int c, option_index, verbose = 0;
   while ((c = getopt_long_only(argc, argv, "", long_options, &option_index)) != EOF)
     {
       switch(c)
@@ -183,6 +201,8 @@ int main(int argc, char *argv[])
 	case 'o':
 	  path_output = optarg;
 	  break;
+	case 'v':
+	  verbose++;
 	}
     }
 
@@ -196,7 +216,7 @@ int main(int argc, char *argv[])
       fprintf(stderr, "%s: --mask <mask path>\n", argv[0]);
       exit(1);
     }
-  if (!path_mask)
+  if (!path_output)
     {
       fprintf(stderr, "%s: --output <output path>\n", argv[0]);
       exit(1);
@@ -208,13 +228,16 @@ int main(int argc, char *argv[])
       fprintf(stderr, "%s: failed to open %s (%s)\n", argv[0], path_image, strerror(errno));
       exit(1);
     }
+  fclose(stream);
   if (!(stream = fopen(path_mask, "r")))
     {
       fprintf(stderr, "%s: failed to open %s (%s)\n", argv[0], path_mask, strerror(errno));
       exit(1);
     }
+  fclose(stream);
+
   
-  image_mask(path_image, path_mask, path_output);
+  image_mask(path_image, path_mask, path_output, verbose);
   /*
     "/locker/gaming/cairn/tokens/rations-f.png",
     "/locker/gaming/cairn/tokens/rations-b.png",

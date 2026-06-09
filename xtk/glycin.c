@@ -8,6 +8,8 @@
 
 #include "common.h"
 
+xtk_info_t info = {.id = "glycin"};
+
 const char* id(void)
 {
   return "glycin";

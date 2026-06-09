@@ -28,6 +28,8 @@ typedef struct xtk_xcb_t {
   cairo_surface_t *surface;
 } xtk_xcb_t;
 
+xtk_info_t info = {.id = "xcb"};
+
 /* ----------------------------------------------------------------------
 --
 -- do_xcb_get_xtkid
