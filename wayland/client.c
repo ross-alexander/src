@@ -128,6 +128,9 @@ struct client_state {
   struct wl_pointer *wl_pointer;
   struct wl_touch *wl_touch;
   struct pointer_event pointer_event;
+  /* toplevel */
+  int width, height;
+  bool closed;
   /* Lua */
   lua_State *luastate;
 };
@@ -227,13 +230,16 @@ static void wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
 
   if (event->event_mask & POINTER_EVENT_BUTTON)
     {
-      char *state = event->state == WL_POINTER_BUTTON_STATE_RELEASED ?
-	"released" : "pressed";
+      char *state = event->state == WL_POINTER_BUTTON_STATE_RELEASED ? "released" : "pressed";
       fprintf(stderr, "button %d %s ", event->button, state);
       if (event->state != WL_POINTER_BUTTON_STATE_RELEASED)
-	xdg_toplevel_move(client_state->xdg_toplevel, client_state->wl_seat, event->serial);
+	{
+	  if (event->button == 272)
+	    xdg_toplevel_move(client_state->xdg_toplevel, client_state->wl_seat, event->serial);
+	  if (event->button == 273)
+	    xdg_toplevel_resize(client_state->xdg_toplevel, client_state->wl_seat, event->serial, XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT);
+	}
     }
-
   uint32_t axis_events = POINTER_EVENT_AXIS
     | POINTER_EVENT_AXIS_SOURCE
     | POINTER_EVENT_AXIS_STOP
@@ -304,11 +310,12 @@ static const struct wl_buffer_listener wl_buffer_listener = {
 
 static struct wl_buffer *draw_frame(struct client_state *state)
 {
-  const int width = 640, height = 480;
+  const int width = state->width, height = state->height;
   int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
   int size = stride * height;
 
-  //  int fd = allocate_shm_file(size);
+  /* Create shared memory file */
+  
   int fd = memfd_create("buffer", 0);
   if (fd == -1)
     {
@@ -316,6 +323,8 @@ static struct wl_buffer *draw_frame(struct client_state *state)
     }
   ftruncate(fd, size);
 
+  /* Map file into virtual memory */
+  
   uint32_t *data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (data == MAP_FAILED)
     {
@@ -323,12 +332,16 @@ static struct wl_buffer *draw_frame(struct client_state *state)
       return NULL;
     }
   
+  /* Create wayland shared memory buffer */
+
   struct wl_shm_pool *pool = wl_shm_create_pool(state->wl_shm, fd, size);
   struct wl_buffer *buffer = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_XRGB8888);
   wl_shm_pool_destroy(pool);
   close(fd);
 
   fprintf(stdout, "draw_frame: %d × %d × %d\n", width, height, stride);
+
+  /* Create cairo surface on memory mapped region */
   
   cairo_surface_t *surface = cairo_image_surface_create_for_data((void*)data, CAIRO_FORMAT_ARGB32, width, height, stride);
   cairo_t *cairo = cairo_create(surface);
@@ -345,9 +358,12 @@ static struct wl_buffer *draw_frame(struct client_state *state)
 	  tile_surface->cairo = cairo;
 	  struct tile_surface_t **handle = lua_newuserdata(state->luastate, sizeof(struct tile_surface_t*));
 	  *handle = tile_surface;
-	  lua_getfield(state->luastate, LUA_REGISTRYINDEX, "tile_surface_t");
-	  lua_setmetatable(state->luastate, -2);
+	  luaL_setmetatable(state->luastate, "tile_surface_t");
 	  lua_pcall(state->luastate, 1, 0, 0);
+	}
+      else
+	{
+	  lua_pop(state->luastate, 1);
 	}
     }
   else
@@ -476,6 +492,37 @@ static const struct wl_registry_listener wl_registry_listener = {
 };
 
 /* ----------------------------------------------------------------------
+   --
+   -- xdg_toplevel_surface
+   --
+   ---------------------------------------------------------------------- */
+
+static void xdg_toplevel_configure(void *data,
+				   struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height,
+				   struct wl_array *states)
+{
+  struct client_state *state = data;
+  if (width == 0 || height == 0) {
+    /* Compositor is deferring to us */
+    return;
+  }
+  state->width = width;
+  state->height = height;
+}
+
+static void xdg_toplevel_close(void *data, struct xdg_toplevel *toplevel)
+{
+  struct client_state *state = data;
+  state->closed = true;
+}
+
+static const struct xdg_toplevel_listener xdg_toplevel_listener = {
+  .configure = xdg_toplevel_configure,
+  .close = xdg_toplevel_close,
+};
+
+
+/* ----------------------------------------------------------------------
 
    tile_surface_init
 
@@ -483,7 +530,7 @@ static const struct wl_registry_listener wl_registry_listener = {
 
 int tile_surface_t___tostring(lua_State *L)
 {
-  lua_pushstring(L, "surface_t");
+  lua_pushstring(L, "tile_surface_t");
   return 1;
 }
 
@@ -491,9 +538,7 @@ int tile_surface_t_new(lua_State *L)
 {
   struct tile_surface_t *surface = calloc(sizeof(struct tile_surface_t), 1);
   struct tile_surface_t **handle = (struct tile_surface_t**)lua_newuserdata(L, sizeof(struct tile_surface_t*));
-  lua_getfield(L, LUA_REGISTRYINDEX, "tile_surface_t");
-  lua_setmetatable(L, -2);
-
+  luaL_setmetatable(L, "tile_surface_t");
   *handle = surface;
   return 1;
 }
@@ -531,11 +576,11 @@ int tile_surface_t_fill(lua_State *L)
 
 int tile_surface_t_configuration(lua_State *L)
 {
-  struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
+  struct tile_surface_t* tile = *(struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
   lua_newtable(L);
-  lua_pushnumber(L, (**handle).width);
+  lua_pushinteger(L, tile->width);
   lua_setfield(L, -2, "width");
-  lua_pushnumber(L, (**handle).height);
+  lua_pushinteger(L, tile->height);
   lua_setfield(L, -2, "height");
   return 1;
 }
@@ -550,12 +595,13 @@ int tile_surface_t_set_source_file(lua_State *L)
 {
   GError *error;
   struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
+  struct tile_surface_t* tile = *handle;
+  
   const char *path = luaL_checkstring(L, 2);
 
   printf("tile_surface_t_set_source_file(%s)\n", path);
 
   GFile *file = g_file_new_for_path(path);
-
   GlyLoader *loader = gly_loader_new(file);
 
   /* --------------------
@@ -614,6 +660,7 @@ int tile_surface_t_set_source_file(lua_State *L)
       GBytes *src = gly_frame_get_buf_bytes(frame);
       gsize buffer_src_size;
       gconstpointer buffer_src = g_bytes_get_data(src, &buffer_src_size);
+      
       printf("Size should be %d, has %ld\n", height * stride_src, buffer_src_size);
       
       cairo_format_t cairo_format = alpha ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
@@ -643,7 +690,17 @@ int tile_surface_t_set_source_file(lua_State *L)
 			stride_dst,
 			width,
 			height);
-      cairo_set_source_surface((*handle)->cairo, surface, 0.0, 0.0);
+
+      if (tile->cairo)
+	cairo_set_source_surface(tile->cairo, surface, 0.0, 0.0);
+
+      if (!tile->surface)
+	{
+	  tile->surface = surface;
+	  tile->width = width;
+	  tile->height = height;
+	  printf("Setting surface to %d × %d\n", width, height);
+	}
     }
   g_object_unref(frame);
   g_object_unref(image);
@@ -652,6 +709,22 @@ int tile_surface_t_set_source_file(lua_State *L)
   return 0;
 }
 
+int tile_surface_t_set_source_tile(lua_State *L)
+{
+  struct tile_surface_t* tile = *(struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
+  struct tile_surface_t* src = *(struct tile_surface_t**)luaL_checkudata(L, 2, "tile_surface_t");
+
+  assert(tile->cairo);
+  assert(src->surface);
+  
+  if (tile->cairo && src->surface)
+    {
+      cairo_set_source_surface(tile->cairo, src->surface, 0.0, 0.0);
+      printf("Setting source to surface [%d × %d]\n", src->width, src->height);
+    }
+  return 0;
+}
+  
 /* ----------------------------------------------------------------------
    --
    -- lua init
@@ -663,19 +736,25 @@ void tile_surface_init(lua_State *L)
   const luaL_Reg tile_surface_t_instance_methods[] = {
     {"set_source_file",		tile_surface_t_set_source_file},
     {"set_source_rgb",		tile_surface_t_set_source_rgb},
+    {"set_source_tile",		tile_surface_t_set_source_tile},
     {"rectangle",		tile_surface_t_rectangle},
     {"fill",			tile_surface_t_fill},
     {"configuration",		tile_surface_t_configuration},
     {0, 0}
   };
 
-  const luaL_Reg tile_surface_t_meta[] = {
+  const luaL_Reg tile_surface_t_class_methods[] = {
+    {"new",			tile_surface_t_new},
+    { 0, 0}
+  };
+
+  const luaL_Reg tile_surface_t_meta_methods[] = {
     {"__tostring", tile_surface_t___tostring},
     {0, 0},
   };
 
   luaL_newmetatable(L, "tile_surface_t");
-  luaL_setfuncs(L, tile_surface_t_meta, 0);
+  luaL_setfuncs(L, tile_surface_t_meta_methods, 0);
 
   /* instance methods */
 
@@ -686,12 +765,12 @@ void tile_surface_init(lua_State *L)
   //  lua_pushliteral(L, "__index");
   //  lua_rawset(L, -2);                  /* metatable.__index = methods */
 
-  lua_pop(L, 1);
+  lua_pop(L, 1); // metatable
   
   lua_pushglobaltable(L);
-
   lua_newtable(L);
-  lua_pushcclosure(L, tile_surface_t_new, 0); lua_setfield(L, -2, "new");
+  luaL_setfuncs(L, tile_surface_t_class_methods, 0);
+  //  lua_pushcclosure(L, tile_surface_t_new, 0); lua_setfield(L, -2, "new");
   lua_setfield(L, -2, "tile_surface_t");
 }
 
@@ -718,19 +797,34 @@ int main(int argc, char *argv[])
     }
   
   /* wayland display */
+
+  state.width = 640;
+  state.height = 480;
+  
   state.wl_display = wl_display_connect(NULL);
   assert(state.wl_display);
 
+  /* get registry */
+  
   state.wl_registry = wl_display_get_registry(state.wl_display);
   wl_registry_add_listener(state.wl_registry, &wl_registry_listener, &state);
   wl_display_roundtrip(state.wl_display);
 
+  /* Create surface with compositor */
+  
   state.wl_surface = wl_compositor_create_surface(state.wl_compositor);
+
+  /* Use XDG surface */
+  
   state.xdg_surface = xdg_wm_base_get_xdg_surface(state.xdg_wm_base, state.wl_surface);
   xdg_surface_add_listener(state.xdg_surface, &xdg_surface_listener, &state);
 
+  /* Get toplevel surface */
+  
   state.xdg_toplevel = xdg_surface_get_toplevel(state.xdg_surface);
+  xdg_toplevel_add_listener(state.xdg_toplevel, &xdg_toplevel_listener, &state);
   xdg_toplevel_set_title(state.xdg_toplevel, "Example client");
+
   wl_surface_commit(state.wl_surface);
 
   while (wl_display_dispatch(state.wl_display))
