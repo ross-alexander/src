@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <wayland-client.h>
+#include <xkbcommon/xkbcommon.h>
 #include "xdg-shell-client-protocol.h"
 
 #include <cairo.h>
@@ -29,13 +30,8 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-struct tile_surface_t {
-  int width;
-  int height;
-  cairo_surface_t *surface;
-  cairo_t *cairo;
-};
-
+extern struct tile_surface_t *tile_surface_new_from_surface(cairo_surface_t*, int width, int height);
+extern int luaopen_tile(lua_State*);
 
 /* Shared memory support code */
 static void randname(char *buf)
@@ -124,10 +120,13 @@ struct client_state {
   struct xdg_surface *xdg_surface;
   struct xdg_toplevel *xdg_toplevel;
   struct wl_seat *wl_seat;
-  struct wl_keybord *wl_keyboard;
+  struct wl_keyboard *wl_keyboard;
   struct wl_pointer *wl_pointer;
   struct wl_touch *wl_touch;
   struct pointer_event pointer_event;
+  struct xkb_state *xkb_state;
+  struct xkb_context *xkb_context;
+  struct xkb_keymap *xkb_keymap;
   /* toplevel */
   int width, height;
   bool closed;
@@ -342,22 +341,17 @@ static struct wl_buffer *draw_frame(struct client_state *state)
   fprintf(stdout, "draw_frame: %d × %d × %d\n", width, height, stride);
 
   /* Create cairo surface on memory mapped region */
-  
+
   cairo_surface_t *surface = cairo_image_surface_create_for_data((void*)data, CAIRO_FORMAT_ARGB32, width, height, stride);
-  cairo_t *cairo = cairo_create(surface);
 
   int draw_type = lua_getglobal(state->luastate, "draw");
   if (draw_type != LUA_TNIL)
     {
       if (draw_type == LUA_TFUNCTION)
 	{
-	  struct tile_surface_t *tile_surface = calloc(sizeof(struct tile_surface_t), 1);
-	  tile_surface->width = width;
-	  tile_surface->height = height;
-	  tile_surface->surface = surface;
-	  tile_surface->cairo = cairo;
+	  struct tile_surface_t* tile = tile_surface_new_from_surface(surface, width, height);
 	  struct tile_surface_t **handle = lua_newuserdata(state->luastate, sizeof(struct tile_surface_t*));
-	  *handle = tile_surface;
+	  *handle = tile;
 	  luaL_setmetatable(state->luastate, "tile_surface_t");
 	  lua_pcall(state->luastate, 1, 0, 0);
 	}
@@ -368,6 +362,7 @@ static struct wl_buffer *draw_frame(struct client_state *state)
     }
   else
     {
+      cairo_t *cairo = cairo_create(surface);
       cairo_set_source_rgb(cairo, 1.0, 0.0, 0.0);
       cairo_pattern_t *p = cairo_pattern_create_linear(0, 0, width, height);
   
@@ -378,8 +373,8 @@ static struct wl_buffer *draw_frame(struct client_state *state)
       cairo_set_source(cairo, p);
       cairo_rectangle(cairo, 0, 0, width, height);
       cairo_fill(cairo);
+      cairo_destroy(cairo);
     }
-  cairo_destroy(cairo);
   cairo_surface_destroy(surface);
   
   munmap(data, size);
@@ -418,6 +413,103 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
 
 /* ----------------------------------------------------------------------
    --
+   -- keyboard
+   --
+   ---------------------------------------------------------------------- */
+
+static void wl_keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard, uint32_t format, int32_t fd, uint32_t size)
+{
+  struct client_state *client_state = data;
+  assert(format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1);
+  
+  char *map_shm = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+  assert(map_shm != MAP_FAILED);
+
+  struct xkb_keymap *xkb_keymap = xkb_keymap_new_from_string(client_state->xkb_context, map_shm,
+							     XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  munmap(map_shm, size);
+  close(fd);
+  
+  struct xkb_state *xkb_state = xkb_state_new(xkb_keymap);
+  xkb_keymap_unref(client_state->xkb_keymap);
+  xkb_state_unref(client_state->xkb_state);
+  client_state->xkb_keymap = xkb_keymap;
+  client_state->xkb_state = xkb_state;
+}
+
+static void wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard,
+			      uint32_t serial, struct wl_surface *surface,
+			      struct wl_array *keys)
+{
+       struct client_state *client_state = data;
+       fprintf(stderr, "keyboard enter; keys pressed are:\n");
+       uint32_t *key;
+       wl_array_for_each(key, keys) {
+               char buf[128];
+               xkb_keysym_t sym = xkb_state_key_get_one_sym(
+                               client_state->xkb_state, *key + 8);
+               xkb_keysym_get_name(sym, buf, sizeof(buf));
+               fprintf(stderr, "sym: %-12s (%d), ", buf, sym);
+               xkb_state_key_get_utf8(client_state->xkb_state,
+                               *key + 8, buf, sizeof(buf));
+               fprintf(stderr, "utf8: '%s'\n", buf);
+       }
+}
+
+static void wl_keyboard_key(void *data, struct wl_keyboard *wl_keyboard,
+               uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
+{
+  struct client_state *client_state = data;
+  char buf[128];
+  uint32_t keycode = key + 8;
+  xkb_keysym_t sym = xkb_state_key_get_one_sym(client_state->xkb_state, keycode);
+  xkb_keysym_get_name(sym, buf, sizeof(buf));
+  const char *action = state == WL_KEYBOARD_KEY_STATE_PRESSED ? "press" : "release";
+  fprintf(stderr, "key %s: sym: %-12s (%d), ", action, buf, sym);
+  xkb_state_key_get_utf8(client_state->xkb_state, keycode, buf, sizeof(buf));
+  fprintf(stderr, "utf8: '%s'\n", buf);
+  if (strlen(buf) > 0 && buf[0] == 'q')
+    exit(0);
+}
+
+static void
+wl_keyboard_leave(void *data, struct wl_keyboard *wl_keyboard,
+               uint32_t serial, struct wl_surface *surface)
+{
+       fprintf(stderr, "keyboard leave\n");
+}
+
+static void
+wl_keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard,
+               uint32_t serial, uint32_t mods_depressed,
+               uint32_t mods_latched, uint32_t mods_locked,
+               uint32_t group)
+{
+       struct client_state *client_state = data;
+       xkb_state_update_mask(client_state->xkb_state,
+               mods_depressed, mods_latched, mods_locked, 0, 0, group);
+}
+
+static void
+wl_keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard,
+               int32_t rate, int32_t delay)
+{
+       /* Left as an exercise for the reader */
+}
+
+static const struct wl_keyboard_listener wl_keyboard_listener = {
+  .keymap = wl_keyboard_keymap,
+  .enter = wl_keyboard_enter,
+  .leave = wl_keyboard_leave,
+  .key = wl_keyboard_key,
+  .modifiers = wl_keyboard_modifiers,
+  .repeat_info = wl_keyboard_repeat_info,
+};
+
+
+
+/* ----------------------------------------------------------------------
+   --
    -- wl_seat
    --
    ---------------------------------------------------------------------- */
@@ -438,6 +530,19 @@ static void wl_seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t c
       wl_pointer_release(state->wl_pointer);
       state->wl_pointer = NULL;
     }
+
+  bool have_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
+
+  if (have_keyboard && state->wl_keyboard == NULL)
+    {
+      state->wl_keyboard = wl_seat_get_keyboard(state->wl_seat);
+      wl_keyboard_add_listener(state->wl_keyboard, &wl_keyboard_listener, state);
+    }
+  else if (!have_keyboard && state->wl_keyboard != NULL)
+    {
+      wl_keyboard_release(state->wl_keyboard);
+      state->wl_keyboard = NULL;
+    }  
 }
 
 static void wl_seat_name(void *data, struct wl_seat *wl_seat, const char *name)
@@ -521,259 +626,6 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
   .close = xdg_toplevel_close,
 };
 
-
-/* ----------------------------------------------------------------------
-
-   tile_surface_init
-
-   ---------------------------------------------------------------------- */
-
-int tile_surface_t___tostring(lua_State *L)
-{
-  lua_pushstring(L, "tile_surface_t");
-  return 1;
-}
-
-int tile_surface_t_new(lua_State *L)
-{
-  struct tile_surface_t *surface = calloc(sizeof(struct tile_surface_t), 1);
-  struct tile_surface_t **handle = (struct tile_surface_t**)lua_newuserdata(L, sizeof(struct tile_surface_t*));
-  luaL_setmetatable(L, "tile_surface_t");
-  *handle = surface;
-  return 1;
-}
-
-int tile_surface_t_set_source_rgb(lua_State *L)
-{
-  struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
-  double r = lua_tonumber(L, 2);
-  double g = lua_tonumber(L, 3);
-  double b = lua_tonumber(L, 4);
-  printf("set_source_rgb(%4.2f %4.2f %4.2f)\n", r, g, b);
-  cairo_set_source_rgb((*handle)->cairo, r, g, b);
-  return 0;
-}
-
-int tile_surface_t_rectangle(lua_State *L)
-{
-  struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
-  double x = lua_tonumber(L, 2);
-  double y = lua_tonumber(L, 3);
-  double w = lua_tonumber(L, 4);
-  double h = lua_tonumber(L, 5);
-  printf("set_rectangle(%4.2f %4.2f %4.2f %4.2f)\n", x, y, w, h);
-  cairo_rectangle((*handle)->cairo, x, y, w, h);
-  return 0;
-}
-
-int tile_surface_t_fill(lua_State *L)
-{
-  struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
-  printf("fill()\n");
-  cairo_fill((*handle)->cairo);
-  return 0;
-}
-
-int tile_surface_t_configuration(lua_State *L)
-{
-  struct tile_surface_t* tile = *(struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
-  lua_newtable(L);
-  lua_pushinteger(L, tile->width);
-  lua_setfield(L, -2, "width");
-  lua_pushinteger(L, tile->height);
-  lua_setfield(L, -2, "height");
-  return 1;
-}
-
-/* ----------------------------------------------------------------------
-   --
-   -- tile_surface_set_source_file
-   --
-   ---------------------------------------------------------------------- */
-
-int tile_surface_t_set_source_file(lua_State *L)
-{
-  GError *error;
-  struct tile_surface_t** handle = (struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
-  struct tile_surface_t* tile = *handle;
-  
-  const char *path = luaL_checkstring(L, 2);
-
-  printf("tile_surface_t_set_source_file(%s)\n", path);
-
-  GFile *file = g_file_new_for_path(path);
-  GlyLoader *loader = gly_loader_new(file);
-
-  /* --------------------
-     -- Load image and return 0 if fails
-     -------------------- */
-  
-  GlyImage *image = gly_loader_load(loader, &error);
-  if (image == nullptr)
-    {
-      fprintf(stderr, "Failed to load %s: %s\n", path, error->message);
-      return 0;
-    }
-  
-  printf("Image %s loaded\n", path);
-
-  /* --------------------
-     Get first and probably only frame, exit if fails
-     -------------------- */
-  
-  GlyFrame *frame = gly_image_next_frame(image, &error);
-
-  if (frame == nullptr)
-    {
-      fprintf(stderr, "Failed to load frame: %s\n", error->message);
-      g_object_unref(image);
-      g_object_unref(loader);
-      return 0;
-    }
-
-  /* --------------------
-     Get format and create Babl
-     -------------------- */
-  
-  GlyMemoryFormat format = gly_frame_get_memory_format(frame);
-  char *description = nullptr;
-  const Babl *babl_format_src = nullptr;
-
-  switch(format)
-    {
-    case GLY_MEMORY_R8G8B8:
-      babl_format_src = babl_format_with_space("R'G'B' u8", NULL);
-      description = "8-bit RGB";
-      break;
-    default:
-      babl_format_src = nullptr;
-      description = "Unsupported format";
-      break;
-    }
-  uint32_t height = gly_frame_get_height(frame);
-  uint32_t width = gly_frame_get_width(frame);
-  uint32_t stride_src = gly_frame_get_stride(frame);
-  gboolean alpha = gly_memory_format_has_alpha(format);
-
-  if (babl_format_src)
-    {
-      GBytes *src = gly_frame_get_buf_bytes(frame);
-      gsize buffer_src_size;
-      gconstpointer buffer_src = g_bytes_get_data(src, &buffer_src_size);
-      
-      printf("Size should be %d, has %ld\n", height * stride_src, buffer_src_size);
-      
-      cairo_format_t cairo_format = alpha ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
-
-      uint32_t stride_dst = cairo_format_stride_for_width(cairo_format, width);
-
-      void *buffer_dst = malloc(stride_dst * height);
-      
-      cairo_surface_t* surface = cairo_image_surface_create_for_data(buffer_dst, cairo_format, width, height, stride_dst);
-      const Babl *babl_format_dst = alpha ? babl_format("cairo-ARGB32") : babl_format("cairo-RGB24");
-
-      printf("Converting from %s [%s] format %s [%d] to %s [%d]\n", description, alpha ? "alpha" : "no alpha",
-	     babl_get_name(babl_format_src),
-	     babl_format_get_bytes_per_pixel(babl_format_src),
-	     babl_get_name(babl_format_dst),
-	     babl_format_get_bytes_per_pixel(babl_format_dst)
-	     );
-
-      printf("Image width [%d] height [%d]\n", width, height);
-      
-      printf("Source stride [%d] Destination stride [%d]\n", stride_src, stride_dst);
-      
-      babl_process_rows(babl_fish(babl_format_src, babl_format_dst),
-			buffer_src,
-			stride_src,
-			buffer_dst,
-			stride_dst,
-			width,
-			height);
-
-      if (tile->cairo)
-	cairo_set_source_surface(tile->cairo, surface, 0.0, 0.0);
-
-      if (!tile->surface)
-	{
-	  tile->surface = surface;
-	  tile->width = width;
-	  tile->height = height;
-	  printf("Setting surface to %d × %d\n", width, height);
-	}
-    }
-  g_object_unref(frame);
-  g_object_unref(image);
-  g_object_unref(loader);
-  
-  return 0;
-}
-
-int tile_surface_t_set_source_tile(lua_State *L)
-{
-  struct tile_surface_t* tile = *(struct tile_surface_t**)luaL_checkudata(L, 1, "tile_surface_t");
-  struct tile_surface_t* src = *(struct tile_surface_t**)luaL_checkudata(L, 2, "tile_surface_t");
-
-  assert(tile->cairo);
-  assert(src->surface);
-  
-  if (tile->cairo && src->surface)
-    {
-      cairo_set_source_surface(tile->cairo, src->surface, 0.0, 0.0);
-      printf("Setting source to surface [%d × %d]\n", src->width, src->height);
-    }
-  return 0;
-}
-  
-/* ----------------------------------------------------------------------
-   --
-   -- lua init
-   --
-   ---------------------------------------------------------------------- */
-
-void tile_surface_init(lua_State *L)
-{
-  const luaL_Reg tile_surface_t_instance_methods[] = {
-    {"set_source_file",		tile_surface_t_set_source_file},
-    {"set_source_rgb",		tile_surface_t_set_source_rgb},
-    {"set_source_tile",		tile_surface_t_set_source_tile},
-    {"rectangle",		tile_surface_t_rectangle},
-    {"fill",			tile_surface_t_fill},
-    {"configuration",		tile_surface_t_configuration},
-    {0, 0}
-  };
-
-  const luaL_Reg tile_surface_t_class_methods[] = {
-    {"new",			tile_surface_t_new},
-    { 0, 0}
-  };
-
-  const luaL_Reg tile_surface_t_meta_methods[] = {
-    {"__tostring", tile_surface_t___tostring},
-    {0, 0},
-  };
-
-  luaL_newmetatable(L, "tile_surface_t");
-  luaL_setfuncs(L, tile_surface_t_meta_methods, 0);
-
-  /* instance methods */
-
-  lua_newtable(L);
-  luaL_setfuncs(L, tile_surface_t_instance_methods, 0);
-  lua_setfield(L, -2, "__index");
-
-  //  lua_pushliteral(L, "__index");
-  //  lua_rawset(L, -2);                  /* metatable.__index = methods */
-
-  lua_pop(L, 1); // metatable
-  
-  lua_pushglobaltable(L);
-  lua_newtable(L);
-  luaL_setfuncs(L, tile_surface_t_class_methods, 0);
-  //  lua_pushcclosure(L, tile_surface_t_new, 0); lua_setfield(L, -2, "new");
-  lua_setfield(L, -2, "tile_surface_t");
-}
-
 /* ----------------------------------------------------------------------
 
    main
@@ -787,8 +639,8 @@ int main(int argc, char *argv[])
 
   /* lua */
   state.luastate = luaL_newstate();
-  tile_surface_init(state.luastate);
   luaL_openselectedlibs(state.luastate, LUA_GLIBK|LUA_IOLIBK, 0);
+  luaL_requiref(state.luastate, "tile_surface_t", luaopen_tile, 1);
   int ret = luaL_dofile(state.luastate, "client.lua");
   if (ret != 0)
     {
@@ -807,6 +659,7 @@ int main(int argc, char *argv[])
   /* get registry */
   
   state.wl_registry = wl_display_get_registry(state.wl_display);
+  state.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
   wl_registry_add_listener(state.wl_registry, &wl_registry_listener, &state);
   wl_display_roundtrip(state.wl_display);
 
