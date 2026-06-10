@@ -9,19 +9,7 @@
 #include <glycin.h>
 #include <babl/babl.h>
 
-/* --------------------
-   tile_surface_t
-   -------------------- */
-
-typedef struct {
-  cairo_surface_t *surface;
-  int width;
-  int height;
-} tile_surface_t;
-
-typedef struct {
-  cairo_t *cr;
-} tile_context_t;
+#include "tile.h"
 
 /* ----------------------------------------------------------------------
    --
@@ -136,7 +124,6 @@ int tile_context_t_set_line_width(lua_State *L)
 
 int tile_surface_t_new_from_file(lua_State *L)
 {
-  GError *error;
   const char *path = luaL_checkstring(L, 1);
 
   printf("tile_surface_t_new_from_file(%s)\n", path);
@@ -146,111 +133,8 @@ int tile_surface_t_new_from_file(lua_State *L)
      -------------------- */
   
   tile_surface_t **handle = (tile_surface_t**)lua_newuserdata(L, sizeof(tile_surface_t*));
-  tile_surface_t *tile = *handle = calloc(sizeof(tile_surface_t), 1);
+  tile_surface_t *tile = *handle = tile_surface_new_from_file(path); // calloc(sizeof(tile_surface_t), 1);
   luaL_setmetatable(L, "tile_surface_t");
-  
-  GFile *file = g_file_new_for_path(path);
-  GlyLoader *loader = gly_loader_new(file);
-
-  /* --------------------
-     -- Load image and return 0 if fails
-     -------------------- */
-  
-  GlyImage *image = gly_loader_load(loader, &error);
-  if (image == nullptr)
-    {
-      fprintf(stderr, "Failed to load %s: %s\n", path, error->message);
-      return 0;
-    }
-  
-  printf("Image %s loaded\n", path);
-
-  /* --------------------
-     Get first and probably only frame, exit if fails
-     -------------------- */
-  
-  GlyFrame *frame = gly_image_next_frame(image, &error);
-
-  if (frame == nullptr)
-    {
-      fprintf(stderr, "Failed to load frame: %s\n", error->message);
-      g_object_unref(image);
-      g_object_unref(loader);
-      return 0;
-    }
-
-  /* --------------------
-     Get format and create Babl
-     -------------------- */
-  
-  GlyMemoryFormat format = gly_frame_get_memory_format(frame);
-  char *description = nullptr;
-  const Babl *babl_format_src = nullptr;
-
-  switch(format)
-    {
-    case GLY_MEMORY_R8G8B8:
-      babl_format_src = babl_format_with_space("R'G'B' u8", NULL);
-      description = "8-bit RGB";
-      break;
-    default:
-      babl_format_src = nullptr;
-      description = "Unsupported format";
-      break;
-    }
-  uint32_t height = gly_frame_get_height(frame);
-  uint32_t width = gly_frame_get_width(frame);
-  uint32_t stride_src = gly_frame_get_stride(frame);
-  gboolean alpha = gly_memory_format_has_alpha(format);
-
-  printf("Format is %s\n", description);
-
-  if (babl_format_src)
-    {
-      GBytes *src = gly_frame_get_buf_bytes(frame);
-      gsize buffer_src_size;
-      gconstpointer buffer_src = g_bytes_get_data(src, &buffer_src_size);
-      
-      printf("Size should be %d, has %ld\n", height * stride_src, buffer_src_size);
-      
-      cairo_format_t cairo_format = alpha ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
-
-      uint32_t stride_dst = cairo_format_stride_for_width(cairo_format, width);
-
-      void *buffer_dst = malloc(stride_dst * height);
-      
-      cairo_surface_t* surface = cairo_image_surface_create_for_data(buffer_dst, cairo_format, width, height, stride_dst);
-      const Babl *babl_format_dst = alpha ? babl_format("cairo-ARGB32") : babl_format("cairo-RGB24");
-
-      printf("Converting from %s [%s] format %s [%d] to %s [%d]\n", description, alpha ? "alpha" : "no alpha",
-	     babl_get_name(babl_format_src),
-	     babl_format_get_bytes_per_pixel(babl_format_src),
-	     babl_get_name(babl_format_dst),
-	     babl_format_get_bytes_per_pixel(babl_format_dst)
-	     );
-
-      printf("Image width [%d] height [%d]\n", width, height);
-      
-      printf("Source stride [%d] Destination stride [%d]\n", stride_src, stride_dst);
-      
-      babl_process_rows(babl_fish(babl_format_src, babl_format_dst),
-			buffer_src,
-			stride_src,
-			buffer_dst,
-			stride_dst,
-			width,
-			height);
-
-      /* Use boxed pointer so enable later C++ dynamic dispatch if necessary */
-      
-      tile->surface = surface;
-      tile->width = width;
-      tile->height = height;
-      printf("Setting surface to %d × %d\n", width, height);
-    }
-  g_object_unref(frame);
-  g_object_unref(image);
-  g_object_unref(loader);  
   return 1;
 }
 
@@ -268,16 +152,15 @@ int tile_surface_t_new(lua_State *L)
   assert(lua_gettop(L) == 2);
   int width = luaL_checkinteger(L, 1);
   int height = luaL_checkinteger(L, 2);
-  
+
   tile_surface_t **handle = (tile_surface_t**)lua_newuserdata(L, sizeof(tile_surface_t*));
-  tile_surface_t *tile = *handle = calloc(sizeof(tile_surface_t), 1);
+  *handle = tile_surface_new(width, height);
   luaL_setmetatable(L, "tile_surface_t");
 
   /* create blank and transparent surface */
   
-  tile->width = width;
-  tile->height = height;
-  tile->surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+  //  tile->width = width;
+  //  tile->height = height;
 
   return 1;
 }
