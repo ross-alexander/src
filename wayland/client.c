@@ -30,7 +30,9 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-extern struct tile_surface_t *tile_surface_new_from_surface(cairo_surface_t*, int width, int height);
+#include "tile.h"
+
+// extern struct tile_surface_t *tile_surface_new_from_surface(cairo_surface_t*, int width, int height);
 extern int luaopen_tile(lua_State*);
 
 /* Shared memory support code */
@@ -349,8 +351,8 @@ static struct wl_buffer *draw_frame(struct client_state *state)
     {
       if (draw_type == LUA_TFUNCTION)
 	{
-	  struct tile_surface_t* tile = tile_surface_new_from_surface(surface, width, height);
-	  struct tile_surface_t **handle = lua_newuserdata(state->luastate, sizeof(struct tile_surface_t*));
+	  tile_surface_t* tile = tile_surface_new_from_surface(surface, width, height);
+	  tile_surface_t **handle = lua_newuserdata(state->luastate, sizeof(struct tile_surface_t*));
 	  *handle = tile;
 	  luaL_setmetatable(state->luastate, "tile_surface_t");
 	  lua_pcall(state->luastate, 1, 0, 0);
@@ -640,7 +642,7 @@ int main(int argc, char *argv[])
   /* lua */
   state.luastate = luaL_newstate();
   luaL_openselectedlibs(state.luastate, LUA_GLIBK|LUA_IOLIBK, 0);
-  luaL_requiref(state.luastate, "tile_surface_t", luaopen_tile, 1);
+  luaL_requiref(state.luastate, "tile", luaopen_tile, 1);
   int ret = luaL_dofile(state.luastate, "client.lua");
   if (ret != 0)
     {
