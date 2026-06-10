@@ -26,7 +26,7 @@ client: xdg-shell-client.o tile-surface.o tile-lua.o client.o
 client.o: client.c xdg-shell-client-protocol.h
 	$(CC) -g -o $@ -c $<  $(CAIRO_CFLAGS) $(LUA_CFLAGS) $(BABL_CFLAGS) $(GLYCIN_CFLAGS)
 
-tile	: tile-lua.o tile.o
+tile	: tile-lua.o tile-surface.o tile.o
 	$(CC) -g -o $@ $^ $(LUA_LIBS) $(CAIRO_LIBS) $(GLYCIN_LIBS) $(BABL_LIBS)
 
 tile.o	: tile.c
