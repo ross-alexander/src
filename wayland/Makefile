@@ -32,8 +32,8 @@ tile	: tile-lua.o tile-surface.o tile.o
 tile.o	: tile.c
 	$(CC) -g -o $@ -c -fPIC $< $(LUA_CFLAGS)
 
-tile.so	: tile-lua.o
-	$(CC) -g -o $@ -shared $< $(LUA_LIBS) $(CAIRO_LIBS) $(GLYCIN_LIBS) $(BABL_LIBS)
+tile.so	: tile-surface.o tile-lua.o
+	$(CC) -g -o $@ -shared $^ $(LUA_LIBS) $(CAIRO_LIBS) $(GLYCIN_LIBS) $(BABL_LIBS)
 
 tile-lua.o	: tile-lua.c
 	$(CC) -g -o $@ -c -fPIC $< $(LUA_CFLAGS) $(CAIRO_CFLAGS) $(GLYCIN_CFLAGS) $(BABL_CFLAGS)
