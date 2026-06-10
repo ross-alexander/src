@@ -35,6 +35,49 @@ int tile_context_t___tostring(lua_State *L)
   return 1;
 }
 
+int tile_pattern_t___tostring(lua_State *L)
+{
+  lua_pushstring(L, "tile_pattern_t");
+  return 1;
+}
+
+/* ----------------------------------------------------------------------
+   --
+   -- pattern_t
+   --
+   ---------------------------------------------------------------------- */
+
+int tile_pattern_t_add_color_stop_rgba(lua_State *L)
+{
+  assert(lua_gettop(L) == 6);
+  tile_pattern_t *pattern = *(tile_pattern_t**)luaL_checkudata(L, 1, "tile_pattern_t");
+
+  cairo_pattern_add_color_stop_rgba(pattern->pattern,
+				    luaL_checknumber(L, 2),
+				    luaL_checknumber(L, 3),
+				    luaL_checknumber(L, 4),
+				    luaL_checknumber(L, 5),
+				    luaL_checknumber(L, 6)
+				    );
+  return 0;
+}
+
+int tile_pattern_t_create_linear(lua_State *L)
+{
+  tile_pattern_t **handle = (tile_pattern_t**)lua_newuserdata(L, sizeof(tile_pattern_t*));
+  tile_pattern_t *p = *handle = calloc(1, sizeof(tile_pattern_t));
+  luaL_setmetatable(L, "tile_pattern_t");
+  p->pattern = cairo_pattern_create_linear(
+					   luaL_checknumber(L, 1),
+					   luaL_checknumber(L, 2),
+					   luaL_checknumber(L, 3),
+					   luaL_checknumber(L, 4)
+					   );
+  return 1;
+}
+
+
+
 /* ----------------------------------------------------------------------
    --
    -- context_t
@@ -73,6 +116,15 @@ int tile_context_t_set_source_surface(lua_State *L)
 			   surface->surface,
 			   luaL_checknumber(L, 3),
 			   luaL_checknumber(L, 4));
+  return 0;
+}
+
+int tile_context_t_set_source(lua_State *L)
+{
+  assert(lua_gettop(L) == 2);
+  tile_context_t *context = *(tile_context_t**)luaL_checkudata(L, 1, "tile_context_t");
+  tile_pattern_t *pattern = *(tile_pattern_t**)luaL_checkudata(L, 2, "tile_pattern_t");
+  cairo_set_source(context->cr, pattern->pattern);
   return 0;
 }
 
@@ -133,7 +185,7 @@ int tile_surface_t_new_from_file(lua_State *L)
      -------------------- */
   
   tile_surface_t **handle = (tile_surface_t**)lua_newuserdata(L, sizeof(tile_surface_t*));
-  tile_surface_t *tile = *handle = tile_surface_new_from_file(path); // calloc(sizeof(tile_surface_t), 1);
+  *handle = tile_surface_new_from_file(path); // calloc(sizeof(tile_surface_t), 1);
   luaL_setmetatable(L, "tile_surface_t");
   return 1;
 }
@@ -243,6 +295,12 @@ int luaopen_tile(lua_State *L)
     }
 
   /* --------------------
+     tile
+     -------------------- */
+
+  lua_newtable(L);
+  
+  /* --------------------
      tile_context_t
      -------------------- */
 
@@ -258,6 +316,7 @@ int luaopen_tile(lua_State *L)
     {"rectangle",		tile_context_t_rectangle},
     {"set_source_rgb",		tile_context_t_set_source_rgb},
     {"set_source_surface",	tile_context_t_set_source_surface},
+    {"set_source",		tile_context_t_set_source},
     {"fill",			tile_context_t_fill},
     {"fill_preserve",	       	tile_context_t_fill_preserve},
     {"stroke",			tile_context_t_stroke},
@@ -300,6 +359,38 @@ int luaopen_tile(lua_State *L)
     { 0, 0}
   };
   lua_newtable(L);
-  luaL_setfuncs(L, tile_surface_t_class_methods, 0); 
+  luaL_setfuncs(L, tile_surface_t_class_methods, 0);
+  lua_setfield(L, -2, "tile_surface_t");
+  
+  /* --------------------
+     tile_pattern_t
+     -------------------- */
+  
+  const luaL_Reg tile_pattern_t_meta_methods[] = {
+    {"__tostring", tile_pattern_t___tostring},
+    {0, 0},
+  };
+  
+  luaL_newmetatable(L, "tile_pattern_t");
+  luaL_setfuncs(L, tile_surface_t_meta_methods, 0);
+
+  const luaL_Reg tile_pattern_t_instance_methods[] = {
+    {"add_color_stop_rgba",	tile_pattern_t_add_color_stop_rgba},
+    {0, 0},
+  };
+
+  lua_newtable(L);
+  luaL_setfuncs(L, tile_pattern_t_instance_methods, 0);
+  lua_setfield(L, -2, "__index");
+  lua_pop(L, 1); // metatable
+  
+  const luaL_Reg tile_pattern_t_class_methods[] = {
+    {"create_linear",		tile_pattern_t_create_linear},
+    { 0, 0}
+  };
+  lua_newtable(L);
+  luaL_setfuncs(L, tile_pattern_t_class_methods, 0);
+  lua_setfield(L, -2, "tile_pattern_t");
+
   return 1;
 }
