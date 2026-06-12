@@ -2,9 +2,12 @@
 
 use 5.42.2;
 use SNMP;
+use YAML;
+use File::Slurp;
 use Data::Dumper;
 use NetAddr::IP;
 use NetAddr::IP::Util qw(inet_ntop AF_INET AF_INET6);
+use JSON;
 
 # ----------------------------------------------------------------------
 #
@@ -40,21 +43,29 @@ sub Fetch {
 
     my $res_iftbl = {};
 
-# --------------------
-# Get basic interface details (ifTable)
-# --------------------
+    # --------------------
+    # Get basic interface details (ifTable)
+    #
+    # RFC 1066: Management Information Base for network management of TCP/IP-based internets
+    # RFC 1155: STD 16: Structure and identification of management information for TCP/IP-based internets
+    # RFC 1156: Management Information Base for network management of TCP/IP-based internets
+    # RFC 1158: Management Information Base for network management of TCP/IP-based internets: MIB-II
+    # RFC 1213: STD 17: Management Information Base for Network Management of TCP/IP-based internets: MIB-II
+    # --------------------
 
     my $iftbl = $sess->gettable('ifTable');
-
+    
     return 0 if (scalar(keys(%$iftbl)) == 0);
-    say "ifTable";
+    print "ifTable ";
 
     while (my ($k, $v) = each(%$iftbl))
     {
 	$res_iftbl->{$k} = {
-	    indx => $v->{'ifIndex'},
-	    desc => $v->{'ifDescr'},
-	    type => $v->{'ifType'},
+	    indx => $v->{ifIndex},
+	    desc => $v->{ifDescr},
+	    type => $v->{ifType},
+	    oper => $v->{ifOperStatus},
+	    admin => $v->{ifAdminStatus},
 	};
     }
 
@@ -67,7 +78,7 @@ sub Fetch {
 
     if (scalar(keys(%$addr_tbl)) > 0)
     {
-	say "ipAddressTable ";
+	print "ipAddressTable ";
 	while (my ($k, $v) = each(%$addr_tbl))
 	{
 	    my $idx = $v->{ipAddressIfIndex};
@@ -110,49 +121,39 @@ sub Fetch {
     }
     
     $conf->{$host}->{'iftbl'} = $res_iftbl;
+
+    # --------------------
+    # Stop if routes not set in configuration
+    # --------------------
+    
     return 1 if ($conf->{$host}->{'routes'} == 0);
 
-# --------------------
-# Try for inetCidr (RFC4292)
-# --------------------
-
+    # --------------------
+    # Try for inetCidr (RFC4292 & RFC4001)
+    # --------------------
+    
     if ($sess->get('inetCidrRouteNumber.0') > 0)
     {
-	print "inetCidrRoute\n";
+	print "inetCidrRoute ";
 	my $tbl = $sess->gettable('inetCidrRouteTable');
 	while (my ($k, $v) = each(%$tbl))
 	{
-#	    while (my ($kk, $vv) = each($v)) { print "$kk -> $vv\n"; } print "--------------------\n";
+#	    while (my ($kk, $vv) = each(%$v)) { print "$kk -> $vv\n"; } print "--------------------\n";
 
-#	    die if ($v->{inetCidrRouteNextHopType} != $v->{inetCidrRouteDestType});
 	    my $idx = $v->{inetCidrRouteIfIndex};
 	    my $family;
-	    $family = AF_INET6 if ($v->{inetCidrRouteDestType} == 4);
-	    $family = AF_INET6 if ($v->{inetCidrRouteDestType} == 2);
+	    $family = AF_INET6 if ($v->{inetCidrRouteDestType} == 4); # Non global IPv6
+	    $family = AF_INET6 if ($v->{inetCidrRouteDestType} == 2); # Global IPv6
 	    $family = AF_INET if ($v->{inetCidrRouteDestType} == 1);
 
-	    print $v->{inetCidrRouteDestType}, " ";
 	    if ($family)
 	    {
-		$iftbl->{$idx}->{route} = [] if (!exists($iftbl->{$idx}->{route}));
+		$res_iftbl->{$idx}->{route} = [] if (!exists($res_iftbl->{$idx}->{route}));
 	    
 		my $rtype = $v->{inetCidrRouteType};
 		my $prefix = $v->{inetCidrRoutePfxLen};
 		my $dest = bytes::substr($v->{inetCidrRouteDest}, 0, 16);
-		my $zone;
-		if ($v->{inetCidrRouteDestType} == 4)
-		{
-		    $zone = bytes::substr($v->{inetCidrRouteDest}, 16, 4);
-		    $zone = NetAddr::IP->new(inet_ntop(AF_INET, $zone));
-		}
-		print NetAddr::IP->new(inet_ntop($family, $dest), $prefix);
-		printf("%%%s", $zone->addr()) if ($zone);
-		print " ";
-		print "-> ", NetAddr::IP->new(inet_ntop($family, $v->{inetCidrRouteNextHop})) if ($rtype == 4); # Remote
-		print " local" if ($rtype == 3); # Local
-		print "\n";
-		
-		my $t = $iftbl->{$idx}->{route};	    
+		my $t = $res_iftbl->{$idx}->{route};
 		
 		push(@$t, {
 		    'dest' => NetAddr::IP->new(inet_ntop($family, $dest), $prefix)->cidr(),
@@ -174,19 +175,14 @@ sub Fetch {
     
     elsif ($sess->get('ipCidrRouteNumber.0') > 0)
     {
-	print "ipCidrRoute\n";
-#	my $vars = new SNMP::VarList([ipCidrRouteIfIndex],[ipCidrRouteDest],[ipCidrRouteMask],[ipCidrRouteNextHop], [ipCidrRouteType]);
-    
-#	for (@vals = $sess->getnext($vars); $vars->[0]->tag =~ /ipCidrRouteIfIndex/ and not $sess->{ErrorStr}; @vals = $sess->getnext($vars))
-#	{
-
+	print "ipCidrRoute ";
 	my $tbl = $sess->gettable('ipCidrRouteTable');
 	while (my ($k, $v) = each(%$tbl))
 	{
 #	    while (my ($kk, $vv) = each($v)) { print "$kk -> $vv\n"; } print "--------------------\n";
 	    my $index = $v->{ipCidrRouteIfIndex};
-	    $iftbl->{$index}->{'route'} = [] if (!exists($iftbl->{$index}->{'route'}));
-	    my $t = $iftbl->{$index}->{'route'};
+	    $res_iftbl->{$index}->{'route'} = [] if (!exists($iftbl->{$index}->{'route'}));
+	    my $t = $res_iftbl->{$index}->{'route'};
 	    push(@$t, {
 		'dest' => NetAddr::IP->new($v->{ipCidrRouteDest}, $v->{ipCidrRouteMask})->cidr(),
 		'next' => $v->{ipCidrRouteNextHop},
@@ -200,7 +196,7 @@ sub Fetch {
 
     elsif  ($sess->get('ipForwardNumber.0') > 0)
     {
-	print "ipForward\n";
+	print "ipForward ";
 
 	my $vars = SNMP::VarList->new(['ipForwardIfIndex'],['ipForwardDest'],['ipForwardMask'],['ipForwardNextHop'], ['ipForwardType']);
     
@@ -217,7 +213,7 @@ sub Fetch {
     }
     else
     {
-	print "ipRoute\n";
+	print "ipRoute ";
 	my $vars = SNMP::VarList->new(['ipRouteIfIndex'],['ipRouteDest'],['ipRouteMask'],['ipRouteNextHop'],['ipRouteType']);
 	for (@vals = $sess->getnext($vars); $vars->[0]->tag =~ /ipRouteIfIndex/ and not $sess->{ErrorStr}; @vals = $sess->getnext($vars))
 	{
@@ -230,6 +226,7 @@ sub Fetch {
 		'type' => $vals[4]});
 	}
     }
+    print "\n";
     return 1;
 }
 
@@ -244,19 +241,11 @@ if (scalar(@ARGV) < 2)
     exit(1);
 }
 
-my $stream;
-open($stream, "<", $ARGV[0]) || die "Cannot open $ARGV[0].\n";
-my $text = join("", <$stream>);
-close($stream);
-my $conf = eval($text);
+my $conf = YAML::LoadFile($ARGV[0]);
 
 for my $k (keys(%$conf))
 {
     &Fetch($conf, $k);
 }
 
-
-
-open($stream, ">", $ARGV[1]) || die "Cannot open $ARGV[1].\n";
-print $stream Dumper($conf);
-close($stream);
+write_file($ARGV[1], to_json($conf, {pretty => 1}));
