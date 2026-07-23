@@ -1,20 +1,55 @@
-#include <Imlib2.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <getopt.h>
+#include <regex.h>
+
+#include <Imlib2.h>
 #include <babl/babl.h>
 #include <cairo/cairo.h>
+
+#include "path_split.h"
 
 int main(int argc, char *argv[])
 {
   babl_init();
+
+  int ch;
+  const char *format = "jpeg";
+  double scale = 1.0;
+  int cairo = 0;
   
-  if (argc < 2)
+  while ((ch = getopt(argc, argv, "cs:f:")) != EOF)
+    switch(ch)
+      {
+      case 'f':
+ 	format = optarg;
+	break;
+      case 'c':
+	cairo = 1;
+	break;
+      case 's':
+	scale = strtod(optarg, nullptr);
+	break;
+      }
+
+  if ((argc - optind) < 1)
     {
       printf("%s: <image file>\n", argv[0]);
       return 0;
     }
 
-  const char *path = argv[1];
+  const char *path = argv[optind];
 
+  struct path_ext_t* ext = path_split(path);
+
+  if (!ext->file)
+    {
+      fprintf(stderr, "No filename in path\n");
+      exit(1);
+    }
+  
   // 1. Load the original image
   Imlib_Image img = imlib_load_image(path);
   if (!img)
@@ -32,43 +67,53 @@ int main(int argc, char *argv[])
   printf("Original size: %dx%d\n", width, height);
 
 
+  if (cairo)
+    {
+  
+      /* --------------------
+	 Use babl to convert to cairo ARGB32
+	 -------------------- */
+      
+      const Babl *src_format, *dst_format;
+      cairo_format_t cairo_format;
+      
+      src_format = babl_format_new(babl_model("R'G'B'A"), babl_type("u8"),
+				   babl_component("B'"),
+				   babl_component("G'"),
+				   babl_component("R'"),
+				   babl_component("A"),
+				   nullptr);
+      
+      cairo_format = CAIRO_FORMAT_ARGB32;
+      dst_format = babl_format("cairo-ARGB32");
+      
+      cairo_surface_t *surface = cairo_image_surface_create(cairo_format, width, height);
+      
+      babl_process_rows(babl_fish(src_format, dst_format),
+			imlib_image_get_data_for_reading_only(),
+			width * 4,
+			cairo_image_surface_get_data(surface),
+			cairo_image_surface_get_stride(surface),
+			width,
+			height);
+
+      /* Save to PNG */
+
+      const char *save_ext = "-cairo.png";
+      char *save_path = calloc(sizeof(char), strlen(ext->file) + strlen(save_ext) + 1);
+      snprintf(save_path, strlen(ext->file) + strlen(save_ext) + 1, "%s%s", ext->file, save_ext);
+      cairo_surface_write_to_png(surface, save_path);
+      free(save_path);
+    }
+
   /* --------------------
-     Use babl to convert to cairo ARGB32
+     Scale the image
      -------------------- */
   
-  const Babl *src_format, *dst_format;
-  cairo_format_t cairo_format;
+  int new_w = (int)((double)width * scale);
+  int new_h = (int)((double)height * scale);
   
-  src_format = babl_format_new(babl_model("R'G'B'A"), babl_type("u8"),
-			       babl_component("B'"),
-			       babl_component("G'"),
-			       babl_component("R'"),
-			       babl_component("A"),
-			       nullptr);
-
-  cairo_format = CAIRO_FORMAT_ARGB32;
-  dst_format = babl_format("cairo-ARGB32");
-
-  cairo_surface_t *surface = cairo_image_surface_create(cairo_format, width, height);
-
-  babl_process_rows(babl_fish(src_format, dst_format),
-		    imlib_image_get_data_for_reading_only(),
-		    width * 4,
-		    cairo_image_surface_get_data(surface),
-		    cairo_image_surface_get_stride(surface),
-		    width,
-		    height);
-
-  /* Save to PNG */
-  
-  cairo_surface_write_to_png(surface, "babl.png");
-
-  // 2. Scale the image (e.g., to 50% of its size)
-  
-  int new_w = width / 2;
-  int new_h = height / 2;
   Imlib_Image scaled_img = imlib_create_cropped_scaled_image(0, 0, width, height, new_w, new_h);
-  
 
   if (scaled_img)
     {
@@ -79,8 +124,13 @@ int main(int argc, char *argv[])
   
   // 3. Save the resulting image
   
-  imlib_image_set_format("png");
-  imlib_save_image("output_scaled.png");
+  imlib_image_set_format(format);
+
+  char *save_path = calloc(sizeof(char), strlen(ext->file) + strlen(format) + 2);
+  snprintf(save_path, strlen(ext->file) + strlen(format) + 2, "%s.%s", ext->file, format);
+  
+  imlib_save_image(save_path);
+  free(save_path);
   
   // 4. Clean up memory
 
