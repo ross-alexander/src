@@ -83,7 +83,7 @@ struct path_ext_t* path_split(const char *path)
   /* count parts, with sentinal (start = -1) at the end */
   
   for (count = 0; parts[count].start >= 0; count++)
-#ifdef PATH_SPLIT_DEBUG
+#if PATH_SPLIT_DEBUG
     printf("%02d: %.*s %c\n", count, parts[count].length, path + parts[count].start, parts[count].slash ? '/' : ' ');
 #else
     ;
@@ -133,13 +133,12 @@ struct path_ext_t* path_split(const char *path)
 	  int file_no_ext_length = match[2].rm_eo - match[2].rm_so;
 	  int ext_length = match[3].rm_eo - match[3].rm_so;
 
-	  /* If only extension */
+	  /* if file + extension */
 	  
 	  if (file_no_ext_length > 0)
 	    {
 	      split->file = calloc(sizeof(char), file_no_ext_length + 1);
 	      strncpy(split->file, path + parts[count-1].start + match[2].rm_so, file_no_ext_length);
-	      printf("** file: %s\n", split->file);
 	    }
 
 	  /* Extension, which will always have at least one character */
@@ -174,9 +173,9 @@ struct path_ext_t* path_split(const char *path)
     free(parts);
 
 #if PATH_SPLIT_DEBUG
-  if (split->dir) printf("** dir: %s\n", split->dir);
-  if (split->file) printf("** file: %s\n", split->file);
-  if (split->ext) printf("** ext: %s\n", split->ext);
+  if (split->dir) printf("dir: %s\n", split->dir);
+  if (split->file) printf("file: %s\n", split->file);
+  if (split->ext) printf("ext: %s\n", split->ext);
 #endif
   
   return split;
