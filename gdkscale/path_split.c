@@ -62,8 +62,11 @@ struct path_part_t* match_path_rx(const char *path)
       count++;
     }
 
-  /* Set sentinal */
+  /* Free pattern buffer */
+
+  regfree(&rx);
   
+  /* Set sentinal */
   components[count].start = -1;
   return components;
 }
@@ -149,8 +152,8 @@ struct path_ext_t* path_split(const char *path)
       else
 	{
 	  /* Check if leading / and remove from filename */
-	  regex_t rx;
-	  if (regcomp(&rx, "(^[/])?(.*)", REG_EXTENDED))
+	  regex_t leading_slash_rx;
+	  if (regcomp(&leading_slash_rx, "(^[/])?(.*)", REG_EXTENDED))
 	    {
 	      fprintf(stderr, strerror(errno));
 	      exit(1);
@@ -159,11 +162,14 @@ struct path_ext_t* path_split(const char *path)
 
 	  /* Should always match */
 	  
-	  regexec(&rx, path + parts[count-1].start, 3, match, 0);
+	  regexec(&leading_slash_rx, path + parts[count-1].start, 3, match, 0);
 	  
 	  split->file = calloc(sizeof(char), parts[count-1].length + 1);
 	  strncpy(split->file, path + parts[count-1].start + match[2].rm_so, match[2].rm_eo - match[2].rm_so);
+
+	  regfree(&leading_slash_rx);
 	}
+      regfree(&rx);
     }
 
   /* Case with directory is the root (/) only */
