@@ -11,6 +11,63 @@
 
 #include "path_split.h"
 
+/* ----------------------------------------------------------------------
+   --
+   -- imlib_cairo_babl_convert
+   --
+   ---------------------------------------------------------------------- */
+
+cairo_surface_t *imlib_cairo_babl_convert(Imlib_Image img)
+{
+  // Set the current image context
+  imlib_context_set_image(img);
+
+  // Retrieve original dimensions
+  int width = imlib_image_get_width();
+  int height = imlib_image_get_height();
+
+  
+  /* --------------------
+     Use babl to convert to cairo ARGB32
+     -------------------- */
+  
+  const Babl *src_format, *dst_format;
+  cairo_format_t cairo_format;
+
+  /* RGB with Tone Reponse Curve (aka gamma correction) from source */
+  
+  src_format = babl_format_new(babl_model("R'G'B'A"), babl_type("u8"),
+			       babl_component("B'"),
+			       babl_component("G'"),
+			       babl_component("R'"),
+			       babl_component("A"),
+			       nullptr);
+
+
+  /* Default to having alpha */
+  
+  cairo_format = CAIRO_FORMAT_ARGB32;
+  dst_format = babl_format("cairo-ARGB32");
+      
+  cairo_surface_t *surface = cairo_image_surface_create(cairo_format, width, height);
+  
+  babl_process_rows(babl_fish(src_format, dst_format),
+		    imlib_image_get_data_for_reading_only(),
+		    width * 4,
+		    cairo_image_surface_get_data(surface),
+		    cairo_image_surface_get_stride(surface),
+		    width,
+		    height);
+
+  return surface;
+}
+
+/* ----------------------------------------------------------------------
+   --
+   -- main
+   --
+   ---------------------------------------------------------------------- */
+
 int main(int argc, char *argv[])
 {
   babl_init();
@@ -64,46 +121,20 @@ int main(int argc, char *argv[])
   // Retrieve original dimensions
   int width = imlib_image_get_width();
   int height = imlib_image_get_height();
+
   printf("Original size: %dx%d\n", width, height);
 
 
   if (cairo)
     {
-  
-      /* --------------------
-	 Use babl to convert to cairo ARGB32
-	 -------------------- */
-      
-      const Babl *src_format, *dst_format;
-      cairo_format_t cairo_format;
-      
-      src_format = babl_format_new(babl_model("R'G'B'A"), babl_type("u8"),
-				   babl_component("B'"),
-				   babl_component("G'"),
-				   babl_component("R'"),
-				   babl_component("A"),
-				   nullptr);
-      
-      cairo_format = CAIRO_FORMAT_ARGB32;
-      dst_format = babl_format("cairo-ARGB32");
-      
-      cairo_surface_t *surface = cairo_image_surface_create(cairo_format, width, height);
-      
-      babl_process_rows(babl_fish(src_format, dst_format),
-			imlib_image_get_data_for_reading_only(),
-			width * 4,
-			cairo_image_surface_get_data(surface),
-			cairo_image_surface_get_stride(surface),
-			width,
-			height);
-
-      /* Save to PNG */
+      cairo_surface_t *surface = imlib_cairo_babl_convert(img);
 
       const char *save_ext = "-cairo.png";
       char *save_path = calloc(sizeof(char), strlen(ext->file) + strlen(save_ext) + 1);
       snprintf(save_path, strlen(ext->file) + strlen(save_ext) + 1, "%s%s", ext->file, save_ext);
       cairo_surface_write_to_png(surface, save_path);
       free(save_path);
+      cairo_surface_destroy(surface);
     }
 
   /* --------------------
