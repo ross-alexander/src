@@ -159,6 +159,9 @@ int main(int argc, char *argv[])
 
   char *save_path = calloc(sizeof(char), strlen(ext->file) + strlen(format) + 2);
   snprintf(save_path, strlen(ext->file) + strlen(format) + 2, "%s.%s", ext->file, format);
+
+  imlib_image_attach_data_value("quality", NULL, 90, NULL);
+  imlib_image_attach_data_value("compression", NULL, 8, NULL);
   
   imlib_save_image(save_path);
   free(save_path);
