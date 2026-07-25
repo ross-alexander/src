@@ -113,6 +113,9 @@ int main(int argc, char *argv[])
 		cairo_image_surface_get_data(surface),
 		width * height);
   */
+
+  printf("stride = %d\n", gdk_pixbuf_get_rowstride(px));
+  
   babl_process_rows(babl_fish(src_format, dst_format),
 		    gdk_pixbuf_get_pixels(px),
 		    gdk_pixbuf_get_rowstride(px),
