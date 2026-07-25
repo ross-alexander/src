@@ -24,6 +24,12 @@ function cascade(a)
    return a
 end
 
+
+function omni(a)
+   print(a:strftime("%j%t%b %d\t\t# %a %d %b %Y"))
+--   print(a:omni())
+end
+
 -- --------------------
 -- christmas includes boxing day and thre three working days following
 -- as at the time these were company holidays and the office was
@@ -68,10 +74,6 @@ function easter(year)
    local a = Date.new("'easter'")
    omni(a - 2)
    omni(a + 1)
-end
-
-function omni(a)
-   print(a:omni())
 end
 
 if (#arg >= 1) then

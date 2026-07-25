@@ -29,14 +29,27 @@ sub Fetch {
     }
 
     my $cf = $conf->{$host};
-    my $snmp = {
-	'Version' => $cf->{'Version'},
-	'DestHost' => $cf->{'Hostname'},
-	'Community' => $cf->{'Community'},
-    };
+    my $session;
 
-    my $sess = SNMP::Session->new(%$snmp);
-    my $val = $sess->get('sysDescr.0');
+    $cf->{version} = 3;
+    
+    if ($cf->{version} eq "2c")
+    {
+	$session = SNMP::Session->new(DestHost => $cf->{hostname}, Community => $cf->{community}, Version => $cf->{version});
+    }
+    if ($cf->{version} eq "3")
+    {
+	$session = SNMP::Session->new(DestHost => $cf->{hostname}, Version => $cf->{version},
+				      SecName => 'v3testuser',
+				      SecLevel => 'authPriv',
+				      AuthProto => 'SHA-256',
+				      PrivProto => 'AES',
+				      AuthPass => '19.Red_Letter_Day',
+				      PrivPass => '19.Red_Letter_Day',
+	    );
+    }
+	
+    my $val = $session->get('sysDescr.0');
     $conf->{$host}->{'desc'} = $val;
 
     print "$host: ";
@@ -53,7 +66,7 @@ sub Fetch {
     # RFC 1213: STD 17: Management Information Base for Network Management of TCP/IP-based internets: MIB-II
     # --------------------
 
-    my $iftbl = $sess->gettable('ifTable');
+    my $iftbl = $session->gettable('ifTable');
     
     return 0 if (scalar(keys(%$iftbl)) == 0);
     print "ifTable ";
@@ -73,8 +86,8 @@ sub Fetch {
 # ipAddressTable
 # --------------------
 
-    my $pref_tbl = $sess->gettable('ipAddressPrefixTable');
-    my $addr_tbl = $sess->gettable('ipAddressTable');
+    my $pref_tbl = $session->gettable('ipAddressPrefixTable');
+    my $addr_tbl = $session->gettable('ipAddressTable');
 
     if (scalar(keys(%$addr_tbl)) > 0)
     {
@@ -104,7 +117,7 @@ sub Fetch {
 # Get IP address table (ipAddrTable)
 # --------------------
     
-	my $tbl = $sess->gettable('ipAddrTable');
+	my $tbl = $session->gettable('ipAddrTable');
 	if (scalar(keys(%$tbl)) > 0)
 	{
 	    print "ipAddrTable ";
@@ -132,10 +145,10 @@ sub Fetch {
     # Try for inetCidr (RFC4292 & RFC4001)
     # --------------------
     
-    if ($sess->get('inetCidrRouteNumber.0') > 0)
+    if ($session->get('inetCidrRouteNumber.0') > 0)
     {
 	print "inetCidrRoute ";
-	my $tbl = $sess->gettable('inetCidrRouteTable');
+	my $tbl = $session->gettable('inetCidrRouteTable');
 	while (my ($k, $v) = each(%$tbl))
 	{
 #	    while (my ($kk, $vv) = each(%$v)) { print "$kk -> $vv\n"; } print "--------------------\n";
@@ -173,10 +186,10 @@ sub Fetch {
 # Try for ipCidr (RFC2096)
 # --------------------
     
-    elsif ($sess->get('ipCidrRouteNumber.0') > 0)
+    elsif ($session->get('ipCidrRouteNumber.0') > 0)
     {
 	print "ipCidrRoute ";
-	my $tbl = $sess->gettable('ipCidrRouteTable');
+	my $tbl = $session->gettable('ipCidrRouteTable');
 	while (my ($k, $v) = each(%$tbl))
 	{
 #	    while (my ($kk, $vv) = each($v)) { print "$kk -> $vv\n"; } print "--------------------\n";
@@ -194,13 +207,13 @@ sub Fetch {
 # Try for ipForward (RFC1354)
 # --------------------
 
-    elsif  ($sess->get('ipForwardNumber.0') > 0)
+    elsif  ($session->get('ipForwardNumber.0') > 0)
     {
 	print "ipForward ";
 
 	my $vars = SNMP::VarList->new(['ipForwardIfIndex'],['ipForwardDest'],['ipForwardMask'],['ipForwardNextHop'], ['ipForwardType']);
     
-	for (@vals = $sess->getnext($vars); $vars->[0]->tag =~ /ipForwardIfIndex/ and not $sess->{ErrorStr}; @vals = $sess->getnext($vars))
+	for (@vals = $session->getnext($vars); $vars->[0]->tag =~ /ipForwardIfIndex/ and not $session->{ErrorStr}; @vals = $session->getnext($vars))
 	{
 	    $iftbl->{$vals[0]}->{'route'} = [] if (!exists($iftbl->{$vals[0]}->{'route'}));
 	    my $t = $iftbl->{$vals[0]}->{'route'};
@@ -215,7 +228,7 @@ sub Fetch {
     {
 	print "ipRoute ";
 	my $vars = SNMP::VarList->new(['ipRouteIfIndex'],['ipRouteDest'],['ipRouteMask'],['ipRouteNextHop'],['ipRouteType']);
-	for (@vals = $sess->getnext($vars); $vars->[0]->tag =~ /ipRouteIfIndex/ and not $sess->{ErrorStr}; @vals = $sess->getnext($vars))
+	for (@vals = $session->getnext($vars); $vars->[0]->tag =~ /ipRouteIfIndex/ and not $session->{ErrorStr}; @vals = $session->getnext($vars))
 	{
 	    $iftbl->{$vals[0]}->{'route'} = [] if (!exists($iftbl->{$vals[0]}->{'route'}));
 	    my $t = $iftbl->{$vals[0]}->{'route'};

@@ -8,7 +8,7 @@ require "date"
 
 function omni(a)
    print(a:strftime("%j%t%b %d\t\t# %a %d %b %Y"))
---   print(a:omni())
+   --   print(a:omni())
 end
 
 keys = {'Date', 'Patch Tuesday', 'Phase 1', 'Phase 2', 'Phase 3', 'Phase 4'}

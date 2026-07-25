@@ -355,7 +355,7 @@ sub qemu_run {
 
     if ($run->{vga})
     {
-	push(@cmd, "-display", "gtk", "-vga", "vmware");
+	push(@cmd, "-display", "gtk", "-vga", $run->{vga});
     }
     else
     {
@@ -416,7 +416,7 @@ sub main()
 	'basedir=s' => \$opts->{basedir},
 	'imagedir=s' => \$opts->{basedir},
 	'vmname=s' => \$opts->{vmname},
-	'vga' => \$opts->{vga}
+	'vga=s' => \$opts->{vga}
 	);
 
     if (!$opts->{vmname})
