@@ -15,6 +15,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gdk/gdk.h>
 #include <cairo.h>
@@ -122,9 +123,7 @@ int scale_cairo(scale_t *s)
 int scale_gegl(scale_t *s)
 {
 
-  g_autoptr (GeglNode) graph = NULL;
-
-  graph = gegl_node_new();
+  g_autoptr (GeglNode) graph = gegl_node_new();
 
   /* --------------------
      Get data from pixbuf
@@ -185,6 +184,9 @@ int scale(char *file, int size, double ratio, std::string alg, std::string forma
   scale_t s;
 
   std::map<std::string, scalef> fmap;
+
+  /* Add scaling functions to map */
+  
   fmap.emplace("pixbuf", &scale_pixbuf);
   fmap.emplace("cairo", &scale_cairo);
   fmap.emplace("gegl", &scale_gegl);
