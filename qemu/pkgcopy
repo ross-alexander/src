@@ -14,7 +14,7 @@
 #
 # ----------------------------------------------------------------------
 
-use 5.28.0;
+use 5.44.0;
 use Getopt::Long;
 use File::Spec::Functions;
 use YAML qw(LoadFile);
