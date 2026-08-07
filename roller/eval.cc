@@ -34,7 +34,7 @@ int integer_t::eval_l(lua_State *L)
 
 void integer_t::dump()
 {
-  std::cout << value;
+  std::cout << value; // << ":int";
 }
 
 /* ----------------------------------------------------------------------

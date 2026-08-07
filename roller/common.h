@@ -51,3 +51,6 @@ public:
   eval_t* eval_f(roller_t*);
   int eval_l(lua_State*);
 };
+
+extern lua_State *roller_lua_init(roller_t *roller);
+extern void roller_lua_dump(lua_State *L, int i);
