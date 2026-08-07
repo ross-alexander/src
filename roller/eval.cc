@@ -26,12 +26,6 @@ eval_t* integer_t::eval_f(roller_t* roller)
   return new integer_t(value);
 }
 
-int integer_t::eval_l(lua_State *L)
-{
-  lua_pushinteger(L, value);
-  return true;
-}
-
 void integer_t::dump()
 {
   std::cout << value; // << ":int";
@@ -71,38 +65,6 @@ eval_t *func_t::eval_f(roller_t *roller)
   return res;
 }
 
-
-int func_t::eval_l(lua_State *L)
-{
-  lua_getglobal(L, "__roller");
-  assert(lua_istable(L, -1));
-
-  lua_getfield(L, -1, "roller");
-  assert(lua_isuserdata(L, -1));
-  roller_t *roller = (roller_t*)lua_touserdata(L, -1);
-  lua_pop(L, 1);
-  
-  lua_getfield(L, -1, "functions");
-  lua_getfield(L, -1, function.c_str());
-  lua_remove(L, -2); // remove functions table
-  lua_remove(L, -2); // remove roller table
-  if (lua_isfunction(L, -1))
-    {
-      if (roller->debuglevel > 0)
-	{
-	  std::cout << "Found lua function " << function << "\n";
-	}
-      unsigned int f_index = lua_gettop(L);
-      for (auto p : params->list)
-	{
-	  lua_pushlightuserdata(L, p);
-	}
-      int nargs = lua_gettop(L) - f_index;
-      lua_call(L, nargs, LUA_MULTRET);
-    }
-  return true;
-}
-
 void func_t::dump()
 {
   std::cout << function << "(";
@@ -129,15 +91,6 @@ eval_t* list_t::eval_f(roller_t *roller)
       res->append(i->eval_f(roller));
     }
   return res;
-}
-
-int list_t::eval_l(lua_State *L)
-{
-  for (auto i : list)
-    {
-      i->eval_l(L);
-    }
-  return true;
 }
 
 void list_t::dump()

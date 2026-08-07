@@ -161,6 +161,9 @@ lua_State *roller_lua_init(roller_t *roller)
     {"repeat",			roller_lua_repeat},
     {0, 0}
   };
+
+  /* Create global table __roller with keys 'functions' and 'roller' */
+  
   lua_pushglobaltable(L);
   lua_newtable(L);
   luaL_newlib(L, lua_functions);
@@ -171,3 +174,56 @@ lua_State *roller_lua_init(roller_t *roller)
   lua_pop(L, 1);
   return L;
 }
+
+/* ----------------------------------------------------------------------
+   --
+   -- evaluators
+   --
+   ---------------------------------------------------------------------- */
+
+int integer_t::eval_l(lua_State *L)
+{
+  lua_pushinteger(L, value);
+  return true;
+}
+
+int func_t::eval_l(lua_State *L)
+{
+  lua_getglobal(L, "__roller");
+  assert(lua_istable(L, -1));
+
+  lua_getfield(L, -1, "roller");
+  assert(lua_isuserdata(L, -1));
+  roller_t *roller = (roller_t*)lua_touserdata(L, -1);
+  lua_pop(L, 1);
+  
+  lua_getfield(L, -1, "functions");
+  lua_getfield(L, -1, function.c_str());
+  lua_remove(L, -2); // remove functions table
+  lua_remove(L, -2); // remove roller table
+  if (lua_isfunction(L, -1))
+    {
+      if (roller->debuglevel > 0)
+	{
+	  std::cout << "Found lua function " << function << "\n";
+	}
+      unsigned int f_index = lua_gettop(L);
+      for (auto p : params->list)
+	{
+	  lua_pushlightuserdata(L, p);
+	}
+      int nargs = lua_gettop(L) - f_index;
+      lua_call(L, nargs, LUA_MULTRET);
+    }
+  return true;
+}
+
+int list_t::eval_l(lua_State *L)
+{
+  for (auto i : list)
+    {
+      i->eval_l(L);
+    }
+  return true;
+}
+
