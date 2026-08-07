@@ -5,10 +5,12 @@ LDLIBS		= -lreflex $(shell pkg-config --libs lua-5.5)
 LEX		= reflex --flex --bison --noyywrap
 YACC		= bison
 
-roller: lex.yy.o parse.tab.o eval.o main.o
+roller: lex.yy.o parse.tab.o eval.o lua.o main.o
 	$(CXX) $^ $(LDLIBS) -o $@
 
 main.o : main.cc common.h
+
+lua.o : lua.cc common.h
 
 eval.o: eval.cc common.h
 
