@@ -42,14 +42,9 @@ eval_t *f_floor(roller_t* roller, list_t* params)
   if (params->list.size() > 0)
     {
       eval_t *e = params->list[0]->eval_f(roller);
-      if (integer_t* i  = dynamic_cast<integer_t*>(e))
-	{
-	  value = i->value;
-	}
-      else
-	{
-	  assert(dynamic_cast<integer_t*>(e) != nullptr);
-	}
+      integer_t *i;
+      assert((i = dynamic_cast<integer_t*>(e)) != nullptr);
+      value = i->value;
       if (value < 1)
 	value = 1;
       return new integer_t(value);
