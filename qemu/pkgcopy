@@ -4,6 +4,9 @@
 #
 # pkgcopy
 #
+# 2026-08-19: ralexand
+#   Add ssh options
+#
 # 2021-08-13: ralexand
 #   Convert to QemuPkg
 #
