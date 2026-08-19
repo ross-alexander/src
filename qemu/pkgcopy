@@ -40,12 +40,12 @@ my $opts = {
     quiet => 1,
 };
 
-my $pkg = QemuPkg->new($opts, "pkg.yaml");
-
 GetOptions(
     'quiet+' => \$opts->{quiet},
     'base=s' => \$opts->{pkg_base}
     );
+
+my $pkg = QemuPkg->new($opts, "pkg.yaml");
 
 # --------------------
 # Check args
@@ -81,15 +81,17 @@ else
 
 $dst_dir //= "/";
 
-my $base = "/locker/pkg";
+# my $base = "/locker/pkg";
 
 my @records = $pkg->files([@ARGV]);
 
 my $verbose = ($opts->{quiet} < 1) ? "-v" : "";
 
+my $ssh_opts = "-o forwardx11=no";
+
 for my $rec (@records)
 {
-    my @ssh = $dst_host ? ("ssh", $dst_host) : ();
+    my @ssh = $dst_host ? ("ssh", $ssh_opts, $dst_host) : ();
     
     my $cmd = join(" ", "tar", "-C", $rec->{path}, "-cf", "-", ".", "|", @ssh, "tar", "-C", $dst_dir, $verbose, "-xhf", "-");
     say $cmd if ($opts->{quiet} < 2);
