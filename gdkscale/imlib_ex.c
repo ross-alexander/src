@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
   int width = imlib_image_get_width();
   int height = imlib_image_get_height();
 
-  printf("Original size: %dx%d\n", width, height);
+  printf("Original size: %d × %d\n", width, height);
 
 
   if (cairo)
@@ -143,6 +143,8 @@ int main(int argc, char *argv[])
   
   int new_w = (int)((double)width * scale);
   int new_h = (int)((double)height * scale);
+
+  printf("Scaled size: %d × %d\n", new_w, new_h);
   
   Imlib_Image scaled_img = imlib_create_cropped_scaled_image(0, 0, width, height, new_w, new_h);
 
