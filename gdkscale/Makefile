@@ -2,7 +2,7 @@ LDLIBS_SCALE	= $(shell pkg-config --libs gtk+-3.0 gdk-3.0 gegl-0.4)
 CFLAGS		= $(shell pkg-config --cflags gtk+-3.0 gdk-3.0 gegl-0.4)
 CXX		= g++ -std=c++20
 
-ALL: scale gdkscale pixbuf2cairo draw imlib_ex pcre2_split
+ALL: scale gdkscale pixbuf2cairo draw imlib_scale pcre2_split
 
 pcre2_split	: pcre2_split.o
 	$(CC) $< -lpcre2-8 -o $@
@@ -31,10 +31,10 @@ draw	: pixbuf_cairo_pango.o
 pixbuf_cairo_pango.o: pixbuf_cairo_pango.c
 	$(CC) $(CFLAGS) -c $^ -o $@
 
-imlib_ex: path_split.o imlib_ex.o
+imlib_scale: path_split.o imlib_scale.o
 	$(CC) $^ -lImlib2 $(shell pkg-config --libs cairo babl-0.1) -o $@
 
-imlib_ex.o: imlib_ex.c
+imlib_scale.o: imlib_scale.c
 	$(CC) $(shell pkg-config --cflags cairo babl-0.1) -c $< -o $@
 
 clean:
