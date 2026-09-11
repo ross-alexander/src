@@ -25,6 +25,7 @@ extern int yyerror(eval_t**, const char*);
 
 %token INTEGER PLUS MINUS DIE TIMES IDENT COMMA BANG
 %token LPAREN RPAREN LSQUARE RSQUARE LBRACE RBRACE
+%token ASSIGN
 %type <i> INTEGER
 %type <e> expr
 %type <list> exprlist
@@ -32,6 +33,7 @@ extern int yyerror(eval_t**, const char*);
 
  // Operator orders and priority
 
+%right ASSIGN
 %left PLUS MINUS
 %left TIMES
 %left DIE
@@ -134,5 +136,12 @@ expr    : INTEGER
         | IDENT LPAREN exprlist RPAREN
 	{
 	  $$ = new func_t($1, $3);
+	}
+	| IDENT ASSIGN expr
+	{
+	  list_t *params = new list_t();
+	  params->append(new string_t($1));
+	  params->append($3);
+	  $$ = new func_t((char*)"__assign", params);
 	}
         ;

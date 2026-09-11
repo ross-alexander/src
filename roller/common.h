@@ -7,11 +7,12 @@
 typedef class eval_t* (*evalf)(class roller_t*, class list_t*);
 
 typedef std::map<std::string, evalf> evalf_map;
-
+typedef std::map<std::string, class eval_t*> evalv_map;
 
 class roller_t {
 public:
   evalf_map fmap;
+  evalv_map vmap;
   int debuglevel;
   roller_t();
 };
@@ -27,6 +28,15 @@ class integer_t : public eval_t {
  public:
   int value;
   integer_t(int i);
+  void dump();
+  eval_t* eval_f(roller_t*);
+  int eval_l(lua_State*);
+};
+
+class string_t : public eval_t {
+ public:
+  std::string s;
+  string_t(const char*);
   void dump();
   eval_t* eval_f(roller_t*);
   int eval_l(lua_State*);

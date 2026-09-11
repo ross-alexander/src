@@ -187,6 +187,26 @@ int integer_t::eval_l(lua_State *L)
   return true;
 }
 
+int string_t::eval_l(lua_State *L)
+{
+  lua_getglobal(L, "__roller");
+  assert(lua_istable(L, -1));
+
+  lua_getfield(L, -1, "roller");
+  assert(lua_isuserdata(L, -1));
+  roller_t *roller = (roller_t*)lua_touserdata(L, -1);
+  lua_pop(L, 1);
+
+  if (!roller->vmap.count(s))
+    {
+      std::cerr << "Variable " << s << " not found.\n";
+      exit(1);
+    }
+  eval_t* val = roller->vmap[s];
+  val->eval_l(L);
+  return true;
+}
+
 int func_t::eval_l(lua_State *L)
 {
   lua_getglobal(L, "__roller");

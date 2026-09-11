@@ -20,6 +20,16 @@ extern int yylex();
    --
    ---------------------------------------------------------------------- */
 
+eval_t *f_assign(roller_t* roller, list_t *params)
+{
+  assert(params->list.size() == 2);
+  string_t *s = dynamic_cast<string_t*>(params->list[0]);
+  eval_t *v = params->list[1]->eval_f(roller);
+
+  roller->vmap[s->s] = v;
+  return v;
+}
+
 eval_t *f_repeat(roller_t* roller, list_t *params)
 {
   assert(params->list.size() > 1);
@@ -137,12 +147,15 @@ int main(int argc, char *argv[])
 {
   srand(time(0));
 
+  int enable_lua = 0;
+  
   roller_t roller;
   
   roller.fmap["__plus"] = f_plus;
   roller.fmap["__minus"] = f_minus;
   roller.fmap["__times"] = f_times;
   roller.fmap["__floor"] = f_floor;
+  roller.fmap["__assign"] = f_assign;
   roller.fmap["die"] = f_die;
   roller.fmap["repeat"] = f_repeat;
 
@@ -159,12 +172,23 @@ int main(int argc, char *argv[])
       std::cout << " = ";
       res->dump();
       std::cout << "\n";
-      e->eval_l(L);
-      for (unsigned int i = 1; i <= lua_gettop(L); i++)
+      if (enable_lua)
 	{
-	  roller_lua_dump(L, i);
-	  std::cout << "\n";
+	  e->eval_l(L);
+	  for (unsigned int i = 1; i <= lua_gettop(L); i++)
+	    {
+	      roller_lua_dump(L, i);
+	      std::cout << "\n";
+	    }
 	}
     }
+
+  for (const auto& pair : roller.vmap)
+    {
+      std::cout << pair.first << " = ";
+      pair.second->dump();
+      std::cout << "\n";
+    }
+  
   return(0);
 }

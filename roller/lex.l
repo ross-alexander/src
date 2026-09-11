@@ -14,6 +14,7 @@
 %}
 
 %%
+"="      { return ASSIGN; }
 "+"      { return PLUS; }
 "-"      { return MINUS; }
 "*"      { return TIMES; }
