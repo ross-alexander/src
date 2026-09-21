@@ -52,7 +52,7 @@
 #
 # ----------------------------------------------------------------------
 
-use 5.34.0;
+use 5.44.0;
 use File::Spec::Functions qw(:ALL);
 use File::Copy;
 use File::Slurp;
@@ -62,7 +62,6 @@ use File::Sync qw(fsync sync);
 use Perl6::Slurp;
 use Time::Piece;
 use Getopt::Long;
-use feature 'say';
 use JSON;
 use YAML qw(LoadFile);
 use Carp;
@@ -70,6 +69,7 @@ use QemuPkg;
 use QemuVm;
 use QemuVmFile;
 use GDBM_File;
+use Number::Bytes::Human qw(format_bytes parse_bytes);
 
 # ----------------------------------------------------------------------
 #
@@ -216,13 +216,13 @@ sub nbd_check {
 
 	my $dev_map = {};
 	
-	if (exists(@blkid[0]->{PTTYPE}))
+	if (exists($blkid[0]->{PTTYPE}))
 	{
 	}
 	else
 	{
 	    my $t = $conf->{image}->{mtab}->{root} = {
-		'dev' => @blkid[0]->{DEVNAME},
+		'dev' => $blkid[0]->{DEVNAME},
 	    };
 	    $dev_map->{$t->{dev}} = $t;
 	}
@@ -302,6 +302,7 @@ sub image_mount {
     my $path = $image->{path};
     my $mtab = $image->{mtab} = {};
 
+
     # --------------------
     # Check tmpdir
     # --------------------
@@ -338,7 +339,7 @@ sub image_mount {
     }
 
     # --------------------
-    # Use blkid to determine details of image
+    # Use parted to determine details of image
     # --------------------
 
     my $part_map = {
@@ -353,91 +354,195 @@ sub image_mount {
 	},
     };
 
-    my @blkid = map {
-        +{ map { split(m:=:, $_) } split(m:\n:, $_) }
-    }  split(m:\n\n:, qx(blkid -o export ${dev}*));
+    # --------------------
+    # Get partition details from parted as JSON
+    # --------------------
+    
+    my $parted = from_json(qx(parted -j -s ${dev} unit B print));
 
-    if (exists(@blkid[0]->{PTTYPE}))
+    my $partitions;
+    my $part_type;
+
+    # --------------------
+    # Parted creates a fake partition type "loop" for images without a partition table
+    # --------------------
+    
+    if (!exists($image->{partition}))
     {
-	say "Found partition type @blkid[0]->{PTTYPE}";
+	$part_type = "loop";
+	$partitions = [
+	    {
+		name => $image->{name},
+		label => $image->{label},
+		mountpoint => $image->{mountpoint},
+		fstype => $image->{fstype},
+	    }
+	    ];
     }
     else
     {
-	if ($image->{partition})
-	{
-	    warn "Expecting partition but did not find any";
-	    qx(qemu-nbd -d $dev);
-	    exit(1);
-	}
-	my $b = @blkid[0];
-	say "Found filesystem $b->{TYPE} [$b->{LABEL}] on $dev";
+	$part_type = $image->{partition}->{type};
+	$partitions = $image->{partition}->{partitions};
+    }
+    
+#    my @blkid = map {
+#        +{ map { split(m:=:, $_) } split(m:\n:, $_) }
+#    }  split(m:\n\n:, qx(blkid -o export ${dev}*));
+
+    # --------------------
+    # Check partition type
+    # --------------------
+
+    say %{$parted->{disk}};
+    printf("Found partition type %s\n", $parted->{disk}->{label});
+
+    if (!($parted->{disk}->{label} eq $part_type))
+    {
+	printf(STDERR "Partition type mismatch %s vs %s\n", $parted->{disk}->{label}, $part_type);
+	qx(qemu-nbd -d ${dev});
+	exit(1);
+    }
+
+    # --------------------
+    # Check partition count
+    # --------------------
+    
+    my $part_count;
+    $part_count = scalar(keys(%$partitions)) if (ref($partitions) eq "HASH");
+    $part_count = scalar(@$partitions) if (ref($partitions) eq "ARRAY");
+
+    if (!($part_count == scalar(@{$parted->{disk}->{partitions}})))
+    {
+	printf(STDERR "Partition count mismatch %d vs %d\n", scalar(@$partitions), scalar(@{$parted->{disk}->{partitions}}));
+	qx(qemu-nbd -d ${dev});
+	exit(1);
+    }
+
+    # --------------------
+    # Assume single partition right now
+    # --------------------
+
+    my $parted_partitions = $parted->{disk}->{partitions};
+
+    # --------------------
+    # Loop, or no actual partition table
+    # --------------------
+    
+    if ($part_type eq "loop")
+    {
 	$mtab->{root} = {
+	    name => 'root',
 	    dev => $dev,
 	    path => '/',
-	    fstype => $b->{TYPE},
-	    label => $b->{LABEL},
-	    uuid => $b->{UUID},
-	};
-    }
+	    fstype => $partitions->[0]->{fstype},
+	    sequence => 0,
+	}
+    };
 
-    if ($image->{partition})
+    # --------------------
+    # MS-DOS or GPT
+    # --------------------
+    
+    if (($part_type eq "msdos") || ($part_type eq "gpt"))
     {
-    	my $part = $image->{partition} //= {};
-	
-	my $esp = $part->{esp} //= {};
-	my $boot = $part->{boot} //= {};
-	my $root = $part->{root} //= {};
-	
-	$esp->{nbd} = sprintf("%sp1", $dev);
-	$boot->{nbd} = sprintf("%sp2", $dev);
-	$root->{nbd} = sprintf("%sp3", $dev);
-
-	# --------------------
-	# map devices to partitions
-	# --------------------
-	
-	my $dev_to_part_map = {};
-	while (my ($k, $v) = each(%$part))
+	my $count = 1;
+	for my $p (@$partitions)
 	{
-	    $dev_to_part_map->{$v->{nbd}} = $k;
+	    $mtab->{$p->{name}} = {
+		dev => sprintf("%sp%d", $dev, $count),
+		path => $p->{mountpoint},
+		fstype => $p->{fstype},
+		sequence => $p->{sequence},
+	    };
+	    $count++;
 	}
-	
-	# --------------------
-	# Get block IDs
-	# --------------------
-	
-	for my $blkid (grep(m:$dev:, split(m:\n:, qx/blkid/)))
-	{
-	    my ($dev, $list) = split(m/: /, $blkid, 2);
-	    if (my $name = $dev_to_part_map->{$dev})
-	    {
-		print $dev," ", $name, " ", $list, "\n";
-		for my $i (split(m: :, $list))
-		{
-		    my ($k, $v) = split(m:=:, $i);
-		    $v =~ s:^\"::;
-		    $v =~ s:\"$::;
-		    
-		    $part->{$name}->{id}->{$k} = $v;
-		}
-		
-		if (!$part_map->{$name})
-		{
-		    print(STDERR "Cannot find mountpoint of '%s'\n", $name);
-		    continue;
-		}
-		my $blkid_map = $part->{$name}->{id};
-		
-		$mtab->{$name} = {
-		    dev => $dev,
-		    path => $part_map->{$name}->{mountpoint},
-		    fstype => $blkid_map->{TYPE},
-		    label => $blkid_map->{LABEL},
-		    uuid => $blkid_map->{UUID},
-		    partuuid => $blkid_map->{PARTUUID},		};
-	    }
-	}
+#	qx(qemu-nbd -d ${dev});
+#	exit(0);
     }
+    # my @blkid;
+    
+    # if (exists($blkid[0]->{PTTYPE}))
+    # {
+    # 	say "Found partition type $blkid[0]->{PTTYPE}";
+    # }
+    # else
+    # {
+    # 	if ($image->{partition})
+    # 	{
+    # 	    warn "Expecting partition but not found";
+    # 	    qx(qemu-nbd -d $dev);
+    # 	    exit(1);
+    # 	}
+    # 	my $b = $blkid[0];
+    # 	say "Found filesystem $b->{TYPE} [$b->{LABEL}] on $dev";
+    # 	$mtab->{root} = {
+    # 	    dev => $dev,
+    # 	    path => '/',
+    # 	    fstype => $b->{TYPE},
+    # 	    label => $b->{LABEL},
+    # 	    uuid => $b->{UUID},
+    # 	};
+    # }
+
+    # if ($image->{partition})
+    # {
+    # 	say(@blkid);
+    # 	my $part = $image->{partition};
+	
+    # 	my $esp = $part->{esp} //= {};
+    # 	my $boot = $part->{boot} //= {};
+    # 	my $root = $part->{root} //= {};
+	
+    # 	$esp->{nbd} = sprintf("%sp1", $dev);
+    # 	$boot->{nbd} = sprintf("%sp2", $dev);
+    # 	$root->{nbd} = sprintf("%sp3", $dev);
+
+    # 	# --------------------
+    # 	# map devices to partitions
+    # 	# --------------------
+	
+    # 	my $dev_to_part_map = {};
+    # 	while (my ($k, $v) = each(%$part))
+    # 	{
+    # 	    $dev_to_part_map->{$v->{nbd}} = $k;
+    # 	}
+	
+    # 	# --------------------
+    # 	# Get block IDs
+    # 	# --------------------
+	
+    # 	for my $blkid (grep(m:$dev:, split(m:\n:, qx/blkid/)))
+    # 	{
+    # 	    my ($dev, $list) = split(m/: /, $blkid, 2);
+    # 	    if (my $name = $dev_to_part_map->{$dev})
+    # 	    {
+    # 		print $dev," ", $name, " ", $list, "\n";
+    # 		for my $i (split(m: :, $list))
+    # 		{
+    # 		    my ($k, $v) = split(m:=:, $i);
+    # 		    $v =~ s:^\"::;
+    # 		    $v =~ s:\"$::;
+		    
+    # 		    $part->{$name}->{id}->{$k} = $v;
+    # 		}
+		
+    # 		if (!$part_map->{$name})
+    # 		{
+    # 		    print(STDERR "Cannot find mountpoint of '%s'\n", $name);
+    # 		    continue;
+    # 		}
+    # 		my $blkid_map = $part->{$name}->{id};
+		
+    # 		$mtab->{$name} = {
+    # 		    dev => $dev,
+    # 		    path => $part_map->{$name}->{mountpoint},
+    # 		    fstype => $blkid_map->{TYPE},
+    # 		    label => $blkid_map->{LABEL},
+    # 		    uuid => $blkid_map->{UUID},
+    # 		    partuuid => $blkid_map->{PARTUUID},		};
+    # 	    }
+    # 	}
+    # }
     
     # --------------------
     # Check mount base directory exists
@@ -531,6 +636,211 @@ sub image_umount {
     }
 }
 
+# ----------------------------------------------------------------------
+#
+# mkpart_msdos
+#
+# ----------------------------------------------------------------------
+
+sub mkpart_msdos {
+    my ($nbd, $image) = @_;
+
+    my $partition = $image->{partition};
+    my $partitions = $partition->{partitions};
+    my $image_size_bytes = parse_bytes($image->{size});
+    
+    print qx(parted -j -s $nbd mklabel msdos);
+    print qx(parted -j -s $nbd unit B print);
+
+    if (!(ref($partitions) eq "ARRAY"))
+    {
+	printf(STDERR "Partition configuration of msdos must be a list\n");
+	return 0;
+    }
+    
+    my $part_total_size = 0;
+    my $part_count = 1;
+    my $check = 1;
+    my @part_mkpart_result;
+    
+    # --------------------
+    # Check settings and sizes
+    # --------------------
+    
+    for my $part (@$partitions)
+    {
+	my $part_size_bytes = parse_bytes($part->{size});
+	if ($part_size_bytes == 0)
+	{
+	    printf("Partition %d size %s failed to parse\n", $part_count, $part->{size});
+	    $check = 0;
+	    last;
+	}
+	my $part_start_bytes = parse_bytes($part->{start});
+
+	if (!defined($part_start_bytes) || ($part_start_bytes == 0))
+	{
+	    printf("Partition %d start %s failed to parse\n", $part_count, $part->{start} // "[undefined]");
+	    $check = 0;
+	    last;
+	}
+	
+	# --------------------
+	# Type should be primary
+	# --------------------
+	
+	if (!exists($part->{type}))
+	{
+	    printf("Partition %d missing type\n", $part_count);
+	    $check = 0;
+	    last;
+	}
+	$part_total_size += $part_size_bytes;
+	if($part_total_size >= $image_size_bytes)
+	{
+	    printf("Partition %d will exceed disk size (%s vs %s)\n", $part_count,
+		   format_bytes($part_total_size), format_bytes($image_size_bytes));
+	    $check = 0;
+	    last;
+	}
+	$part_count++;
+    }
+    
+    # --------------------
+    # If passed check create partitions
+    # --------------------
+
+    return undef if (!$check);
+
+    my $partno = 1;
+    for my $part (@$partitions)
+    {
+	my $start_bytes = parse_bytes($part->{start});
+	my $size_bytes = parse_bytes($part->{size});
+	my $type = $part->{type};
+	my $fstype = $part->{fstype};
+	
+	my $cmd = sprintf("parted -s $nbd mkpart %s %s %dB %dB", $type, $fstype // "", $start_bytes, $size_bytes);
+	print(qx($cmd));
+	push(@part_mkpart_result, {partno => $partno, name => $part->{name}, fstype => $fstype, label => $part->{label}, options => $part->{options}});
+	$partno += 1;
+    }
+    return \@part_mkpart_result;
+}
+
+# ----------------------------------------------------------------------
+#
+# mkpart_gpt
+#
+# ----------------------------------------------------------------------
+
+sub mkpart_gpt {
+    my ($nbd, $image) = @_;
+
+    my $partition = $image->{partition};
+    my $partitions = $partition->{partitions};
+    my $image_size_bytes = parse_bytes($image->{size});
+
+    # --------------------
+    # Hack to convert to hash if list
+    # --------------------
+    
+    if (ref($partitions) eq "ARRAY")
+    {
+	my $part_map_temp = {};
+	for my $p (@$partitions)
+	{
+	    $part_map_temp->{$p->{name}} = $p;
+	}
+	$partitions = $part_map_temp;
+    }
+    
+    # --------------------
+    # Add GPT partition label (for UEFI)
+    # --------------------
+    
+    say(qx(parted -s $nbd mklabel gpt));
+	    
+    my $parted_details = from_json(qx(parted -j -s $nbd print));
+    
+    my $block_size = $parted_details->{disk}->{'logical-sector-size'};
+
+    say (to_json($parted_details));
+    say (to_json($partitions));
+
+    # --------------------
+    # Collect results
+    # --------------------
+
+    my @part_mkpart_result;
+    
+    # --------------------
+    # Add EFISYS partition
+    # --------------------
+    
+    my $start_bytes = parse_bytes("1M");
+    my $partno = 1;
+    if ($partitions->{efisys})
+    {
+	my $size_efi = $partitions->{efisys}->{size} // "36M";
+	my $size_bytes = parse_bytes($size_efi);
+	
+	printf("%s %s\n", format_bytes($start_bytes), format_bytes($size_bytes));
+	
+	my $mkpart_efi = sprintf("parted -s $nbd mkpart EFISYS %dB %dB", $start_bytes, $start_bytes + $size_bytes - $block_size);
+	
+	say($mkpart_efi);
+	
+	print qx($mkpart_efi);
+	print qx(parted -s $nbd set 1 esp);
+	
+	$start_bytes += $size_bytes;
+	push(@part_mkpart_result, {partno => $partno, name => "efisys", fstype => "fat", options => "-F 32 -n EFISYS"});
+	$partno += 1;
+    }
+    
+    # --------------------
+    # Add boot partition
+    # --------------------
+    
+    if ($partitions->{boot})
+    {
+	my $size_bytes = parse_bytes($partition->{boot}->{size} // "128M");
+	
+	printf("%s %s\n", format_bytes($start_bytes), format_bytes($size_bytes));
+	
+	my $mkpart_boot = sprintf("parted -s $nbd mkpart boot %dB %dB", $start_bytes, $start_bytes + $size_bytes - $block_size);
+	$start_bytes += $size_bytes;
+	
+	say($mkpart_boot);
+	print qx($mkpart_boot);
+	
+	my $label = $partition->{boot}->{label} // "/boot";
+	my $options = "-L $label";
+	
+	push(@part_mkpart_result, {partno => $partno, name => "boot", fstype => $partition->{boot}->{fstype} // "ext4", options => $options});
+	$partno += 1;
+    }
+    
+    # --------------------
+    # Add root partition
+    # --------------------
+    
+    if ($partitions->{root})
+    {
+	my $size_bytes = parse_bytes($partitions->{root}->{size});
+	
+	my $mkpart_root = sprintf("parted -s $nbd mkpart root %dB %dB", $start_bytes, $size_bytes - $block_size);
+	say($mkpart_root);
+	print qx($mkpart_root);
+	
+	my $label = $partition->{root}->{label} // "/";
+	my $options = "-L $label";
+	
+	push(@part_mkpart_result, {partno => $partno, name => "root", fstype => $partition->{root}->{fstype} // "ext4", options => $options});
+    }
+    return \@part_mkpart_result;
+}    
 
 # ----------------------------------------------------------------------
 #
@@ -543,6 +853,7 @@ sub image_create {
     my $opts = {@_};
     
     my $conf = $vm->configuration_get();
+    my $fail = 0;
     
 # --------------------
 # Put everything into a directory
@@ -553,17 +864,29 @@ sub image_create {
     my $format = $conf->{image}->{format} || die;
     my $size = $conf->{image}->{size} || die;
 
+    my $size_bytes = parse_bytes($size);
+    if ($size_bytes == 0)
+    {
+	printf(STDERR "Size %s failed to parse\n", $size);
+	exit(1);
+    }
+    printf("Image size is %d bytes\n", $size_bytes);
+
     my $imagefile = $conf->{image}->{path};
+    
     my $basedir = dirname($imagefile);
 
     # --------------------
     # Create directory if necessary
     # --------------------
 
-	   
     if (! -d $basedir)
     {
-	mkdir($basedir) || die;
+	if (!mkdir($basedir))
+	{
+	    printf(STDERR "mkdir %s failed: %s\n", $basedir, $!);
+	    exit(1);
+	}
     }
 
     # --------------------
@@ -580,7 +903,7 @@ sub image_create {
     # Create img file
     # --------------------
     
-    print qx(qemu-img create -f $format $imagefile $size);
+    print qx(qemu-img create -f $format $imagefile $size_bytes);
     sync();
 
     # --------------------
@@ -593,69 +916,62 @@ sub image_create {
     print qx(sysctl vm.drop_caches=3);
     
     # --------------------
-    # Set sizes (all in M)
+    # Check if partitioning
     # --------------------
 
     if ($image->{partition})
     {
 	my $partition = $image->{partition};
-	my $size_ptable = 2;
-	my $size_current;
-	my @part;
 
-        # --------------------
-	# Add GPT partition label (for UEFI)
+	my $partition_types = {
+	    msdos => 1,
+	    gpt => 1,
+	};
+
+	# --------------------
+	# Check type
 	# --------------------
 	
-	print qx(parted -s $nbd mklabel gpt);
-	print qx(parted -s $nbd print);
-	
-	# --------------------
-	# Add UEFI boot partition
-	# --------------------	
-
-	if ($partition->{efisys})
+	if (!exists($partition->{type}))
 	{
-	    my $size_efi = $partition->{efisys}->{size} // 36;
-	    my $mkpart_efi = sprintf("parted -s $nbd mkpart EFISYS %dM %dM", $size_ptable, $size_ptable + $size_efi);
-	    $size_current = $size_ptable + $size_efi;
+	    printf(STDERR "Partition configuration missing 'type': legal types are %s\n", join(keys(%$partition_types)));
+	    $fail = 1;
+	}
 
-	    print qx($mkpart_efi);
-	    print qx(parted -s $nbd set 1 esp);
-	    push(@part, {name => "efisys", fstype => "fat", options => "-F 32 -n EFISYS"});
+	my $part_type = $partition->{type};
+
+	if (!$fail && !exists($partition_types->{$part_type}))
+	{
+	    printf(STDERR "Unknown partition type %s: legal types are %s\n", $part_type, join(keys(%$partition_types)));
+	    $fail = 1;
+	}
+
+	if (!$fail && !exists($partition->{partitions}))
+	{
+	    printf(STDERR "Partition configuration missing 'partitions'.\n");
+	    $fail = 1;
+	}
+	
+#	my $partitions = $partition->{partitions};
+
+	my $part_result;
+
+	# --------------------
+	# msdos
+	# --------------------
+	
+	if (!$fail && ($part_type eq "msdos"))
+	{
+	    $part_result = mkpart_msdos($nbd, $image);
 	}
 	
 	# --------------------
-	# Add boot partition
+	# gpt
 	# --------------------
-
-	if ($partition->{boot})
-	{
-	    my $size_boot = $partition->{boot}->{size} // 128;
-	    my $mkpart_efi = sprintf("parted -s $nbd mkpart boot %dM %dM", $size_current, $size_current + $size_boot);
-	    $size_current += $size_boot;
 	
-	    print qx($mkpart_efi);
-
-	    my $label = $partition->{boot}->{label} // "/boot";
-	    my $options = "-L $label";
-	    
-	    push(@part, {name => "boot", fstype => $partition->{boot}->{fstype} // "ext4", options => $options});
-	}
-	
-	# --------------------
-	# Add root partition
-	# --------------------
-
-	if ($partition->{root})
+	if (!$fail && ($part_type eq "gpt"))
 	{
-	    my $mkpart_root = sprintf("parted -s $nbd mkpart root %dM %s", $size_current, $size);
-	    print qx($mkpart_root);
-	    
-	    my $label = $partition->{root}->{label} // "/";
-	    my $options = "-L $label";
-	    
-	    push(@part, {name => "root", fstype => $partition->{root}->{fstype} // "ext4", options => $options});
+	    $part_result = mkpart_gpt($nbd, $image);
 	}
 	
 	# --------------------
@@ -664,22 +980,29 @@ sub image_create {
 	
 	print qx(sysctl vm.drop_caches=3);
 	sleep(2);
-	print qx(parted -s $nbd print);
+
+	$fail = 1 if (!defined($part_result));
+	
+	if ($fail)
+	{
+	    qx(qemu-nbd -d ${nbd});
+	    exit(1);
+	}
 	
 	# --------------------
 	# Use partprobe to pick up partitions
 	# --------------------
 	
 	print qx(partprobe -s $nbd);
+	print qx(parted -s $nbd print);
     
 	# --------------------
 	# Check devices exist
 	# --------------------
 
-	for my $i (1 .. scalar(@part))
+	for my $part (@$part_result)
 	{
-	    my $dev = sprintf("%sp%d", $nbd, $i);
-	    my $part = @part[$i-1];
+	    my $dev = sprintf("%sp%d", $nbd, $part->{partno});
 
 	    if (! -b $dev)
 	    {
@@ -689,17 +1012,24 @@ sub image_create {
 	    }
 	    else
 	    {
-		my $mkfs = sprintf("mkfs -t %s %s %s", $part->{fstype}, $part->{options}, $dev);
+		my @mkfs = ("mkfs","-t",$part->{fstype});
+		push(@mkfs, "-L", $part->{label}) if ($part->{label});
+		push(@mkfs, $dev);
+		my $mkfs = join(" ", @mkfs);
 		print qx($mkfs);
 	    }
 	}
     }
-    else
+
+    # --------------------
+    # No partition, filesystem directly on block device
+    # --------------------
+    
+    if (!$image->{partition})
     {
 	my $fstype = $image->{fstype} // "ext4";
-	my $label = $image->{label} // "/";
+	my $label = $image->{label} // "root";
 	print qx(mkfs -t $fstype -L $label $nbd);
- 	sync();
 
 	# --------------------
 	# For some reason sync and fsync don't cut it
@@ -873,7 +1203,7 @@ sub pkgs_install {
     
     if (!($conf->{pkg} || $opts->{pkg}))
     {
-	printf(STDERR "$0: VM %s missing pkg configurtion or --pkg argument\n", $vm->{name});
+	printf(STDERR "$0: VM %s missing pkg configuration or --pkg argument\n", $conf->{name});
 	return 0;
     }
 
@@ -1010,16 +1340,16 @@ sub etc_install {
     {
 	$vrf_map->{$vrf->{name}} = $vrf;
 	my $stream;
-	my $vrf_file = catfile($network_dir, sprintf("20-vrf-%02d.netdev", $vrf->{table}));
-	open($stream, ">", $vrf_file);
+	my $vrf_netdev_file = catfile($network_dir, sprintf("20-vrf-%02d.netdev", $vrf->{table}));
+	open($stream, ">", $vrf_netdev_file);
 	printf($stream "[NetDev]\nName=%s\nKind=vrf\n\n[VRF]\nTableId=%d\n", $vrf->{name}, $vrf->{table});
 	close($stream);
 
-	my $vrf_file = catfile($network_dir, sprintf("20-vrf-%02d.network", $vrf->{table}));
-	open($stream, ">", $vrf_file);
+	my $vrf_network_file = catfile($network_dir, sprintf("20-vrf-%02d.network", $vrf->{table}));
+	open($stream, ">", $vrf_network_file);
 	printf($stream "[Match]\nName=%s\n", $vrf->{name});
 	close($stream);
-	print("Adding systemd-network configuration file $vrf_file\n");
+	print("Adding systemd-network configuration file $vrf_network_file\n");
     }
     
     if ($conf->{nic})
@@ -1131,22 +1461,22 @@ sub etc_install {
     # enable systemd-networkd
     # --------------------
 
-    my @cmd = ('chroot', $root_mnt, 'systemctl', 'enable', 'systemd-networkd');
-    say qx/@cmd/;
+    my @networkd_cmd = ('chroot', $root_mnt, 'systemctl', 'enable', 'systemd-networkd');
+    say qx/@networkd_cmd/;
 
     # --------------------
     # enable systemd-resolved
     # --------------------
 
-    my @cmd = ('chroot', $root_mnt, 'systemctl', 'enable', 'systemd-resolved');
-    say qx/@cmd/;
+    my @resolved_cmd = ('chroot', $root_mnt, 'systemctl', 'enable', 'systemd-resolved');
+    say qx/@resolved_cmd/;
 
     # --------------------
     # GLib schemas
     # --------------------
 
-    my $schema_dir = catdir($root_mnt, 'usr', 'share', 'glib-2.0', 'schemas');
-    if (-d $schema_dir)
+    my $glib_schema_dir = catdir($root_mnt, 'usr', 'share', 'glib-2.0', 'schemas');
+    if (-d $glib_schema_dir)
     {
 	say "Compiling glib schemas";
 	my @cmd = ('chroot', $root_mnt, 'glib-compile-schemas', '/usr/share/glib-2.0/schemas');
@@ -1157,8 +1487,8 @@ sub etc_install {
     # gdk-pixbuf-loaders
     # --------------------
 
-    my $schema_dir = catdir($root_mnt, 'usr', 'bin', 'gdk-pixbuf-query-loaders');
-    if (-x $schema_dir)
+    my $pixbuf_loader = catdir($root_mnt, 'usr', 'bin', 'gdk-pixbuf-query-loaders');
+    if (-x $pixbuf_loader)
     {
 	say "Running gdk-pixbuf-query-loaders";
 	my @cmd = ('chroot', $root_mnt, 'gdk-pixbuf-query-loaders', '--update-cache');
@@ -1249,7 +1579,7 @@ sub grub_install {
     
     if (!copy($kernel, catfile($boot_mnt, basename($kernel))))
     {
-	printf(STDER "Cannot copy kernel to image\n");
+	printf(STDERR "Cannot copy kernel to image\n");
 	&image_umount($vm, qemu => 1);
 	exit(1);
     }	       
@@ -1389,7 +1719,7 @@ if (!exists($vm_config->{model}))
 
 if ($vm_config->{model} eq "riscv64")
 {
-    $opts->{pkg_base} = "/locker/pkg/rv64";
+    $opts->{pkg_base} = "/locker/pkg/riscv";
     printf(STDOUT "Setting pkg_base to %s\n", $opts->{pkg_base});
 }
 
