@@ -291,7 +291,7 @@ sub nbd_check {
 # ----------------------------------------------------------------------
 
 sub image_mount {
-    my $conf = shift(@_);
+    my $conf = shift @_;
     my $opts = {@_};
 
     my $vmname = $conf->{name} || die;
@@ -393,8 +393,7 @@ sub image_mount {
     # Check partition type
     # --------------------
 
-    say %{$parted->{disk}};
-    printf("Found partition type %s\n", $parted->{disk}->{label});
+    printf("Found partition type %s\n\n", $parted->{disk}->{label});
 
     if (!($parted->{disk}->{label} eq $part_type))
     {
@@ -433,9 +432,9 @@ sub image_mount {
 	$mtab->{root} = {
 	    name => 'root',
 	    dev => $dev,
-	    path => '/',
+	    mountpoint => '/',
 	    fstype => $partitions->[0]->{fstype},
-	    sequence => 0,
+	    passno => 0,
 	}
     };
 
@@ -450,100 +449,14 @@ sub image_mount {
 	{
 	    $mtab->{$p->{name}} = {
 		dev => sprintf("%sp%d", $dev, $count),
-		path => $p->{mountpoint},
+		mountpoint => $p->{mountpoint},
 		fstype => $p->{fstype},
-		sequence => $p->{sequence},
+		passno => $p->{passno},
 	    };
 	    $count++;
 	}
-#	qx(qemu-nbd -d ${dev});
-#	exit(0);
     }
-    # my @blkid;
-    
-    # if (exists($blkid[0]->{PTTYPE}))
-    # {
-    # 	say "Found partition type $blkid[0]->{PTTYPE}";
-    # }
-    # else
-    # {
-    # 	if ($image->{partition})
-    # 	{
-    # 	    warn "Expecting partition but not found";
-    # 	    qx(qemu-nbd -d $dev);
-    # 	    exit(1);
-    # 	}
-    # 	my $b = $blkid[0];
-    # 	say "Found filesystem $b->{TYPE} [$b->{LABEL}] on $dev";
-    # 	$mtab->{root} = {
-    # 	    dev => $dev,
-    # 	    path => '/',
-    # 	    fstype => $b->{TYPE},
-    # 	    label => $b->{LABEL},
-    # 	    uuid => $b->{UUID},
-    # 	};
-    # }
 
-    # if ($image->{partition})
-    # {
-    # 	say(@blkid);
-    # 	my $part = $image->{partition};
-	
-    # 	my $esp = $part->{esp} //= {};
-    # 	my $boot = $part->{boot} //= {};
-    # 	my $root = $part->{root} //= {};
-	
-    # 	$esp->{nbd} = sprintf("%sp1", $dev);
-    # 	$boot->{nbd} = sprintf("%sp2", $dev);
-    # 	$root->{nbd} = sprintf("%sp3", $dev);
-
-    # 	# --------------------
-    # 	# map devices to partitions
-    # 	# --------------------
-	
-    # 	my $dev_to_part_map = {};
-    # 	while (my ($k, $v) = each(%$part))
-    # 	{
-    # 	    $dev_to_part_map->{$v->{nbd}} = $k;
-    # 	}
-	
-    # 	# --------------------
-    # 	# Get block IDs
-    # 	# --------------------
-	
-    # 	for my $blkid (grep(m:$dev:, split(m:\n:, qx/blkid/)))
-    # 	{
-    # 	    my ($dev, $list) = split(m/: /, $blkid, 2);
-    # 	    if (my $name = $dev_to_part_map->{$dev})
-    # 	    {
-    # 		print $dev," ", $name, " ", $list, "\n";
-    # 		for my $i (split(m: :, $list))
-    # 		{
-    # 		    my ($k, $v) = split(m:=:, $i);
-    # 		    $v =~ s:^\"::;
-    # 		    $v =~ s:\"$::;
-		    
-    # 		    $part->{$name}->{id}->{$k} = $v;
-    # 		}
-		
-    # 		if (!$part_map->{$name})
-    # 		{
-    # 		    print(STDERR "Cannot find mountpoint of '%s'\n", $name);
-    # 		    continue;
-    # 		}
-    # 		my $blkid_map = $part->{$name}->{id};
-		
-    # 		$mtab->{$name} = {
-    # 		    dev => $dev,
-    # 		    path => $part_map->{$name}->{mountpoint},
-    # 		    fstype => $blkid_map->{TYPE},
-    # 		    label => $blkid_map->{LABEL},
-    # 		    uuid => $blkid_map->{UUID},
-    # 		    partuuid => $blkid_map->{PARTUUID},		};
-    # 	    }
-    # 	}
-    # }
-    
     # --------------------
     # Check mount base directory exists
     # --------------------
@@ -561,11 +474,11 @@ sub image_mount {
     
     my $mnt_root = catdir($tmpdir, "root");
 
-    for my $n ('root', 'boot', 'esp')
+    for my $n ('root', 'boot', 'efisys')
     {
 	if (my $e = $mtab->{$n})
 	{
-	    my $mnt = catdir($mnt_root, $e->{path});
+	    my $mnt = catdir($mnt_root, $e->{mountpoint});
 	    my $nbd = $e->{dev};
 	    
 	    if (! -d $mnt)
@@ -576,18 +489,18 @@ sub image_mount {
 	    
 	    my @mounts = split(m:\n:, slurp('/proc/self/mounts'));
 	    
-	    printf("Attempting to mount $nbd onto $mnt\n");
+	    printf("Attempting to mount $nbd onto $mnt: ");
 	    
 	    if (grep(m:$mnt:, @mounts))
 	    {
-		print "$mnt already mounted\n";
+		print "already mounted\n";
 	    }
 	    else
 	    {   
 		print qx(mount -v $nbd $mnt);
 		die if $!;
 	    }
-	    $mtab->{$n}->{mountpoint} = $mnt;
+	    $mtab->{$n}->{real_mountpoint} = $mnt;
 	}
     }
     return 1;
@@ -600,9 +513,9 @@ sub image_mount {
 # ----------------------------------------------------------------------
 
 sub image_umount {
-    my $conf = shift(@_);
+    my $conf = shift @_;
     my $opts = {@_};
-    
+
     my $vmname = $conf->{name} || die;
     
     my $dev = $conf->{image}->{device};
@@ -610,11 +523,11 @@ sub image_umount {
     my $path = $conf->{image}->{path};
     my $mtab = $conf->{image}->{mtab};
     
-    for my $n ('esp', 'boot', 'root')
+    for my $n ('efisys', 'boot', 'root')
     {
-	if ($mtab->{$n} && $mtab->{$n}->{mountpoint})
+	if ($mtab->{$n} && $mtab->{$n}->{real_mountpoint})
 	{
-	    my $mnt = $mtab->{$n}->{mountpoint};
+	    my $mnt = $mtab->{$n}->{real_mountpoint};
 	    if (grep(m:$mnt:, split(m:\n:, slurp('/proc/self/mounts'))))
 	    {
 		print `umount -v $mnt`;
@@ -785,17 +698,20 @@ sub mkpart_gpt {
 	my $size_efi = $partitions->{efisys}->{size} // "36M";
 	my $size_bytes = parse_bytes($size_efi);
 	
-	printf("%s %s\n", format_bytes($start_bytes), format_bytes($size_bytes));
-	
-	my $mkpart_efi = sprintf("parted -s $nbd mkpart EFISYS %dB %dB", $start_bytes, $start_bytes + $size_bytes - $block_size);
+	my $mkpart_efi = sprintf("parted -s $nbd mkpart EFISYS %dB %dB", $start_bytes, $start_bytes + $size_bytes - 1);
 	
 	say($mkpart_efi);
 	
 	print qx($mkpart_efi);
+
+	# --------------------
+	# Set EFI system partition flag
+	# --------------------
+	
 	print qx(parted -s $nbd set 1 esp);
 	
-	$start_bytes += $size_bytes;
 	push(@part_mkpart_result, {partno => $partno, name => "efisys", fstype => "fat", options => "-F 32 -n EFISYS"});
+	$start_bytes += $size_bytes;
 	$partno += 1;
     }
     
@@ -805,12 +721,9 @@ sub mkpart_gpt {
     
     if ($partitions->{boot})
     {
-	my $size_bytes = parse_bytes($partition->{boot}->{size} // "128M");
-	
-	printf("%s %s\n", format_bytes($start_bytes), format_bytes($size_bytes));
-	
-	my $mkpart_boot = sprintf("parted -s $nbd mkpart boot %dB %dB", $start_bytes, $start_bytes + $size_bytes - $block_size);
-	$start_bytes += $size_bytes;
+	my $size_bytes = parse_bytes($partitions->{boot}->{size} // "128M");
+
+	my $mkpart_boot = sprintf("parted -s $nbd mkpart boot %dB %dB", $start_bytes, $start_bytes + $size_bytes - 1);
 	
 	say($mkpart_boot);
 	print qx($mkpart_boot);
@@ -819,6 +732,7 @@ sub mkpart_gpt {
 	my $options = "-L $label";
 	
 	push(@part_mkpart_result, {partno => $partno, name => "boot", fstype => $partition->{boot}->{fstype} // "ext4", options => $options});
+	$start_bytes += $size_bytes;
 	$partno += 1;
     }
     
@@ -1056,7 +970,7 @@ sub image_create {
 sub efi_install {
     my $vm = shift @_;
     my $opts = {@_};
-    
+
     my $conf = $vm->configuration_get();
     
 # --------------------
@@ -1093,7 +1007,22 @@ sub efi_install {
     &image_mount($conf, qemu => 1) || die;
 
     my $mtab = $conf->{image}->{mtab};
-    my $esp_mnt = $mtab->{esp}->{mountpoint} || die;
+
+    if (!exists($mtab->{efisys}))
+    {
+	printf(STDERR "No EFISYS partition defined\n");
+	&image_umount($conf, qemu => 1);
+	exit(1);
+    }
+
+    if (!exists($mtab->{efisys}->{real_mountpoint}))
+    {
+	printf(STDERR "No EFISYS partition mounted\n");
+	&image_umount($conf, qemu => 1);
+	exit(1);
+    }
+
+    my $esp_mnt = $mtab->{efisys}->{real_mountpoint} || die;
 
     # --------------------
     # Copy grub.efi to EFI/BOOT/BOOTX64.EFI
@@ -1106,10 +1035,16 @@ sub efi_install {
     }
     my $efi_boot = catfile($efi, "bootx64.efi");
     my $grub_efi = catdir($opts->{ovmf_base}, 'grub/grub.efi');
-    
-    copy($grub_efi, $efi_boot);
-    printf "%s copied to %s\n", $grub_efi, $efi_boot;
 
+    if (-f $grub_efi)
+    {
+        copy($grub_efi, $efi_boot);
+	printf "%s copied to %s\n", $grub_efi, $efi_boot;
+    }
+    else
+    {
+	printf("%s not found\n", $grub_efi);
+    }
     &image_umount($conf, qemu => 1);
 }
 
@@ -1182,10 +1117,30 @@ sub install_pkg {
 sub stage_mount {
     my ($vm, @opts) = @_;
     my $opts = {@opts};
-
     my $conf = $vm->configuration_get();
+
     &image_mount($conf, qemu => 1);
 }
+
+# ----------------------------------------------------------------------
+#
+# stage_mount
+#
+# ----------------------------------------------------------------------
+
+sub stage_umount {
+    my ($vm, @opts) = @_;
+    my $opts = {@opts};
+    my $conf = $vm->configuration_get();
+
+    if (!$opts->{nbd})
+    {
+	printf(STDERR "--nbd must be passed\n");
+	exit(1);
+    }
+    &image_umount($conf, qemu => 1, nbd => $opts->{nbd});
+}
+
 
 # ----------------------------------------------------------------------
 #
@@ -1508,7 +1463,7 @@ sub etc_install {
 	say qx/@cmd/;
     }
 
-    &image_umount($conf, qemu => 1);
+    &image_umount($vm, qemu => 1);
 }
 
 # ----------------------------------------------------------------------
@@ -1534,7 +1489,7 @@ sub grub_install {
     my $kernel = $opts->{kernel} // $conf->{kernel};
     my $cmdline = $opts->{cmdline} // $conf->{cmdline};
     	
-    &image_mount($conf, qemu => 1);   
+    &image_mount($conf, qemu => 1);
 
     my $mtab = $conf->{image}->{mtab};
     my $boot_mnt = $mtab->{boot}->{mountpoint} || die;
@@ -1573,14 +1528,14 @@ sub grub_install {
     if (!-f $kernel)
     {
 	printf(STDERR "Cannot find kernel %s\n", $kernel);
-	&image_umount($vm, qemu => 1);
+	&image_umount($conf, qemu => 1);
 	exit(1);
     }
     
     if (!copy($kernel, catfile($boot_mnt, basename($kernel))))
     {
 	printf(STDERR "Cannot copy kernel to image\n");
-	&image_umount($vm, qemu => 1);
+	&image_umount($conf, qemu => 1);
 	exit(1);
     }	       
     
@@ -1662,12 +1617,10 @@ my $opts = {
     pkg_base => '/locker/pkg/x86',
     conf_base => '/srv/kvm/vm/',
     vmdef_base => '/srv/kvm/vm/vmdef',
-    ovmf_base => '/srv/kvm/vm/uefi',
+    ovmf_base => '/srv/kvm/firmware/x86/uefi/',
     install_base => undef,
     force => 0,
 };
-
-# my $confpath = 'build.js';
 
 GetOptions("vmname=s" => \$opts->{name},
 	   "nbd=s" => \$opts->{nbd},
@@ -1758,7 +1711,7 @@ my $stages = [
     },
     {
 	stage => 'umount',
-	function => \&image_umount,
+	function => \&stage_umount,
     },
     {
 	stage => 'mount',
