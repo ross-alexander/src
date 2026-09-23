@@ -70,6 +70,7 @@ use QemuVm;
 use QemuVmFile;
 use GDBM_File;
 use Number::Bytes::Human qw(format_bytes parse_bytes);
+use utf8;
 
 # ----------------------------------------------------------------------
 #
@@ -339,22 +340,6 @@ sub image_mount {
     }
 
     # --------------------
-    # Use parted to determine details of image
-    # --------------------
-
-    my $part_map = {
-	root => {
-	    mountpoint => '/',
-	},
-	boot => {
-	    mountpoint => '/boot',
-	},
-	esp => {
-	    mountpoint => '/boot/efi'
-	},
-    };
-
-    # --------------------
     # Get partition details from parted as JSON
     # --------------------
     
@@ -407,6 +392,7 @@ sub image_mount {
     # --------------------
     
     my $part_count;
+
     $part_count = scalar(keys(%$partitions)) if (ref($partitions) eq "HASH");
     $part_count = scalar(@$partitions) if (ref($partitions) eq "ARRAY");
 
@@ -426,7 +412,7 @@ sub image_mount {
     # --------------------
     # Loop, or no actual partition table
     # --------------------
-    
+
     if ($part_type eq "loop")
     {
 	$mtab->{root} = {
@@ -452,11 +438,23 @@ sub image_mount {
 		mountpoint => $p->{mountpoint},
 		fstype => $p->{fstype},
 		passno => $p->{passno},
+		part_uuid => $parted->{disk}->{partitions}->[$count-1]->{uuid},
 	    };
 	    $count++;
 	}
     }
 
+    # --------------------
+    # Add UUID via blkid
+    # --------------------
+
+    while (my ($name, $entry) = each(%$mtab))
+    {
+	my $dev = $entry->{dev};
+	my $blkid = from_json(qx(blkid -o json ${dev}))->{blkid}->[0];
+	$entry->{fs_uuid} = $blkid->{uuid};
+    }
+        
     # --------------------
     # Check mount base directory exists
     # --------------------
@@ -489,7 +487,7 @@ sub image_mount {
 	    
 	    my @mounts = split(m:\n:, slurp('/proc/self/mounts'));
 	    
-	    printf("Attempting to mount $nbd onto $mnt: ");
+	    printf("Attempting to mount $nbd onto $mnt → ");
 	    
 	    if (grep(m:$mnt:, @mounts))
 	    {
@@ -503,6 +501,7 @@ sub image_mount {
 	    $mtab->{$n}->{real_mountpoint} = $mnt;
 	}
     }
+    printf("\n");
     return 1;
 }
 
@@ -728,7 +727,7 @@ sub mkpart_gpt {
 	say($mkpart_boot);
 	print qx($mkpart_boot);
 	
-	my $label = $partition->{boot}->{label} // "/boot";
+	my $label = $partition->{boot}->{fs_label} // "boot";
 	my $options = "-L $label";
 	
 	push(@part_mkpart_result, {partno => $partno, name => "boot", fstype => $partition->{boot}->{fstype} // "ext4", options => $options});
@@ -748,7 +747,7 @@ sub mkpart_gpt {
 	say($mkpart_root);
 	print qx($mkpart_root);
 	
-	my $label = $partition->{root}->{label} // "/";
+	my $label = $partition->{root}->{fs_label} // 'root';
 	my $options = "-L $label";
 	
 	push(@part_mkpart_result, {partno => $partno, name => "root", fstype => $partition->{root}->{fstype} // "ext4", options => $options});
@@ -927,9 +926,11 @@ sub image_create {
 	    else
 	    {
 		my @mkfs = ("mkfs","-t",$part->{fstype});
-		push(@mkfs, "-L", $part->{label}) if ($part->{label});
+#		push(@mkfs, "-L", $part->{fs_label}) if ($part->{fs_label});
+		push(@mkfs, $part->{options}) if ($part->{options});
 		push(@mkfs, $dev);
 		my $mkfs = join(" ", @mkfs);
+		printf("%s\n\n", $mkfs);
 		print qx($mkfs);
 	    }
 	}
@@ -1072,6 +1073,8 @@ sub install_pkg {
 
     my $ok = tie(my %db, 'GDBM_File', $dbfile, &GDBM_WRCREAT, 0664);
     die "can't tie to $dbfile for WRCREAT access: $!" unless $ok;
+
+    printf("Using DB file %s with destination directory %s\n\n", $dbfile, $dst);
     
     for my $pkg (@$pkg_list)
     {
@@ -1185,9 +1188,10 @@ sub pkgs_install {
     # --------------------
     
     &image_mount($conf, qemu => 1);
-    my $dst = $conf->{image}->{mtab}->{root}->{mountpoint};
+    my $dst = $conf->{image}->{mtab}->{root}->{real_mountpoint};
 
     &install_pkg($dst, \@paths, $opts->{force});
+    printf("\n");
     &image_umount($conf, qemu => 1);
 }
 
@@ -1197,37 +1201,47 @@ sub pkgs_install {
 #
 # ----------------------------------------------------------------------
 sub etc_install {
-    my ($vm) = @_;
+    my ($vm, @opts) = @_;
+    my $opts = {@opts};
+    
     my $conf = $vm->configuration_get();
     
     &image_mount($conf, qemu => 1);   
     my $stream;
 
-    my $root_mnt = $conf->{image}->{mtab}->{root}->{mountpoint};
+    my $root_mnt = $conf->{image}->{mtab}->{root}->{real_mountpoint};
     
     # --------------------
     # Create /etc/fstab
     # --------------------
-
+    
     printf("Creating /etc/fstab\n");
     my $fstab = catfile($root_mnt, "etc", "fstab");
-    open($stream, ">", $fstab) || die "Failed to open $fstab";
-    for my $fs ('root', 'boot', 'esp')
-    {
-	my $t = $conf->{image}->{mtab}->{$fs};
-	if ($t)
-	{
-	    my $uuid = $t->{uuid};
-	    my $type = $t->{fstype};
-	    my $label = $t->{label};
-	    my $path = $t->{path};
 
-	    my $line = sprintf("UUID=%s\t%s\t%s\tdefaults\t1 1\n", $uuid, $path, $type);
-	    print $line;
-	    printf($stream $line);
+    if (! -f $fstab || $opts->{force})
+    {    
+	open($stream, ">", $fstab) || die "Failed to open $fstab";
+	for my $fs ('root', 'boot', 'esp')
+	{
+	    my $t = $conf->{image}->{mtab}->{$fs};
+	    if ($t)
+	    {
+		my $uuid = $t->{fs_uuid};
+		my $type = $t->{fstype};
+		my $label = $t->{label};
+		my $path = $t->{mountpoint};
+		
+		my $line = sprintf("UUID=%s\t%s\t%s\tdefaults\t1 1\n", $uuid, $path, $type);
+		print $line;
+		printf($stream $line);
+	    }
 	}
+	close($stream);
     }
-    close($stream);
+    else
+    {
+	printf("/etc/fstab already exists, not overwriting without force\n");
+    }
 
     # --------------------
     # /etc/machine-id
@@ -1236,8 +1250,13 @@ sub etc_install {
     my $machine_id = catfile($root_mnt, "etc", "machine-id");
     if (! -f $machine_id)
     {
-	print `dbus-uuidgen > $machine_id`;
+	print qx(dbus-uuidgen > $machine_id);
     }
+    else
+    {
+	printf("/etc/machine-id exists, not overwriting");
+    }
+	
     
     # --------------------
     # /etc/hostname
@@ -1463,7 +1482,7 @@ sub etc_install {
 	say qx/@cmd/;
     }
 
-    &image_umount($vm, qemu => 1);
+    &image_umount($conf, qemu => 1);
 }
 
 # ----------------------------------------------------------------------
@@ -1487,12 +1506,12 @@ sub grub_install {
 	exit 1;
     }
     my $kernel = $opts->{kernel} // $conf->{kernel};
-    my $cmdline = $opts->{cmdline} // $conf->{cmdline};
-    	
+    my $cmdline = $opts->{cmdline} // $conf->{cmdline} // '';
+
     &image_mount($conf, qemu => 1);
 
     my $mtab = $conf->{image}->{mtab};
-    my $boot_mnt = $mtab->{boot}->{mountpoint} || die;
+    my $boot_mnt = $mtab->{boot}->{real_mountpoint} || die;
 
 
     if (!$boot_mnt || (! -d $boot_mnt))
@@ -1502,7 +1521,7 @@ sub grub_install {
 	exit 1;
     }
 
-    my $root_partuuid = $mtab->{root}->{partuuid};
+    my $root_partuuid = $mtab->{root}->{part_uuid};
     my $root_fstype = $mtab->{root}->{fstype};
 
     my $grub = catdir($boot_mnt, "grub");
@@ -1543,11 +1562,11 @@ sub grub_install {
     # grub.cfg
     # --------------------
 
-    my $linux = join(" ", ("linux",
-			   sprintf("(\$boot)/%s", basename($kernel)),
-			   sprintf("root=PARTUUID=%s",  $root_partuuid),
-			   sprintf("rootfstype=%s", $root_fstype),
-			   "console=ttyS0", $cmdline));
+    my @linux = ("linux",
+		 sprintf("(\$boot)/%s", basename($kernel)),
+		 sprintf("root=PARTUUID=%s",  $root_partuuid),
+		 sprintf("rootfstype=%s", $root_fstype),
+		 "console=ttyS0", $cmdline);
 
     my $stream;
     my $grub_cfg = catfile($grub_dir, "grub.cfg");
@@ -1555,10 +1574,14 @@ sub grub_install {
     printf $stream "# grub.cfg written by build.pl\n";
     printf $stream "\n";
     printf($stream "set timeout=5\n");
-    printf($stream "search.fs_label /boot boot\n");
+    printf($stream "search.fs_label boot boot\n");
     printf($stream "menuentry \"Linux %s\" {\n", $kernel);
-    printf($stream "$linux\n");
+    printf($stream "%s\n", join(" ", @linux));
+    printf($stream "}\n\n");
+    printf($stream "menuentry \"Linux %s (dash)\" {\n", $kernel);
+    printf($stream "%s\n", join(" ", @linux, "init=/usr/bin/dash"));
     printf($stream "}\n");
+    
     close($stream);
 
     printf("grub.cfg installed for kernel version %s\n", $kernel);
@@ -1608,16 +1631,19 @@ sub yaml_file_read {
 #
 # ----------------------------------------------------------------------
 
+binmode(STDOUT, "encoding(utf8)");
+binmode(STDERR, "encoding(utf8)");
+binmode(STDIN, "encoding(utf8)");
+
+
 # --------------------
 # GetOptions
 # --------------------
 
 my $opts = {
     qemu => 1,
-    pkg_base => '/locker/pkg/x86',
     conf_base => '/srv/kvm/vm/',
     vmdef_base => '/srv/kvm/vm/vmdef',
-    ovmf_base => '/srv/kvm/firmware/x86/uefi/',
     install_base => undef,
     force => 0,
 };
@@ -1631,6 +1657,7 @@ GetOptions("vmname=s" => \$opts->{name},
 	   "preview" => \$opts->{preview},
 	   "force" => \$opts->{force},
 	   'basedir=s' => \$opts->{install_base},
+	   'cmdline=s' => \$opts->{cmdline},
 	   )
     or die("Error in command line arguments\n");
 
@@ -1673,8 +1700,21 @@ if (!exists($vm_config->{model}))
 if ($vm_config->{model} eq "riscv64")
 {
     $opts->{pkg_base} = "/locker/pkg/riscv";
-    printf(STDOUT "Setting pkg_base to %s\n", $opts->{pkg_base});
 }
+if ($vm_config->{model} eq "x86_64")
+{
+    $opts->{pkg_base} = '/locker/pkg/x86';
+    $opts->{ovmf_base} = '/srv/kvm/firmware/x86/uefi/';
+}
+
+if (!$opts->{pkg_base})
+{
+    printf(STDERR "Package base directory not set\n");
+    exit(1);
+}
+
+printf(STDOUT "Setting pkg_base to %s\n", $opts->{pkg_base});
+    
 
 # --------------------
 # Get package YAML file
