@@ -116,9 +116,10 @@ sub model_x86_64 {
     
     if ($vm->{firmware} eq 'uefi')
     {
-	my $ovmf_code = catfile($basedir, "uefi", "OVMF_CODE.fd");
+	my $ovmf_code = catfile($basedir, "firmware", "x86", "uefi", "OVMF_CODE.fd");
 	croak sprintf("$0: OVMF code file %s missing", $ovmf_code) if (! -f $ovmf_code);
 	my $ovmf_vars = catfile($imagedir, "OVMF_VARS.fd");
+
 	croak "$0: OVMF vars file $ovmf_vars missing" if (! -f $ovmf_vars);
 	$run->{ovmf_code} = $ovmf_code;
 	$run->{ovmf_vars} = $ovmf_vars;

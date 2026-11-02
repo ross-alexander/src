@@ -8,7 +8,7 @@
 %{
 #include <iostream>
 
-#include <lua/5.4/lua.hpp>
+#include <lua/5.5/lua.hpp>
 #include "dvdrip.h"
 
 extern "C" int luaopen_dvd(lua_State*);  

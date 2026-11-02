@@ -116,20 +116,20 @@ sub vm_conf_check {
 sub mod_check {
     if (! -d '/sys/module/kvm')
     {
-	`modprobe kvm`;
+	qx(modprobe kvm);
     }
     else
     {
-	print STDOUT "kvm module installed\n";
+	print("kvm module installed\n");
     }
 
     if (! -d '/sys/module/nbd')
     {
-	`modprobe nbd max_part=8`;
+	qx(modprobe nbd max_part=8);
     }
     else
     {
-	print STDOUT "nbd module installed\n";
+	print("nbd module installed\n");
     }
 }
 
@@ -236,6 +236,7 @@ sub nbd_check {
 	    }
 	} qx(cat /proc/self/mounts);
 
+	
 #	say %{$conf->{image}->{mtab}->{root}};
 #	exit(1);
 	
